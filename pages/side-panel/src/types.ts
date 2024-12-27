@@ -50,3 +50,31 @@ export type AskAssistantOptions = {
   onUpdate?: (response: string) => void;
   onComplete?: (fullResponse: string) => void;
 };
+
+export type PageTypeMessage = {
+  type: 'CURRENT_PAGE_TYPE';
+  isSlack: boolean;
+  url: string;
+};
+
+export type GetPageTypeMessage = {
+  type: 'GET_CURRENT_PAGE_TYPE';
+};
+
+export type ArticleData = {
+  title: string | null;
+  content: string | null;
+  excerpt: string | null;
+  siteName: string | null;
+  byline: string | null;
+  url: string;
+};
+
+export type CaptureArticleMessage = {
+  type: 'CAPTURE_ARTICLE';
+};
+
+export type ArticleDataResultMessage = {
+  type: 'ARTICLE_DATA_RESULT';
+  data: ArticleData;
+};

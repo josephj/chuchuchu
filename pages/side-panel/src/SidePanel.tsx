@@ -6,12 +6,16 @@ import ReactMarkdown from 'react-markdown';
 import { formatThreadForLLM } from './utils';
 import type { Language, ThreadData, ThreadDataMessage } from './types';
 import { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE_CODE } from './vars';
-import systemPromptTemplate from './system.md?raw';
 
 type Message = {
   role: 'assistant' | 'user';
   content: string;
   timestamp: number;
+};
+
+type PageType = {
+  isSlack: boolean;
+  url: string;
 };
 
 const convertToWebUrl = (url: string): string => {
@@ -42,6 +46,9 @@ const SidePanel = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [threadUrl, setThreadUrl] = useState<string>('');
   const [openInWeb, setOpenInWeb] = useState(true);
+  const [pageType, setPageType] = useState<PageType>({ isSlack: true, url: '' });
+  const [hasContent, setHasContent] = useState(false);
+  const [articleContent, setArticleContent] = useState<string>('');
 
   useEffect(() => {
     chrome.storage.local.get('selectedLanguage').then(result => {
@@ -64,20 +71,52 @@ const SidePanel = () => {
     });
   }, []);
 
+  useEffect(() => {
+    const checkPageType = () => {
+      chrome.runtime.sendMessage({ type: 'GET_CURRENT_PAGE_TYPE' });
+    };
+
+    checkPageType();
+    // Check page type when tab changes
+    chrome.tabs.onActivated.addListener(checkPageType);
+    chrome.tabs.onUpdated.addListener(checkPageType);
+
+    return () => {
+      chrome.tabs.onActivated.removeListener(checkPageType);
+      chrome.tabs.onUpdated.removeListener(checkPageType);
+    };
+  }, []);
+
   const handleAskAssistant = useCallback(
     async (prompt: string, isInitialAnalysis = false) => {
       setIsTyping(true);
       setIsGenerating(true);
 
       const selectedLang = SUPPORTED_LANGUAGES.find(lang => lang.code === selectedLanguage);
-      const analysisType = isInitialAnalysis
-        ? 'Taking the reactions as the importance consideration but not necessary to show it as a section. Highlight the most important information such as numbers, human names, and important dates in the thread.'
-        : 'Provide concise and relevant answers to follow-up questions.';
 
-      const systemPrompt = systemPromptTemplate
-        .replace('{{language_name}}', selectedLang?.name || '')
-        .replace('{{language_code}}', selectedLanguage)
-        .replace('{{analysis_type}}', analysisType);
+      // Create two separate system prompts for different scenarios
+      const initialPrompt = `You are a helpful assistant that summarises and answers questions about ${
+        pageType.isSlack ? 'Slack conversations' : 'web articles'
+      }. Please communicate in ${selectedLang?.name} (${selectedLanguage}).
+
+      For the initial analysis:
+      1. Provide a clear summary highlighting key points and main arguments
+      2. Be concise and factual
+      3. Highlight important numbers, dates, or specific names
+      4. Use markdown for better readability`;
+
+      const followUpPrompt = `You are a helpful assistant that answers questions about web articles. Please communicate in ${selectedLang?.name} (${selectedLanguage}).
+
+      For follow-up questions:
+      1. Give direct, focused answers
+      2. If asked for translation, ONLY translate the content without any additional commentary or summary
+      3. If asked about something not in the article, clearly state that
+      4. Keep responses brief and to the point`;
+
+      const systemPrompt = isInitialAnalysis ? initialPrompt : followUpPrompt;
+
+      console.log('[DEBUG] System Prompt:', systemPrompt);
+      console.log('[DEBUG] User Prompt:', prompt);
 
       const previousMessages = messages.map(msg => ({
         role: msg.role,
@@ -118,7 +157,7 @@ const SidePanel = () => {
         },
       });
     },
-    [selectedLanguage, messages],
+    [selectedLanguage, messages, pageType.isSlack],
   );
 
   const handleLanguageChange = useCallback((newLanguage: string) => {
@@ -136,16 +175,23 @@ const SidePanel = () => {
     });
   }, []);
 
+  const handleClose = useCallback(() => {
+    setHasContent(false);
+    setThreadData(null);
+    setMessages([]);
+    setThreadUrl('');
+    setUserInput('');
+    setArticleContent('');
+  }, []);
+
   useEffect(() => {
     const handleMessage = (
-      message: ThreadDataMessage,
-      _: unknown,
-      sender: chrome.runtime.MessageSender,
-      sendResponse: () => void,
+      message: ThreadDataMessage | { type: 'CURRENT_PAGE_TYPE'; isSlack: boolean; url: string },
     ) => {
       if (message.type === 'THREAD_DATA_RESULT') {
         setThreadData(null);
         setMessages([]);
+        setHasContent(true);
         setThreadUrl(message.url ? convertToWebUrl(message.url) : '');
 
         setTimeout(() => {
@@ -153,8 +199,29 @@ const SidePanel = () => {
           const formattedData = formatThreadForLLM(message.payload);
           handleAskAssistant(formattedData, true);
         }, 100);
+      } else if (message.type === 'ARTICLE_DATA_RESULT' && message.data) {
+        console.log('[DEBUG] ARTICLE_DATA_RESULT is executed');
+        setThreadData(null);
+        setMessages([]);
+        setHasContent(true);
+        setThreadUrl(message.data.url);
+
+        const formattedArticle = `
+Title: ${message.data.title}
+${message.data.siteName ? `Source: ${message.data.siteName}` : ''}
+${message.data.byline ? `Author: ${message.data.byline}` : ''}
+${message.data.excerpt ? `Summary: ${message.data.excerpt}` : ''}
+
+Content:
+${message.data.content}
+        `.trim();
+
+        setArticleContent(formattedArticle);
+        console.log('[DEBUG] formattedArticle', formattedArticle);
+        handleAskAssistant(formattedArticle, true);
+      } else if (message.type === 'CURRENT_PAGE_TYPE') {
+        setPageType({ isSlack: message.isSlack, url: message.url });
       }
-      sendResponse();
     };
 
     chrome.runtime.onMessage.addListener(handleMessage);
@@ -167,9 +234,12 @@ const SidePanel = () => {
         const formattedData = formatThreadForLLM(threadData);
         setMessages([]);
         handleAskAssistant(formattedData, true);
+      } else if (articleContent) {
+        setMessages([]);
+        handleAskAssistant(articleContent, true);
       }
     }
-  }, [selectedLanguage]);
+  }, [selectedLanguage, threadData, articleContent]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -186,21 +256,41 @@ const SidePanel = () => {
     await handleAskAssistant(userInput);
   };
 
+  const handleCapturePage = useCallback(() => {
+    console.log('[DEBUG] handleCapturePage is executed');
+    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+      const currentTab = tabs[0];
+      if (currentTab?.id) {
+        chrome.tabs.sendMessage(currentTab.id, { type: 'CAPTURE_ARTICLE' });
+      }
+    });
+  }, []);
+
   return (
     <div className={`App ${isLight ? 'bg-slate-50' : 'bg-gray-800'} flex h-screen flex-col text-left`}>
       <div className={`flex-1 overflow-auto p-4 ${isLight ? 'text-gray-900' : 'text-gray-100'}`}>
         <div className="mb-4 space-y-2">
-          <div className="flex items-center gap-2">
-            <label htmlFor="open-in-web" className="font-medium">
-              Open links in web:
-            </label>
-            <input
-              id="open-in-web"
-              type="checkbox"
-              checked={openInWeb}
-              onChange={e => handleOpenInWebChange(e.target.checked)}
-              className="size-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
-            />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <label htmlFor="open-in-web" className="font-medium">
+                Open links in web:
+              </label>
+              <input
+                id="open-in-web"
+                type="checkbox"
+                checked={openInWeb}
+                onChange={e => handleOpenInWebChange(e.target.checked)}
+                className="size-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+              />
+            </div>
+            {hasContent && (
+              <button
+                onClick={handleClose}
+                className="rounded-md bg-gray-200 px-2 py-1 text-sm text-gray-600 hover:bg-gray-300"
+                title="Close current summary">
+                ✕
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <label htmlFor="language-select" className="font-medium">
@@ -225,7 +315,27 @@ const SidePanel = () => {
           </div>
         </div>
 
-        {threadData && (
+        {!hasContent ? (
+          <div className="flex h-full flex-col items-center justify-center gap-1 p-4">
+            {pageType.isSlack ? (
+              <>
+                <span className="text-xs">Click</span>
+                <div className="flex h-6 items-center gap-2 rounded-full bg-white px-2 text-gray-900 shadow-lg">
+                  <span className="text-xs">⭐️</span>
+                  <span className="text-xs">Summarize</span>
+                </div>
+                <span className="text-xs">in any conversation</span>
+              </>
+            ) : (
+              <button
+                onClick={handleCapturePage}
+                className="flex items-center gap-2 rounded-md bg-blue-500 px-4 py-2 text-white hover:bg-blue-600">
+                <span>⭐️</span>
+                Summarize Current Page
+              </button>
+            )}
+          </div>
+        ) : (
           <div className="space-y-4">
             {threadUrl && (
               <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -262,19 +372,9 @@ const SidePanel = () => {
             </div>
           </div>
         )}
-        {!threadData && (
-          <div className="flex h-full items-center justify-center gap-1">
-            <span className="text-xs">Click</span>
-            <div className="flex h-6 items-center gap-2 rounded-full bg-white px-2 text-gray-900 shadow-lg">
-              <span className="text-xs">⭐️</span>
-              <span className="text-xs">Summarize</span>
-            </div>
-            <span className="text-xs">in any conversation</span>
-          </div>
-        )}
       </div>
 
-      {threadData && (
+      {hasContent && (
         <form onSubmit={handleSubmit} className="border-t p-4 dark:border-gray-700">
           <div className="flex gap-2">
             <input

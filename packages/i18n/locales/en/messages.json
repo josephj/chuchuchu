@@ -1,11 +1,11 @@
 {
   "extensionDescription": {
     "description": "Extension description",
-    "message": "Summarize your very long slack threads"
+    "message": "Summarize long web articles and slack threads"
   },
   "extensionName": {
     "description": "Extension name",
-    "message": "Slack Thread Summarizer"
+    "message": "Chu Chu Chu"
   },
   "toggleTheme": {
     "message": "Toggle theme"

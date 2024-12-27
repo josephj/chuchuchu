@@ -28,7 +28,7 @@ const manifest = deepmerge(
     name: '__MSG_extensionName__',
     version: packageJson.version,
     description: '__MSG_extensionDescription__',
-    host_permissions: ['*://*.slack.com/*'],
+    host_permissions: ['<all_urls>'],
     permissions: ['storage', 'scripting', 'tabs', 'webNavigation', 'declarativeNetRequest'],
     options_page: 'options/index.html',
     background: {
@@ -47,7 +47,7 @@ const manifest = deepmerge(
     },
     content_scripts: [
       {
-        matches: ['*://app.slack.com/*'],
+        matches: ['<all_urls>'],
         js: ['content/index.iife.js'],
         run_at: 'document_start',
       },
