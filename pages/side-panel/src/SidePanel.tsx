@@ -1,11 +1,12 @@
 import '@src/SidePanel.css';
 import { withErrorBoundary, withSuspense } from '@extension/shared';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { askAssistant } from './ask-assistant';
 import ReactMarkdown from 'react-markdown';
 import { formatThreadForLLM } from './utils';
 import type { Language, ThreadData, ThreadDataMessage } from './types';
 import { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE_CODE } from './vars';
+import { useForm } from 'react-hook-form';
 
 type Message = {
   role: 'assistant' | 'user';
@@ -16,6 +17,10 @@ type Message = {
 type PageType = {
   isSlack: boolean;
   url: string;
+};
+
+type FormData = {
+  question: string;
 };
 
 const convertToWebUrl = (url: string): string => {
@@ -42,13 +47,18 @@ const SidePanel = () => {
   const [threadData, setThreadData] = useState<ThreadData | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState<Language['code']>(DEFAULT_LANGUAGE_CODE);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [userInput, setUserInput] = useState('');
+  const { register, handleSubmit: handleFormSubmit, reset, watch } = useForm<FormData>({
+    defaultValues: {
+      question: '',
+    },
+  });
   const [isTyping, setIsTyping] = useState(false);
   const [threadUrl, setThreadUrl] = useState<string>('');
   const [openInWeb, setOpenInWeb] = useState(true);
   const [pageType, setPageType] = useState<PageType>({ isSlack: true, url: '' });
   const [hasContent, setHasContent] = useState(false);
   const [articleContent, setArticleContent] = useState<string>('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     chrome.storage.local.get('selectedLanguage').then(result => {
@@ -241,19 +251,24 @@ ${message.data.content}
     }
   }, [selectedLanguage, threadData, articleContent]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!userInput.trim() || isTyping) return;
+  const onSubmit = async (data: FormData) => {
+    if (!data.question.trim() || isTyping) return;
 
     const newMessage: Message = {
       role: 'user',
-      content: userInput,
+      content: data.question,
       timestamp: Date.now(),
     };
 
     setMessages(prev => [...prev, newMessage]);
-    setUserInput('');
-    await handleAskAssistant(userInput);
+    reset();
+    await handleAskAssistant(data.question);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      handleFormSubmit(onSubmit)();
+    }
   };
 
   const handleCapturePage = useCallback(() => {
@@ -265,6 +280,21 @@ ${message.data.content}
       }
     });
   }, []);
+
+  const scrollToBottom = (smooth = true) => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({
+        behavior: smooth ? 'smooth' : 'auto',
+        block: 'end',
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (!isTyping && messages.length > 0) {
+      scrollToBottom();
+    }
+  }, [messages, isTyping]);
 
   return (
     <div className={`App ${isLight ? 'bg-slate-50' : 'bg-gray-800'} flex h-screen flex-col text-left`}>
@@ -369,21 +399,22 @@ ${message.data.content}
                 </div>
               ))}
               {isTyping && <div className="animate-pulse text-sm text-gray-500">Assistant is typing...</div>}
+              <div ref={messagesEndRef} />
             </div>
           </div>
         )}
       </div>
 
       {hasContent && (
-        <form onSubmit={handleSubmit} className="border-t p-4 dark:border-gray-700">
+        <form onSubmit={handleFormSubmit(onSubmit)} className="border-t p-4 dark:border-gray-700">
           <div className="flex gap-2">
-            <input
-              type="text"
-              value={userInput}
-              onChange={e => setUserInput(e.target.value)}
+            <textarea
+              {...register('question')}
+              onKeyDown={handleKeyDown}
               disabled={isTyping}
-              placeholder="Ask a follow-up question..."
-              className={`flex-1 rounded-md px-3 py-2 ${
+              rows={3}
+              placeholder="Ask a follow-up question... (Cmd/Ctrl + Enter to submit)"
+              className={`flex-1 resize-none rounded-md px-3 py-2 ${
                 isLight
                   ? 'border-gray-300 bg-white text-gray-900'
                   : 'border-gray-60 opacity-500 bg-gray-700 text-gray-100'
@@ -391,9 +422,9 @@ ${message.data.content}
             />
             <button
               type="submit"
-              disabled={isTyping || !userInput.trim()}
+              disabled={isTyping || !watch('question').trim()}
               className={`rounded-md bg-blue-500 px-4 py-2 text-white ${
-                isTyping || !userInput.trim() ? 'cursor-not-allowed opacity-50' : 'hover:bg-blue-600'
+                isTyping || !watch('question').trim() ? 'cursor-not-allowed opacity-50' : 'hover:bg-blue-600'
               }`}>
               Send
             </button>
