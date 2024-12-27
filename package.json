@@ -1,11 +1,11 @@
 {
-  "name": "slack-thread-summarizer",
-  "version": "0.0.5",
-  "description": "Summarize your very long slack threads",
+  "name": "chuchuchu",
+  "version": "0.0.1",
+  "description": "Summarize all web pages",
   "private": true,
   "repository": {
     "type": "git",
-    "url": "https://github.com/josephj/slack-copilot.git"
+    "url": "https://github.com/josephj/chuchuchu.git"
   },
   "type": "module",
   "scripts": {
