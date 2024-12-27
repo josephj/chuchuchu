@@ -39,6 +39,12 @@ type FormData = {
   question: string;
 };
 
+type ArticleData = {
+  title: string;
+  url: string;
+  content: string;
+};
+
 const convertToWebUrl = (url: string): string => {
   return url.replace('/archives/', '/messages/').replace(/&cid=[^&]+/, '');
 };
@@ -96,6 +102,7 @@ const SidePanel = () => {
   const [pageType, setPageType] = useState<PageType>({ isSlack: true, url: '' });
   const [hasContent, setHasContent] = useState(false);
   const [articleContent, setArticleContent] = useState<string>('');
+  const [articleTitle, setArticleTitle] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const bg = useColorModeValue('gray.50', 'gray.800');
@@ -276,6 +283,7 @@ const SidePanel = () => {
         setMessages([]);
         setHasContent(true);
         setThreadUrl(message.data.url);
+        setArticleTitle(message.data.title);
 
         const formattedArticle = `
 Title: ${message.data.title}
@@ -426,7 +434,7 @@ ${message.data.content}
       </Box>
 
       {/* Main Content Section */}
-      <Box flex="1" overflowY="auto">
+      <Box flex="1" overflowY="auto" position="relative">
         {!hasContent ? (
           <Flex height="100%" direction="column" justify="center" align="center" p={4} gap={1}>
             {pageType.isSlack ? (
@@ -471,55 +479,64 @@ ${message.data.content}
             )}
           </Flex>
         ) : (
-          <VStack spacing={4} p={4} align="stretch">
-            {/* URL Section */}
-            {threadUrl && (
-              <Flex align="center" gap={4} pb={4} borderBottom="1px" borderColor={borderColor}>
-                <Tooltip label={threadUrl} placement="bottom-start" openDelay={500}>
-                  <Link
-                    href={threadUrl}
-                    isExternal
-                    color={linkColor}
-                    fontSize="xs"
-                    isTruncated
-                    _hover={{ textDecoration: 'underline' }}>
-                    {pageType.isSlack ? formatDisplayUrl(threadUrl) : threadUrl}
-                  </Link>
-                </Tooltip>
-                <Flex shrink={0} gap={2}>
-                  <Tooltip label="Clear conversation" placement="top" openDelay={500}>
-                    <IconButton
-                      icon={<DeleteIcon />}
-                      onClick={handleClose}
-                      aria-label="Clear conversation"
-                      colorScheme="red"
-                      variant="ghost"
-                      size="sm"
-                    />
-                  </Tooltip>
-                  <Tooltip label="Regenerate summary" placement="top" openDelay={500}>
-                    <IconButton
-                      icon={<RepeatIcon />}
-                      onClick={() => {
-                        if (threadData) {
-                          const formattedData = formatThreadForLLM(threadData);
-                          handleAskAssistant(formattedData, true);
-                        } else if (articleContent) {
-                          handleAskAssistant(articleContent, true);
-                        }
-                      }}
-                      aria-label="Regenerate summary"
-                      colorScheme="blue"
-                      variant="ghost"
-                      size="sm"
-                    />
-                  </Tooltip>
-                </Flex>
-              </Flex>
-            )}
+          <VStack spacing={4} align="stretch">
+            {/* Sticky Header Section */}
+            <Box position="sticky" top={0} zIndex={1} bg={bg} borderBottom="1px" borderColor={borderColor} pb={4}>
+              {threadUrl && (
+                <VStack spacing={2} align="stretch" width="100%" pt={4} px={4}>
+                  {!pageType.isSlack && articleTitle && (
+                    <Text fontSize="sm" fontWeight="medium" color={textColor} noOfLines={2}>
+                      {articleTitle}
+                    </Text>
+                  )}
+                  <Flex align="center" gap={4} width="100%">
+                    <Tooltip label={threadUrl} placement="bottom-start" openDelay={500}>
+                      <Link
+                        href={threadUrl}
+                        isExternal
+                        color={linkColor}
+                        fontSize="xs"
+                        isTruncated
+                        _hover={{ textDecoration: 'underline' }}>
+                        {pageType.isSlack ? formatDisplayUrl(threadUrl) : threadUrl}
+                      </Link>
+                    </Tooltip>
+                    <Flex shrink={0} gap={2}>
+                      <Tooltip label="Clear conversation" placement="top" openDelay={500}>
+                        <IconButton
+                          icon={<DeleteIcon />}
+                          onClick={handleClose}
+                          aria-label="Clear conversation"
+                          colorScheme="red"
+                          variant="ghost"
+                          size="sm"
+                        />
+                      </Tooltip>
+                      <Tooltip label="Regenerate summary" placement="top" openDelay={500}>
+                        <IconButton
+                          icon={<RepeatIcon />}
+                          onClick={() => {
+                            if (threadData) {
+                              const formattedData = formatThreadForLLM(threadData);
+                              handleAskAssistant(formattedData, true);
+                            } else if (articleContent) {
+                              handleAskAssistant(articleContent, true);
+                            }
+                          }}
+                          aria-label="Regenerate summary"
+                          colorScheme="blue"
+                          variant="ghost"
+                          size="sm"
+                        />
+                      </Tooltip>
+                    </Flex>
+                  </Flex>
+                </VStack>
+              )}
+            </Box>
 
-            {/* Conversation Section */}
-            <VStack spacing={4} align="stretch">
+            {/* Messages Section */}
+            <VStack spacing={4} align="stretch" px={4}>
               {messages.map((message, index) => (
                 <Box
                   key={index}
