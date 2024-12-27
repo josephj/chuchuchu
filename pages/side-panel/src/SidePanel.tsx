@@ -6,8 +6,6 @@ import ReactMarkdown from 'react-markdown';
 import { formatThreadForLLM } from './utils';
 import type { Language, ThreadData, ThreadDataMessage } from './types';
 import { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE_CODE } from './vars';
-import systemPromptTemplate from './system.md?raw';
-import articleSystemPromptTemplate from './system-article.md?raw';
 
 type Message = {
   role: 'assistant' | 'user';
@@ -202,6 +200,7 @@ const SidePanel = () => {
           handleAskAssistant(formattedData, true);
         }, 100);
       } else if (message.type === 'ARTICLE_DATA_RESULT' && message.data) {
+        console.log('[DEBUG] ARTICLE_DATA_RESULT is executed');
         setThreadData(null);
         setMessages([]);
         setHasContent(true);
@@ -331,7 +330,7 @@ ${message.data.content}
               <button
                 onClick={handleCapturePage}
                 className="flex items-center gap-2 rounded-md bg-blue-500 px-4 py-2 text-white hover:bg-blue-600">
-                <span>📄</span>
+                <span>⭐️</span>
                 Summarize Current Page
               </button>
             )}

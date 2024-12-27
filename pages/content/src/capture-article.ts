@@ -10,7 +10,6 @@ export type ArticleData = {
 };
 
 export const captureArticle = () => {
-  console.log('[DEBUG] captureArticle is executed');
   const handleMessage = (message: { type: string }, _: chrome.runtime.MessageSender, sendResponse: () => void) => {
     console.log('[DEBUG] handleMessage is executed');
     if (message.type === 'CAPTURE_ARTICLE') {
