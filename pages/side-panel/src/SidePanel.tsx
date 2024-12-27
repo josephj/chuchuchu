@@ -7,6 +7,8 @@ import { formatThreadForLLM } from './utils';
 import type { Language, ThreadData, ThreadDataMessage } from './types';
 import { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE_CODE } from './vars';
 import { useForm } from 'react-hook-form';
+import { RepeatIcon, DeleteIcon } from '@chakra-ui/icons';
+import { Tooltip } from '@chakra-ui/react';
 
 type Message = {
   role: 'assistant' | 'user';
@@ -47,7 +49,12 @@ const SidePanel = () => {
   const [threadData, setThreadData] = useState<ThreadData | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState<Language['code']>(DEFAULT_LANGUAGE_CODE);
   const [messages, setMessages] = useState<Message[]>([]);
-  const { register, handleSubmit: handleFormSubmit, reset, watch } = useForm<FormData>({
+  const {
+    register,
+    handleSubmit: handleFormSubmit,
+    reset,
+    watch,
+  } = useForm<FormData>({
     defaultValues: {
       question: '',
     },
@@ -82,18 +89,31 @@ const SidePanel = () => {
   }, []);
 
   useEffect(() => {
-    const checkPageType = () => {
-      chrome.runtime.sendMessage({ type: 'GET_CURRENT_PAGE_TYPE' });
+    const handlePageTypeUpdate = () => {
+      chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+        const currentTab = tabs[0];
+        if (currentTab?.url) {
+          const isSlack = currentTab.url.includes('slack.com');
+          setPageType({ isSlack, url: currentTab.url });
+        }
+      });
     };
 
-    checkPageType();
-    // Check page type when tab changes
-    chrome.tabs.onActivated.addListener(checkPageType);
-    chrome.tabs.onUpdated.addListener(checkPageType);
+    // Initial check
+    handlePageTypeUpdate();
+
+    // Listen to tab changes
+    chrome.tabs.onActivated.addListener(handlePageTypeUpdate);
+    chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+      // Only update if URL has changed
+      if (changeInfo.url) {
+        handlePageTypeUpdate();
+      }
+    });
 
     return () => {
-      chrome.tabs.onActivated.removeListener(checkPageType);
-      chrome.tabs.onUpdated.removeListener(checkPageType);
+      chrome.tabs.onActivated.removeListener(handlePageTypeUpdate);
+      chrome.tabs.onUpdated.removeListener(handlePageTypeUpdate);
     };
   }, []);
 
@@ -229,8 +249,6 @@ ${message.data.content}
         setArticleContent(formattedArticle);
         console.log('[DEBUG] formattedArticle', formattedArticle);
         handleAskAssistant(formattedArticle, true);
-      } else if (message.type === 'CURRENT_PAGE_TYPE') {
-        setPageType({ isSlack: message.isSlack, url: message.url });
       }
     };
 
@@ -281,70 +299,87 @@ ${message.data.content}
     });
   }, []);
 
-  const scrollToBottom = (smooth = true) => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({
-        behavior: smooth ? 'smooth' : 'auto',
-        block: 'end',
-      });
+  const scrollToLatestMessage = (smooth = true) => {
+    if (messagesEndRef.current?.parentElement) {
+      const messages = messagesEndRef.current.parentElement.querySelectorAll('[data-message]');
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage) {
+        const handleUserScroll = () => {
+          window.removeEventListener('wheel', handleUserScroll);
+          window.removeEventListener('touchmove', handleUserScroll);
+          lastMessage.scrollIntoView({ behavior: 'auto', block: 'start' });
+        };
+
+        window.addEventListener('wheel', handleUserScroll, { passive: true });
+        window.addEventListener('touchmove', handleUserScroll, { passive: true });
+
+        lastMessage.scrollIntoView({
+          behavior: smooth ? 'smooth' : 'auto',
+          block: 'start',
+        });
+
+        // Clean up event listeners after animation
+        setTimeout(
+          () => {
+            window.removeEventListener('wheel', handleUserScroll);
+            window.removeEventListener('touchmove', handleUserScroll);
+          },
+          smooth ? 300 : 0,
+        );
+      }
     }
   };
 
   useEffect(() => {
     if (!isTyping && messages.length > 0) {
-      scrollToBottom();
+      scrollToLatestMessage();
     }
   }, [messages, isTyping]);
 
   return (
     <div className={`App ${isLight ? 'bg-slate-50' : 'bg-gray-800'} flex h-screen flex-col text-left`}>
-      <div className={`flex-1 overflow-auto p-4 ${isLight ? 'text-gray-900' : 'text-gray-100'}`}>
-        <div className="mb-4 space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <label htmlFor="open-in-web" className="font-medium">
-                Open links in web:
-              </label>
-              <input
-                id="open-in-web"
-                type="checkbox"
-                checked={openInWeb}
-                onChange={e => handleOpenInWebChange(e.target.checked)}
-                className="size-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
-              />
-            </div>
-            {hasContent && (
-              <button
-                onClick={handleClose}
-                className="rounded-md bg-gray-200 px-2 py-1 text-sm text-gray-600 hover:bg-gray-300"
-                title="Close current summary">
-                ✕
-              </button>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <label htmlFor="language-select" className="font-medium">
-              Language:
-            </label>
-            <select
-              id="language-select"
-              value={selectedLanguage}
-              onChange={e => handleLanguageChange(e.target.value)}
-              disabled={isGenerating}
-              className={`rounded-md px-3 py-1.5 ${
-                isLight ? 'border-gray-300 bg-white text-gray-900' : 'border-gray-600 bg-gray-700 text-gray-100'
-              } border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                isGenerating ? 'cursor-not-allowed opacity-50' : ''
-              }`}>
-              {SUPPORTED_LANGUAGES.map(lang => (
-                <option key={lang.code} value={lang.code}>
-                  {lang.name}
-                </option>
-              ))}
-            </select>
-          </div>
+      {/* Settings Section */}
+      <div className={`border-b p-4 ${isLight ? 'border-gray-200' : 'border-gray-700'}`}>
+        <div className="flex items-center gap-2">
+          <label htmlFor="language-select" className="font-medium">
+            Language:
+          </label>
+          <select
+            id="language-select"
+            value={selectedLanguage}
+            onChange={e => handleLanguageChange(e.target.value)}
+            disabled={isGenerating}
+            className={`rounded-md px-3 py-1.5 ${
+              isLight ? 'border-gray-300 bg-white text-gray-900' : 'border-gray-600 bg-gray-700 text-gray-100'
+            } border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              isGenerating ? 'cursor-not-allowed opacity-50' : ''
+            }`}>
+            {SUPPORTED_LANGUAGES.map(lang => (
+              <option key={lang.code} value={lang.code}>
+                {lang.name}
+              </option>
+            ))}
+          </select>
         </div>
 
+        {pageType.isSlack && (
+          <div className="mt-2 flex items-center gap-2">
+            <label htmlFor="open-in-web" className="font-medium">
+              Open links in web:
+            </label>
+            <input
+              id="open-in-web"
+              type="checkbox"
+              checked={openInWeb}
+              onChange={e => handleOpenInWebChange(e.target.checked)}
+              className="size-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Main Content Section */}
+      <div className="flex-1 overflow-auto">
         {!hasContent ? (
           <div className="flex h-full flex-col items-center justify-center gap-1 p-4">
             {pageType.isSlack ? (
@@ -357,34 +392,69 @@ ${message.data.content}
                 <span className="text-xs">in any conversation</span>
               </>
             ) : (
-              <button
-                onClick={handleCapturePage}
-                className="flex items-center gap-2 rounded-md bg-blue-500 px-4 py-2 text-white hover:bg-blue-600">
-                <span>⭐️</span>
-                Summarize Current Page
-              </button>
+              <div className="flex flex-col items-center gap-3">
+                <button
+                  onClick={handleCapturePage}
+                  className="flex items-center gap-2 rounded-md bg-blue-500 px-4 py-2 text-white hover:bg-blue-600">
+                  <span>⭐️</span>
+                  Summarize current page
+                </button>
+                {pageType.url && (
+                  <div className="word-break-all max-w-[300px] text-center text-xs text-gray-500" title={pageType.url}>
+                    {pageType.url}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4 p-4">
+            {/* URL Section */}
             {threadUrl && (
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                Thread URL:
-                <a
-                  href={threadUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-block text-xs text-blue-500 hover:underline"
-                  title={threadUrl}>
-                  {formatDisplayUrl(threadUrl)}
-                </a>
+              <div
+                className={`flex items-center gap-4 border-b pb-4 ${isLight ? 'border-gray-200' : 'border-gray-700'}`}>
+                <Tooltip label={threadUrl} placement="bottom-start" openDelay={500}>
+                  <a
+                    href={threadUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="truncate text-xs text-blue-500 hover:underline"
+                    title={threadUrl}>
+                    {pageType.isSlack ? formatDisplayUrl(threadUrl) : threadUrl}
+                  </a>
+                </Tooltip>
+                <div className="flex shrink-0 gap-2">
+                  <Tooltip label="Clear conversation" placement="top" openDelay={500}>
+                    <button
+                      onClick={handleClose}
+                      className="rounded-md p-2 text-red-500 transition-colors hover:bg-red-50">
+                      <DeleteIcon className="size-4" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip label="Regenerate summary" placement="top" openDelay={500}>
+                    <button
+                      onClick={() => {
+                        if (threadData) {
+                          const formattedData = formatThreadForLLM(threadData);
+                          handleAskAssistant(formattedData, true);
+                        } else if (articleContent) {
+                          handleAskAssistant(articleContent, true);
+                        }
+                      }}
+                      className="rounded-md p-2 text-blue-500 transition-colors hover:bg-blue-50">
+                      <RepeatIcon className="size-4" />
+                    </button>
+                  </Tooltip>
+                </div>
               </div>
             )}
 
+            {/* Conversation Section */}
             <div className="space-y-4">
               {messages.map((message, index) => (
                 <div
                   key={index}
+                  data-message
                   className={`${
                     message.role === 'assistant' ? 'bg-blue-50 dark:bg-blue-900' : 'bg-gray-50 dark:bg-gray-700'
                   } rounded-lg p-4`}>
@@ -405,9 +475,10 @@ ${message.data.content}
         )}
       </div>
 
+      {/* Input Section */}
       {hasContent && (
-        <form onSubmit={handleFormSubmit(onSubmit)} className="border-t p-4 dark:border-gray-700">
-          <div className="flex gap-2">
+        <div className={`border-t p-4 ${isLight ? 'border-gray-200' : 'border-gray-700'}`}>
+          <form onSubmit={handleFormSubmit(onSubmit)} className="flex gap-2">
             <textarea
               {...register('question')}
               onKeyDown={handleKeyDown}
@@ -428,8 +499,8 @@ ${message.data.content}
               }`}>
               Send
             </button>
-          </div>
-        </form>
+          </form>
+        </div>
       )}
     </div>
   );
