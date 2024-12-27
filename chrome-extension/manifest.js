@@ -20,7 +20,6 @@ const manifest = deepmerge(
   {
     manifest_version: 3,
     default_locale: 'en',
-    key: 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAurgcYc68N3/+CxjjB2djy7J34TjQ3hyl/HQ8XjvHJm0+QESSieRAftqhhHynwjFno94gtBC+MQ+SlSPdorTDPHZK7NEAMTALDYKr1oLV8vWwgrxRAiR5SKwrhDr43BBc+Rp9tpc+49VZgHEug1EtYv4jl9xJxbQK80b2AIAWxNcR7jYL7/ef07wC9rIPtBNxPKNZ8FxgFgeEPGGDBcoTunHcx+7NXz4uGcL4ja4Yxaa7rGgsKdfswr8uBH3dLI6hD3lcre2+kKqMaECOJ78KDaZ2WqzZZRitOpfbxWC/WdhEE1bcx1B9u3i7jFOvtEW8q/ZaURO4RI0ySEKvoVgsPwIDAQAB',
     /**
      * if you want to support multiple languages, you can use the following reference
      * https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Internationalization
