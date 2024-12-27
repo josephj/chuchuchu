@@ -7,8 +7,22 @@ import { formatThreadForLLM } from './utils';
 import type { Language, ThreadData, ThreadDataMessage } from './types';
 import { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE_CODE } from './vars';
 import { useForm } from 'react-hook-form';
-import { RepeatIcon, DeleteIcon } from '@chakra-ui/icons';
-import { Tooltip } from '@chakra-ui/react';
+import {
+  Tooltip,
+  Box,
+  Select,
+  Flex,
+  Text,
+  Button,
+  Link,
+  Checkbox,
+  Textarea,
+  useColorModeValue,
+  VStack,
+  IconButton,
+  useColorMode,
+} from '@chakra-ui/react';
+import { RepeatIcon, DeleteIcon, MoonIcon, SunIcon } from '@chakra-ui/icons';
 
 type Message = {
   role: 'assistant' | 'user';
@@ -43,8 +57,25 @@ const formatDisplayUrl = (url: string): string => {
   }
 };
 
+// const markdownStyles = {
+//   color: useColorModeValue('gray.800', 'whiteAlpha.900'),
+//   'h1, h2, h3, h4, h5, h6': {
+//     color: useColorModeValue('gray.900', 'whiteAlpha.900'),
+//   },
+//   'p, li': {
+//     color: useColorModeValue('gray.800', 'whiteAlpha.900'),
+//   },
+//   code: {
+//     color: useColorModeValue('gray.800', 'whiteAlpha.900'),
+//     bg: useColorModeValue('gray.100', 'whiteAlpha.200'),
+//   },
+//   a: {
+//     color: linkColor,
+//   },
+// };
+
 const SidePanel = () => {
-  const isLight = true;
+  const { colorMode, toggleColorMode } = useColorMode();
   const [isGenerating, setIsGenerating] = useState(false);
   const [threadData, setThreadData] = useState<ThreadData | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState<Language['code']>(DEFAULT_LANGUAGE_CODE);
@@ -66,6 +97,16 @@ const SidePanel = () => {
   const [hasContent, setHasContent] = useState(false);
   const [articleContent, setArticleContent] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const bg = useColorModeValue('gray.50', 'gray.800');
+  const borderColor = useColorModeValue('gray.200', 'gray.700');
+  const messageAssistantBg = useColorModeValue('blue.50', 'blue.900');
+  const messageUserBg = useColorModeValue('gray.50', 'gray.700');
+  const textColor = useColorModeValue('gray.800', 'whiteAlpha.900');
+  const textColorSecondary = useColorModeValue('gray.600', 'whiteAlpha.700');
+  const linkColor = useColorModeValue('blue.500', 'blue.300');
+  const codeBg = useColorModeValue('gray.100', 'whiteAlpha.200');
+  const blockquoteBorderColor = useColorModeValue('gray.200', 'gray.600');
 
   useEffect(() => {
     chrome.storage.local.get('selectedLanguage').then(result => {
@@ -337,102 +378,128 @@ ${message.data.content}
   }, [messages, isTyping]);
 
   return (
-    <div className={`App ${isLight ? 'bg-slate-50' : 'bg-gray-800'} flex h-screen flex-col text-left`}>
+    <Flex direction="column" h="100vh" bg={bg} color={textColor}>
       {/* Settings Section */}
-      <div className={`border-b p-4 ${isLight ? 'border-gray-200' : 'border-gray-700'}`}>
-        <div className="flex items-center gap-2">
-          <label htmlFor="language-select" className="font-medium">
-            Language:
-          </label>
-          <select
-            id="language-select"
-            value={selectedLanguage}
-            onChange={e => handleLanguageChange(e.target.value)}
-            disabled={isGenerating}
-            className={`rounded-md px-3 py-1.5 ${
-              isLight ? 'border-gray-300 bg-white text-gray-900' : 'border-gray-600 bg-gray-700 text-gray-100'
-            } border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              isGenerating ? 'cursor-not-allowed opacity-50' : ''
-            }`}>
-            {SUPPORTED_LANGUAGES.map(lang => (
-              <option key={lang.code} value={lang.code}>
-                {lang.name}
-              </option>
-            ))}
-          </select>
-        </div>
+      <Box p={4} borderBottom="1px" borderColor={borderColor}>
+        <Flex justify="space-between">
+          <Flex gap={2} alignItems="center">
+            <Tooltip label="Language" placement="top">
+              <Box>
+                <Text fontSize="lg">🌐</Text>
+              </Box>
+            </Tooltip>
+            <Select
+              value={selectedLanguage}
+              onChange={e => handleLanguageChange(e.target.value)}
+              isDisabled={isGenerating}
+              size="sm"
+              width="auto"
+              color={textColor}>
+              {SUPPORTED_LANGUAGES.map(lang => (
+                <option key={lang.code} value={lang.code}>
+                  {lang.name}
+                </option>
+              ))}
+            </Select>
+          </Flex>
+
+          <IconButton
+            aria-label="Toggle color mode"
+            icon={colorMode === 'light' ? <MoonIcon /> : <SunIcon />}
+            onClick={toggleColorMode}
+            size="sm"
+            variant="ghost"
+            color={textColor}
+          />
+        </Flex>
 
         {pageType.isSlack && (
-          <div className="mt-2 flex items-center gap-2">
-            <label htmlFor="open-in-web" className="font-medium">
-              Open links in web:
-            </label>
-            <input
-              id="open-in-web"
-              type="checkbox"
-              checked={openInWeb}
+          <Flex mt={2} gap={2} alignItems="center">
+            <Text fontWeight="medium">Open links in web:</Text>
+            <Checkbox
+              isChecked={openInWeb}
               onChange={e => handleOpenInWebChange(e.target.checked)}
-              className="size-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+              colorScheme={colorMode === 'light' ? 'blue' : 'blue'}
             />
-          </div>
+          </Flex>
         )}
-      </div>
+      </Box>
 
       {/* Main Content Section */}
-      <div className="flex-1 overflow-auto">
+      <Box flex="1" overflowY="auto">
         {!hasContent ? (
-          <div className="flex h-full flex-col items-center justify-center gap-1 p-4">
+          <Flex height="100%" direction="column" justify="center" align="center" p={4} gap={1}>
             {pageType.isSlack ? (
               <>
-                <span className="text-xs">Click</span>
-                <div className="flex h-6 items-center gap-2 rounded-full bg-white px-2 text-gray-900 shadow-lg">
-                  <span className="text-xs">⭐️</span>
-                  <span className="text-xs">Summarize</span>
-                </div>
-                <span className="text-xs">in any conversation</span>
+                <Text fontSize="xs" color={textColorSecondary}>
+                  Click
+                </Text>
+                <Flex
+                  h="24px"
+                  align="center"
+                  gap={2}
+                  bg={useColorModeValue('white', 'gray.700')}
+                  px={2}
+                  borderRadius="full"
+                  boxShadow="lg">
+                  <Text fontSize="xs">⭐️</Text>
+                  <Text fontSize="xs" color={textColor}>
+                    Summarize
+                  </Text>
+                </Flex>
+                <Text fontSize="xs" color={textColorSecondary}>
+                  in any conversation
+                </Text>
               </>
             ) : (
-              <div className="flex flex-col items-center gap-3">
-                <button
-                  onClick={handleCapturePage}
-                  className="flex items-center gap-2 rounded-md bg-blue-500 px-4 py-2 text-white hover:bg-blue-600">
-                  <span>⭐️</span>
+              <VStack spacing={3}>
+                <Button onClick={handleCapturePage} colorScheme="blue" leftIcon={<Text>⭐️</Text>}>
                   Summarize current page
-                </button>
+                </Button>
                 {pageType.url && (
-                  <div className="word-break-all max-w-[300px] text-center text-xs text-gray-500" title={pageType.url}>
+                  <Text
+                    maxW="300px"
+                    fontSize="xs"
+                    color={textColorSecondary}
+                    textAlign="center"
+                    title={pageType.url}
+                    isTruncated>
                     {pageType.url}
-                  </div>
+                  </Text>
                 )}
-              </div>
+              </VStack>
             )}
-          </div>
+          </Flex>
         ) : (
-          <div className="space-y-4 p-4">
+          <VStack spacing={4} p={4} align="stretch">
             {/* URL Section */}
             {threadUrl && (
-              <div
-                className={`flex items-center gap-4 border-b pb-4 ${isLight ? 'border-gray-200' : 'border-gray-700'}`}>
+              <Flex align="center" gap={4} pb={4} borderBottom="1px" borderColor={borderColor}>
                 <Tooltip label={threadUrl} placement="bottom-start" openDelay={500}>
-                  <a
+                  <Link
                     href={threadUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="truncate text-xs text-blue-500 hover:underline"
-                    title={threadUrl}>
+                    isExternal
+                    color={linkColor}
+                    fontSize="xs"
+                    isTruncated
+                    _hover={{ textDecoration: 'underline' }}>
                     {pageType.isSlack ? formatDisplayUrl(threadUrl) : threadUrl}
-                  </a>
+                  </Link>
                 </Tooltip>
-                <div className="flex shrink-0 gap-2">
+                <Flex shrink={0} gap={2}>
                   <Tooltip label="Clear conversation" placement="top" openDelay={500}>
-                    <button
+                    <IconButton
+                      icon={<DeleteIcon />}
                       onClick={handleClose}
-                      className="rounded-md p-2 text-red-500 transition-colors hover:bg-red-50">
-                      <DeleteIcon className="size-4" />
-                    </button>
+                      aria-label="Clear conversation"
+                      colorScheme="red"
+                      variant="ghost"
+                      size="sm"
+                    />
                   </Tooltip>
                   <Tooltip label="Regenerate summary" placement="top" openDelay={500}>
-                    <button
+                    <IconButton
+                      icon={<RepeatIcon />}
                       onClick={() => {
                         if (threadData) {
                           const formattedData = formatThreadForLLM(threadData);
@@ -441,68 +508,119 @@ ${message.data.content}
                           handleAskAssistant(articleContent, true);
                         }
                       }}
-                      className="rounded-md p-2 text-blue-500 transition-colors hover:bg-blue-50">
-                      <RepeatIcon className="size-4" />
-                    </button>
+                      aria-label="Regenerate summary"
+                      colorScheme="blue"
+                      variant="ghost"
+                      size="sm"
+                    />
                   </Tooltip>
-                </div>
-              </div>
+                </Flex>
+              </Flex>
             )}
 
             {/* Conversation Section */}
-            <div className="space-y-4">
+            <VStack spacing={4} align="stretch">
               {messages.map((message, index) => (
-                <div
+                <Box
                   key={index}
                   data-message
-                  className={`${
-                    message.role === 'assistant' ? 'bg-blue-50 dark:bg-blue-900' : 'bg-gray-50 dark:bg-gray-700'
-                  } rounded-lg p-4`}>
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                  bg={message.role === 'assistant' ? messageAssistantBg : messageUserBg}
+                  borderRadius="lg"
+                  p={4}
+                  color={textColor}>
+                  <Box>
                     {message.role === 'user' ? (
-                      <p>{message.content}</p>
+                      <Text>{message.content}</Text>
                     ) : (
-                      <ReactMarkdown>{message.content}</ReactMarkdown>
+                      <Box
+                        sx={{
+                          fontSize: 'md',
+                          'h1, h2, h3, h4, h5, h6': {
+                            fontWeight: 'bold',
+                            my: 2,
+                          },
+                          h1: { fontSize: '2xl' },
+                          h2: { fontSize: 'xl' },
+                          h3: { fontSize: 'lg' },
+                          p: {
+                            my: 2,
+                          },
+                          'ul, ol': {
+                            pl: 4,
+                            my: 2,
+                            listStylePosition: 'inside',
+                          },
+                          ul: {
+                            listStyleType: 'disc',
+                          },
+                          ol: {
+                            listStyleType: 'decimal',
+                          },
+                          li: {
+                            my: 1,
+                            pl: 1,
+                          },
+                          code: {
+                            bg: codeBg,
+                            px: 1,
+                            borderRadius: 'sm',
+                          },
+                          pre: {
+                            bg: codeBg,
+                            p: 2,
+                            borderRadius: 'md',
+                            overflowX: 'auto',
+                          },
+                          blockquote: {
+                            borderLeftWidth: '4px',
+                            borderLeftColor: blockquoteBorderColor,
+                            pl: 4,
+                            my: 2,
+                          },
+                        }}>
+                        <ReactMarkdown>{message.content}</ReactMarkdown>
+                      </Box>
                     )}
-                  </div>
-                  <div className="mt-2 text-xs text-gray-500">{new Date(message.timestamp).toLocaleTimeString()}</div>
-                </div>
+                  </Box>
+                  <Text fontSize="xs" color={textColorSecondary} mt={2}>
+                    {new Date(message.timestamp).toLocaleTimeString()}
+                  </Text>
+                </Box>
               ))}
-              {isTyping && <div className="animate-pulse text-sm text-gray-500">Assistant is typing...</div>}
-              <div ref={messagesEndRef} />
-            </div>
-          </div>
+              {isTyping && (
+                <Text fontSize="sm" color={textColorSecondary} animation="pulse 2s infinite">
+                  Assistant is typing...
+                </Text>
+              )}
+              <Box ref={messagesEndRef} />
+            </VStack>
+          </VStack>
         )}
-      </div>
+      </Box>
 
       {/* Input Section */}
       {hasContent && (
-        <div className={`border-t p-4 ${isLight ? 'border-gray-200' : 'border-gray-700'}`}>
-          <form onSubmit={handleFormSubmit(onSubmit)} className="flex gap-2">
-            <textarea
-              {...register('question')}
-              onKeyDown={handleKeyDown}
-              disabled={isTyping}
-              rows={3}
-              placeholder="Ask a follow-up question... (Cmd/Ctrl + Enter to submit)"
-              className={`flex-1 resize-none rounded-md px-3 py-2 ${
-                isLight
-                  ? 'border-gray-300 bg-white text-gray-900'
-                  : 'border-gray-60 opacity-500 bg-gray-700 text-gray-100'
-              } border focus:outline-none focus:ring-2 focus:ring-blue-500`}
-            />
-            <button
-              type="submit"
-              disabled={isTyping || !watch('question').trim()}
-              className={`rounded-md bg-blue-500 px-4 py-2 text-white ${
-                isTyping || !watch('question').trim() ? 'cursor-not-allowed opacity-50' : 'hover:bg-blue-600'
-              }`}>
-              Send
-            </button>
+        <Box p={4} borderTop="1px" borderColor={borderColor}>
+          <form onSubmit={handleFormSubmit(onSubmit)}>
+            <Flex gap={2}>
+              <Textarea
+                {...register('question')}
+                onKeyDown={handleKeyDown}
+                isDisabled={isTyping}
+                rows={3}
+                placeholder="Ask a follow-up question... (Cmd/Ctrl + Enter to submit)"
+                resize="none"
+                color={textColor}
+                _placeholder={{ color: textColorSecondary }}
+              />
+              <Button type="submit" isDisabled={isTyping || !watch('question').trim()} colorScheme="blue">
+                Send
+              </Button>
+            </Flex>
           </form>
-        </div>
+        </Box>
       )}
-    </div>
+    </Flex>
   );
 };
 
