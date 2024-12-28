@@ -10,7 +10,6 @@ import { useForm } from 'react-hook-form';
 import {
   Tooltip,
   Box,
-  Select,
   Flex,
   Text,
   Button,
@@ -23,6 +22,7 @@ import {
   useColorMode,
 } from '@chakra-ui/react';
 import { RepeatIcon, DeleteIcon, MoonIcon, SunIcon } from '@chakra-ui/icons';
+import Select from 'react-select';
 
 type Message = {
   role: 'assistant' | 'user';
@@ -43,6 +43,13 @@ type ArticleData = {
   title: string;
   url: string;
   content: string;
+};
+
+type LanguageOption = {
+  value: string;
+  label: string;
+  code: string;
+  name: string;
 };
 
 const convertToWebUrl = (url: string): string => {
@@ -114,6 +121,45 @@ const SidePanel = () => {
   const linkColor = useColorModeValue('blue.500', 'blue.300');
   const codeBg = useColorModeValue('gray.100', 'whiteAlpha.200');
   const blockquoteBorderColor = useColorModeValue('gray.200', 'gray.600');
+
+  const selectStyles = {
+    control: (base: any) => ({
+      ...base,
+      minHeight: '32px',
+      width: '200px',
+    }),
+    container: (base: any) => ({
+      ...base,
+      zIndex: 2,
+    }),
+    option: (base: any, state: { isSelected: boolean; isFocused: boolean }) => ({
+      ...base,
+      cursor: 'pointer',
+      padding: '8px 12px',
+    }),
+  };
+
+  const selectTheme = (theme: any) => ({
+    ...theme,
+    colors: {
+      ...theme.colors,
+      neutral0: colorMode === 'dark' ? '#2D3748' : '#FFFFFF', // background
+      neutral5: colorMode === 'dark' ? '#4A5568' : '#E2E8F0',
+      neutral10: colorMode === 'dark' ? '#4A5568' : '#E2E8F0',
+      neutral20: colorMode === 'dark' ? '#4A5568' : '#E2E8F0', // borders
+      neutral30: colorMode === 'dark' ? '#718096' : '#A0AEC0',
+      neutral40: colorMode === 'dark' ? '#A0AEC0' : '#718096',
+      neutral50: colorMode === 'dark' ? '#A0AEC0' : '#718096', // placeholder text
+      neutral60: colorMode === 'dark' ? '#CBD5E0' : '#4A5568',
+      neutral70: colorMode === 'dark' ? '#E2E8F0' : '#2D3748',
+      neutral80: colorMode === 'dark' ? '#F7FAFC' : '#1A202C', // text
+      neutral90: colorMode === 'dark' ? '#FFFFFF' : '#000000',
+      primary: colorMode === 'dark' ? '#90CDF4' : '#3182CE', // selected option text
+      primary25: colorMode === 'dark' ? '#2A4365' : '#EBF8FF', // hovered option
+      primary50: colorMode === 'dark' ? '#2C5282' : '#4299E1', // active option
+      primary75: colorMode === 'dark' ? '#2A4365' : '#2B6CB0',
+    },
+  });
 
   useEffect(() => {
     chrome.storage.local.get('selectedLanguage').then(result => {
@@ -396,19 +442,19 @@ ${message.data.content}
                 <Text fontSize="lg">🌐</Text>
               </Box>
             </Tooltip>
-            <Select
-              value={selectedLanguage}
-              onChange={e => handleLanguageChange(e.target.value)}
+            <Select<LanguageOption>
+              value={SUPPORTED_LANGUAGES.find(lang => lang.code === selectedLanguage)}
+              onChange={option => handleLanguageChange(option?.code || DEFAULT_LANGUAGE_CODE)}
+              options={SUPPORTED_LANGUAGES}
               isDisabled={isGenerating}
-              size="sm"
-              width="auto"
-              color={textColor}>
-              {SUPPORTED_LANGUAGES.map(lang => (
-                <option key={lang.code} value={lang.code}>
-                  {lang.name}
-                </option>
-              ))}
-            </Select>
+              styles={selectStyles}
+              theme={selectTheme}
+              placeholder="Select language..."
+              isSearchable
+              components={{
+                IndicatorSeparator: () => null,
+              }}
+            />
           </Flex>
 
           <IconButton
