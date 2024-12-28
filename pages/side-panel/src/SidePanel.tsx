@@ -14,7 +14,6 @@ import {
   Text,
   Button,
   Link,
-  Checkbox,
   Textarea,
   useColorModeValue,
   VStack,
@@ -37,12 +36,6 @@ type PageType = {
 
 type FormData = {
   question: string;
-};
-
-type ArticleData = {
-  title: string;
-  url: string;
-  content: string;
 };
 
 type LanguageOption = {
@@ -70,23 +63,6 @@ const formatDisplayUrl = (url: string): string => {
   }
 };
 
-// const markdownStyles = {
-//   color: useColorModeValue('gray.800', 'whiteAlpha.900'),
-//   'h1, h2, h3, h4, h5, h6': {
-//     color: useColorModeValue('gray.900', 'whiteAlpha.900'),
-//   },
-//   'p, li': {
-//     color: useColorModeValue('gray.800', 'whiteAlpha.900'),
-//   },
-//   code: {
-//     color: useColorModeValue('gray.800', 'whiteAlpha.900'),
-//     bg: useColorModeValue('gray.100', 'whiteAlpha.200'),
-//   },
-//   a: {
-//     color: linkColor,
-//   },
-// };
-
 const SidePanel = () => {
   const { colorMode, toggleColorMode } = useColorMode();
   const [isGenerating, setIsGenerating] = useState(false);
@@ -105,7 +81,6 @@ const SidePanel = () => {
   });
   const [isTyping, setIsTyping] = useState(false);
   const [threadUrl, setThreadUrl] = useState<string>('');
-  const [openInWeb, setOpenInWeb] = useState(true);
   const [pageType, setPageType] = useState<PageType>({ isSlack: true, url: '' });
   const [hasContent, setHasContent] = useState(false);
   const [articleContent, setArticleContent] = useState<string>('');
@@ -168,16 +143,6 @@ const SidePanel = () => {
       } else {
         setSelectedLanguage('zh-TW');
         chrome.storage.local.set({ selectedLanguage: 'zh-TW' });
-      }
-    });
-  }, []);
-
-  useEffect(() => {
-    chrome.storage.local.get('openInWeb').then(result => {
-      if (result.openInWeb === false) {
-        setOpenInWeb(false);
-      } else {
-        chrome.storage.local.set({ openInWeb: true });
       }
     });
   }, []);
@@ -287,16 +252,6 @@ const SidePanel = () => {
   const handleLanguageChange = useCallback((newLanguage: string) => {
     setSelectedLanguage(newLanguage);
     chrome.storage.local.set({ selectedLanguage: newLanguage });
-  }, []);
-
-  const handleOpenInWebChange = useCallback((newValue: boolean) => {
-    setOpenInWeb(newValue);
-    chrome.storage.local.set({ openInWeb: newValue });
-    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-      if (tabs[0]?.id) {
-        chrome.tabs.sendMessage(tabs[0].id, { type: 'OPEN_IN_WEB_CHANGED', value: newValue });
-      }
-    });
   }, []);
 
   const handleClose = useCallback(() => {
@@ -466,17 +421,6 @@ ${message.data.content}
             color={textColor}
           />
         </Flex>
-
-        {pageType.isSlack && (
-          <Flex mt={2} gap={2} alignItems="center">
-            <Text fontWeight="medium">Open links in web:</Text>
-            <Checkbox
-              isChecked={openInWeb}
-              onChange={e => handleOpenInWebChange(e.target.checked)}
-              colorScheme={colorMode === 'light' ? 'blue' : 'blue'}
-            />
-          </Flex>
-        )}
       </Box>
 
       {/* Main Content Section */}

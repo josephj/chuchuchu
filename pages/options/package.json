@@ -19,9 +19,17 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@chakra-ui/icons": "^2.2.4",
+    "@chakra-ui/react": "^2.10.4",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
     "@extension/shared": "workspace:*",
     "@extension/storage": "workspace:*",
-    "@extension/ui": "workspace:*"
+    "@extension/ui": "workspace:*",
+    "framer-motion": "^11.15.0",
+    "iso-639-1": "^3.1.3",
+    "react-hook-form": "^7.54.2",
+    "react-select": "^5.9.0"
   },
   "devDependencies": {
     "@extension/tailwindcss-config": "workspace:*",
