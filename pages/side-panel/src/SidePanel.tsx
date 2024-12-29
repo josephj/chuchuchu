@@ -16,8 +16,13 @@ import {
   VStack,
   IconButton,
   useColorMode,
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  PopoverBody,
+  Link,
 } from '@chakra-ui/react';
-import { MoonIcon, SunIcon } from '@chakra-ui/icons';
+import { MoonIcon, SunIcon, WarningIcon } from '@chakra-ui/icons';
 import { Messages } from './Messages';
 import { Header } from './Header';
 import { useStorage } from './lib/use-storage';
@@ -43,6 +48,9 @@ const SidePanel = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [threadData, setThreadData] = useState<ThreadData | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [showWarning, setShowWarning] = useState(false);
+  const [showHoverWarning, setShowHoverWarning] = useState(false);
+  const [isOnOriginalPage, setIsOnOriginalPage] = useState(true);
   const isInitialLoad = useRef(true);
   const {
     register,
@@ -149,6 +157,9 @@ const SidePanel = () => {
     setArticleContent('');
     setArticleTitle('');
     setContentType(null);
+    setShowWarning(false);
+    setShowHoverWarning(false);
+    setIsOnOriginalPage(true);
   }, []);
 
   const handleRegenerate = useCallback(() => {
@@ -255,21 +266,109 @@ ${message.data.content || ''}
     });
   }, []);
 
+  useEffect(() => {
+    const checkCurrentPage = () => {
+      if (!hasContent) return;
+
+      chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+        const currentTab = tabs[0];
+        if (!currentTab?.url) return;
+
+        const isMatchingUrl = (() => {
+          if (contentType === 'slack') {
+            return currentTab.url.includes('slack.com');
+          }
+          return currentTab.url === originalUrl;
+        })();
+
+        setIsOnOriginalPage(isMatchingUrl);
+        if (isMatchingUrl) {
+          setShowWarning(false);
+          setShowHoverWarning(false);
+        } else {
+          setShowWarning(true);
+          setShowHoverWarning(false);
+          setTimeout(() => {
+            setShowWarning(false);
+          }, 3000);
+        }
+      });
+    };
+
+    checkCurrentPage();
+    chrome.tabs.onActivated.addListener(checkCurrentPage);
+    chrome.tabs.onUpdated.addListener((_, changeInfo) => {
+      if (changeInfo.url) {
+        checkCurrentPage();
+      }
+    });
+
+    return () => {
+      chrome.tabs.onActivated.removeListener(checkCurrentPage);
+      chrome.tabs.onUpdated.removeListener(checkCurrentPage);
+    };
+  }, [hasContent, originalUrl, formattedUrl, contentType]);
+
   return (
     <Flex direction="column" h="100vh" bg={bg} color={textColor}>
       {/* Settings Section */}
       <Box p={4} borderBottom="1px" borderColor={borderColor}>
-        <Flex justify="space-between">
+        <Flex justify="space-between" align="center">
           <LanguageSelector value={selectedLanguage} onChange={setSelectedLanguage} isDisabled={isGenerating} />
 
-          <IconButton
-            aria-label="Toggle color mode"
-            icon={colorMode === 'light' ? <MoonIcon /> : <SunIcon />}
-            onClick={toggleColorMode}
-            size="sm"
-            variant="ghost"
-            color={textColor}
-          />
+          <Flex gap={2}>
+            {hasContent && !isOnOriginalPage && (
+              <Popover
+                isOpen={showWarning || showHoverWarning}
+                placement="bottom-end"
+                onClose={() => setShowHoverWarning(false)}
+                isLazy
+                gutter={0}>
+                <PopoverTrigger>
+                  <Box onMouseEnter={() => setShowHoverWarning(true)} position="relative" p={2} margin={-2}>
+                    <IconButton
+                      aria-label="Tab change warning"
+                      icon={<WarningIcon color="orange.500" />}
+                      size="sm"
+                      variant="ghost"
+                    />
+                  </Box>
+                </PopoverTrigger>
+                <PopoverContent
+                  width="250px"
+                  onMouseEnter={() => setShowHoverWarning(true)}
+                  onMouseLeave={() => setShowHoverWarning(false)}>
+                  <PopoverBody>
+                    <VStack align="stretch" spacing={2}>
+                      <Text fontSize="xs">
+                        Please{' '}
+                        <Link color="red.500" onClick={handleClose}>
+                          close
+                        </Link>{' '}
+                        this summary or{' '}
+                        {pageType.type === 'slack' ? (
+                          'generate'
+                        ) : (
+                          <Link color="blue.500" onClick={handleCapturePage}>
+                            generate
+                          </Link>
+                        )}{' '}
+                        a new one for the current page.
+                      </Text>
+                    </VStack>
+                  </PopoverBody>
+                </PopoverContent>
+              </Popover>
+            )}
+            <IconButton
+              aria-label="Toggle color mode"
+              icon={colorMode === 'light' ? <MoonIcon /> : <SunIcon />}
+              onClick={toggleColorMode}
+              size="sm"
+              variant="ghost"
+              color={textColor}
+            />
+          </Flex>
         </Flex>
       </Box>
 
