@@ -7,20 +7,19 @@ import type { Language, ThreadData, ThreadDataMessage, ArticleDataResultMessage 
 import { LanguageSelector, SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE_CODE } from './LanguageSelector';
 import { useForm } from 'react-hook-form';
 import {
-  Tooltip,
   Box,
   Flex,
   Text,
   Button,
-  Link,
   Textarea,
   useColorModeValue,
   VStack,
   IconButton,
   useColorMode,
 } from '@chakra-ui/react';
-import { RepeatIcon, DeleteIcon, MoonIcon, SunIcon } from '@chakra-ui/icons';
+import { MoonIcon, SunIcon } from '@chakra-ui/icons';
 import { Messages } from './Messages';
+import { Header } from './Header';
 
 type Message = {
   role: 'assistant' | 'user';
@@ -39,20 +38,6 @@ type FormData = {
 
 const convertToWebUrl = (url: string): string => {
   return url.replace('/archives/', '/messages/').replace(/&cid=[^&]+/, '');
-};
-
-const formatDisplayUrl = (url: string): string => {
-  try {
-    const urlObj = new URL(url);
-    const pathParts = urlObj.pathname.split('/');
-    // Get team ID (usually the first part after /messages/)
-    const teamId = pathParts[2];
-    // Get the channel and thread parts
-    const remainingPath = pathParts.slice(3).join('/');
-    return `/${teamId.slice(0, 6)}/${remainingPath}`;
-  } catch {
-    return url;
-  }
 };
 
 const SidePanel = () => {
@@ -82,7 +67,6 @@ const SidePanel = () => {
   const borderColor = useColorModeValue('gray.200', 'gray.700');
   const textColor = useColorModeValue('gray.800', 'whiteAlpha.900');
   const textColorSecondary = useColorModeValue('gray.600', 'whiteAlpha.700');
-  const linkColor = useColorModeValue('blue.500', 'blue.300');
   const buttonBg = useColorModeValue('white', 'gray.700');
 
   useEffect(() => {
@@ -210,6 +194,15 @@ const SidePanel = () => {
     setThreadUrl('');
     setArticleContent('');
   }, []);
+
+  const handleRegenerate = useCallback(() => {
+    if (threadData) {
+      const formattedData = formatThreadForLLM(threadData);
+      handleAskAssistant(formattedData, true);
+    } else if (articleContent) {
+      handleAskAssistant(articleContent, true);
+    }
+  }, [threadData, articleContent, handleAskAssistant]);
 
   useEffect(() => {
     const handleMessage = (message: ThreadDataMessage | ArticleDataResultMessage) => {
@@ -353,62 +346,15 @@ ${message.data.content || ''}
           </Flex>
         ) : (
           <VStack spacing={4} align="stretch">
-            {/* Sticky Header Section */}
-            <Box position="sticky" top={0} zIndex={1} bg={bg} borderBottom="1px" borderColor={borderColor} pb={4}>
-              {threadUrl && (
-                <VStack spacing={2} align="stretch" width="100%" pt={4} px={4}>
-                  {!pageType.isSlack && articleTitle && (
-                    <Text fontSize="sm" fontWeight="medium" color={textColor} noOfLines={2}>
-                      {articleTitle}
-                    </Text>
-                  )}
-                  <Flex align="center" gap={4} width="100%">
-                    <Tooltip label={threadUrl} placement="bottom-start" openDelay={500}>
-                      <Link
-                        href={threadUrl}
-                        isExternal
-                        color={linkColor}
-                        fontSize="xs"
-                        isTruncated
-                        _hover={{ textDecoration: 'underline' }}>
-                        {pageType.isSlack ? formatDisplayUrl(threadUrl) : threadUrl}
-                      </Link>
-                    </Tooltip>
-                    <Flex shrink={0} gap={2}>
-                      <Tooltip label="Clear conversation" placement="top" openDelay={500}>
-                        <IconButton
-                          icon={<DeleteIcon />}
-                          onClick={handleClose}
-                          aria-label="Clear conversation"
-                          colorScheme="red"
-                          variant="ghost"
-                          size="sm"
-                        />
-                      </Tooltip>
-                      <Tooltip label="Regenerate summary" placement="top" openDelay={500}>
-                        <IconButton
-                          icon={<RepeatIcon />}
-                          onClick={() => {
-                            if (threadData) {
-                              const formattedData = formatThreadForLLM(threadData);
-                              handleAskAssistant(formattedData, true);
-                            } else if (articleContent) {
-                              handleAskAssistant(articleContent, true);
-                            }
-                          }}
-                          aria-label="Regenerate summary"
-                          colorScheme="blue"
-                          variant="ghost"
-                          size="sm"
-                        />
-                      </Tooltip>
-                    </Flex>
-                  </Flex>
-                </VStack>
-              )}
-            </Box>
-
-            {/* Messages Section */}
+            <Header
+              threadUrl={threadUrl}
+              articleTitle={articleTitle}
+              isSlack={pageType.isSlack}
+              threadData={threadData}
+              articleContent={articleContent}
+              onClose={handleClose}
+              onRegenerate={handleRegenerate}
+            />
             <Messages messages={messages} isTyping={isTyping} />
           </VStack>
         )}
