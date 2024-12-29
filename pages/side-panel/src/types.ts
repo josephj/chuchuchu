@@ -78,3 +78,8 @@ export type ArticleDataResultMessage = {
   type: 'ARTICLE_DATA_RESULT';
   data: ArticleData;
 };
+
+export type PageType = {
+  type: 'slack' | 'default' | 'youtube';
+  url: string;
+};

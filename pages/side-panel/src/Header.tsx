@@ -1,10 +1,15 @@
-import { Box, Flex, Text, Link, IconButton, Tooltip, VStack, useColorModeValue } from '@chakra-ui/react';
-import { DeleteIcon, RepeatIcon } from '@chakra-ui/icons';
+import { Stack, Flex, Text, Link, IconButton, Tooltip, VStack, useColorModeValue } from '@chakra-ui/react';
+import { CloseIcon, RepeatIcon } from '@chakra-ui/icons';
 
 type Props = {
   threadUrl: string;
   articleTitle: string;
   isSlack: boolean;
+  threadInfo?: {
+    channelName: string;
+    userName: string;
+    timestamp: string;
+  };
   onClose: () => void;
   onRegenerate: () => void;
 };
@@ -23,25 +28,38 @@ const formatDisplayUrl = (url: string): string => {
   }
 };
 
-export const Header = ({ threadUrl, articleTitle, isSlack, onClose, onRegenerate }: Props) => {
+export const Header = ({ threadUrl, articleTitle, isSlack, threadInfo, onClose, onRegenerate }: Props) => {
   const bg = useColorModeValue('gray.50', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
   const textColor = useColorModeValue('gray.800', 'whiteAlpha.900');
   const linkColor = useColorModeValue('blue.500', 'blue.300');
 
   return (
-    <Box position="sticky" top={0} zIndex={1} bg={bg} borderBottom="1px" borderColor={borderColor} pb={4}>
-      <Box>
-        <Text>Hello</Text>
-      </Box>
+    <Flex
+      justify="space-between"
+      position="sticky"
+      top={0}
+      zIndex={1}
+      bg={bg}
+      borderBottom="1px"
+      borderColor={borderColor}
+      p={4}
+      width="100%">
       {threadUrl && (
-        <VStack spacing={2} align="stretch" width="100%" pt={4} px={4}>
-          {!isSlack && articleTitle && (
-            <Text fontSize="sm" fontWeight="medium" color={textColor} noOfLines={2}>
-              {articleTitle}
-            </Text>
-          )}
-          <Flex align="center" gap={4} width="100%">
+        <Flex justify="space-between" width="100%" gap={1}>
+          <Stack spacing={0} flex="1" width="calc(100% - 100px)">
+            {isSlack && threadInfo ? (
+              <Text fontSize="sm" fontWeight="medium" color={textColor} noOfLines={2}>
+                {threadInfo.channelName ? `#${threadInfo.channelName} • ` : ''}
+                {threadInfo.userName} • {threadInfo.timestamp}
+              </Text>
+            ) : (
+              articleTitle && (
+                <Text fontSize="sm" fontWeight="medium" color={textColor} noOfLines={2}>
+                  {articleTitle}
+                </Text>
+              )
+            )}
             <Tooltip label={threadUrl} placement="bottom-start" openDelay={500}>
               <Link
                 href={threadUrl}
@@ -49,35 +67,36 @@ export const Header = ({ threadUrl, articleTitle, isSlack, onClose, onRegenerate
                 color={linkColor}
                 fontSize="xs"
                 isTruncated
+                maxWidth="100%"
                 _hover={{ textDecoration: 'underline' }}>
                 {isSlack ? formatDisplayUrl(threadUrl) : threadUrl}
               </Link>
             </Tooltip>
-            <Flex shrink={0} gap={2}>
-              <Tooltip label="Clear conversation" placement="top" openDelay={500}>
-                <IconButton
-                  icon={<DeleteIcon />}
-                  onClick={onClose}
-                  aria-label="Clear conversation"
-                  colorScheme="red"
-                  variant="ghost"
-                  size="sm"
-                />
-              </Tooltip>
-              <Tooltip label="Regenerate summary" placement="top" openDelay={500}>
-                <IconButton
-                  icon={<RepeatIcon />}
-                  onClick={onRegenerate}
-                  aria-label="Regenerate summary"
-                  colorScheme="blue"
-                  variant="ghost"
-                  size="sm"
-                />
-              </Tooltip>
-            </Flex>
-          </Flex>
-        </VStack>
+          </Stack>
+          <VStack gap={2} flex="0" width="100px">
+            <Tooltip label="Clear conversation" placement="top" openDelay={500}>
+              <IconButton
+                colorScheme="red"
+                icon={<CloseIcon fontSize="8px" />}
+                onClick={onClose}
+                aria-label="Clear conversation"
+                variant="outline"
+                size="xs"
+              />
+            </Tooltip>
+            <Tooltip label="Regenerate summary" placement="top" openDelay={500}>
+              <IconButton
+                icon={<RepeatIcon />}
+                onClick={onRegenerate}
+                aria-label="Regenerate summary"
+                colorScheme="green"
+                variant="outline"
+                size="xs"
+              />
+            </Tooltip>
+          </VStack>
+        </Flex>
       )}
-    </Box>
+    </Flex>
   );
 };

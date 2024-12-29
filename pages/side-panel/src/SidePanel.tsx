@@ -1,8 +1,8 @@
 import '@src/SidePanel.css';
 import { withErrorBoundary, withSuspense } from '@extension/shared';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { askAssistant } from './ask-assistant';
-import { formatThreadForLLM } from './utils';
+import { formatThreadForLLM, convertToWebUrl, formatRelativeTime } from './utils';
 import type { Language, ThreadData, ThreadDataMessage, ArticleDataResultMessage } from './types';
 import { LanguageSelector, SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE_CODE } from './LanguageSelector';
 import { useForm } from 'react-hook-form';
@@ -20,6 +20,9 @@ import {
 import { MoonIcon, SunIcon } from '@chakra-ui/icons';
 import { Messages } from './Messages';
 import { Header } from './Header';
+import { useStorage } from './lib/use-storage';
+import { usePageType } from './lib/use-page-type';
+import { getInitialPrompt, getFollowUpPrompt } from './prompts';
 
 type Message = {
   role: 'assistant' | 'user';
@@ -27,25 +30,20 @@ type Message = {
   timestamp: number;
 };
 
-type PageType = {
-  isSlack: boolean;
-  url: string;
-};
-
 type FormData = {
   question: string;
 };
 
-const convertToWebUrl = (url: string): string => {
-  return url.replace('/archives/', '/messages/').replace(/&cid=[^&]+/, '');
-};
-
 const SidePanel = () => {
   const { colorMode, toggleColorMode } = useColorMode();
+  const [selectedLanguage, setSelectedLanguage] = useStorage<Language['code']>(
+    'selectedLanguage',
+    DEFAULT_LANGUAGE_CODE,
+  );
   const [isGenerating, setIsGenerating] = useState(false);
   const [threadData, setThreadData] = useState<ThreadData | null>(null);
-  const [selectedLanguage, setSelectedLanguage] = useState<Language['code']>(DEFAULT_LANGUAGE_CODE);
   const [messages, setMessages] = useState<Message[]>([]);
+  const isInitialLoad = useRef(true);
   const {
     register,
     handleSubmit: handleFormSubmit,
@@ -57,11 +55,13 @@ const SidePanel = () => {
     },
   });
   const [isTyping, setIsTyping] = useState(false);
-  const [threadUrl, setThreadUrl] = useState<string>('');
-  const [pageType, setPageType] = useState<PageType>({ isSlack: true, url: '' });
+  const [originalUrl, setOriginalUrl] = useState<string>('');
+  const [formattedUrl, setFormattedUrl] = useState<string>('');
+  const pageType = usePageType();
   const [hasContent, setHasContent] = useState(false);
   const [articleContent, setArticleContent] = useState<string>('');
   const [articleTitle, setArticleTitle] = useState<string>('');
+  const [contentType, setContentType] = useState<'slack' | 'article' | null>(null);
 
   const bg = useColorModeValue('gray.50', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
@@ -69,130 +69,86 @@ const SidePanel = () => {
   const textColorSecondary = useColorModeValue('gray.600', 'whiteAlpha.700');
   const buttonBg = useColorModeValue('white', 'gray.700');
 
-  useEffect(() => {
-    chrome.storage.local.get('selectedLanguage').then(result => {
-      if (result.selectedLanguage) {
-        setSelectedLanguage(result.selectedLanguage);
-      } else {
-        setSelectedLanguage('zh-TW');
-        chrome.storage.local.set({ selectedLanguage: 'zh-TW' });
-      }
-    });
-  }, []);
-
-  useEffect(() => {
-    const handlePageTypeUpdate = () => {
-      chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-        const currentTab = tabs[0];
-        if (currentTab?.url) {
-          const isSlack = currentTab.url.includes('slack.com');
-          setPageType({ isSlack, url: currentTab.url });
-        }
-      });
-    };
-
-    // Initial check
-    handlePageTypeUpdate();
-
-    // Listen to tab changes
-    chrome.tabs.onActivated.addListener(handlePageTypeUpdate);
-    chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-      // Only update if URL has changed
-      if (changeInfo.url) {
-        handlePageTypeUpdate();
-      }
-    });
-
-    return () => {
-      chrome.tabs.onActivated.removeListener(handlePageTypeUpdate);
-      chrome.tabs.onUpdated.removeListener(handlePageTypeUpdate);
-    };
-  }, []);
-
   const handleAskAssistant = useCallback(
     async (prompt: string, isInitialAnalysis = false) => {
       setIsTyping(true);
       setIsGenerating(true);
 
       const selectedLang = SUPPORTED_LANGUAGES.find(lang => lang.code === selectedLanguage);
+      if (!selectedLang) return;
 
-      // Create two separate system prompts for different scenarios
-      const initialPrompt = `You are a helpful assistant that summarises and answers questions about ${
-        pageType.isSlack ? 'Slack conversations' : 'web articles'
-      }. Please communicate in ${selectedLang?.name} (${selectedLanguage}).
+      try {
+        const systemPrompt = isInitialAnalysis
+          ? getInitialPrompt(pageType, selectedLang)
+          : getFollowUpPrompt(selectedLang);
 
-      For the initial analysis:
-      1. Provide a clear summary highlighting key points and main arguments
-      2. Be concise and factual
-      3. Highlight important numbers, dates, or specific names
-      4. Use markdown for better readability`;
+        console.log('[DEBUG] System Prompt:', systemPrompt);
+        console.log('[DEBUG] User Prompt:', prompt);
 
-      const followUpPrompt = `You are a helpful assistant that answers questions about web articles. Please communicate in ${selectedLang?.name} (${selectedLanguage}).
+        const previousMessages = messages.map(msg => ({
+          role: msg.role,
+          content: msg.content,
+        }));
 
-      For follow-up questions:
-      1. Give direct, focused answers
-      2. If asked for translation, ONLY translate the content without any additional commentary or summary
-      3. If asked about something not in the article, clearly state that
-      4. Keep responses brief and to the point`;
-
-      const systemPrompt = isInitialAnalysis ? initialPrompt : followUpPrompt;
-
-      console.log('[DEBUG] System Prompt:', systemPrompt);
-      console.log('[DEBUG] User Prompt:', prompt);
-
-      const previousMessages = messages.map(msg => ({
-        role: msg.role,
-        content: msg.content,
-      }));
-
-      await askAssistant(systemPrompt, prompt, isInitialAnalysis ? [] : previousMessages, {
-        onAbort: () => {
-          setIsTyping(false);
-          setIsGenerating(false);
-        },
-        onError: () => {
-          setMessages(prev => [
-            ...prev,
-            {
-              role: 'assistant',
-              content: 'Error: Failed to generate response. Please try again.',
-              timestamp: Date.now(),
-            },
-          ]);
-          setIsTyping(false);
-          setIsGenerating(false);
-        },
-        onUpdate: response => {
-          setMessages(prev => {
-            const newMessages = [...prev];
-            if (newMessages.length && newMessages[newMessages.length - 1].role === 'assistant') {
-              newMessages[newMessages.length - 1].content = response;
-            } else {
-              newMessages.push({ role: 'assistant', content: response, timestamp: Date.now() });
-            }
-            return newMessages;
-          });
-        },
-        onComplete: () => {
-          setIsTyping(false);
-          setIsGenerating(false);
-        },
-      });
+        await askAssistant(systemPrompt, prompt, isInitialAnalysis ? [] : previousMessages, {
+          onAbort: () => {
+            setIsTyping(false);
+            setIsGenerating(false);
+          },
+          onError: () => {
+            setMessages(prev => [
+              ...prev,
+              {
+                role: 'assistant',
+                content: 'Error: Failed to generate response. Please try again.',
+                timestamp: Date.now(),
+              },
+            ]);
+            setIsTyping(false);
+            setIsGenerating(false);
+          },
+          onUpdate: response => {
+            setMessages(prev => {
+              const newMessages = [...prev];
+              if (newMessages.length && newMessages[newMessages.length - 1].role === 'assistant') {
+                newMessages[newMessages.length - 1].content = response;
+              } else {
+                newMessages.push({ role: 'assistant', content: response, timestamp: Date.now() });
+              }
+              return newMessages;
+            });
+          },
+          onComplete: () => {
+            setIsTyping(false);
+            setIsGenerating(false);
+          },
+        });
+      } catch (error) {
+        console.error('Failed to process prompt:', error);
+        setMessages(prev => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: 'Error: Failed to process prompt. Please try again.',
+            timestamp: Date.now(),
+          },
+        ]);
+        setIsTyping(false);
+        setIsGenerating(false);
+      }
     },
-    [selectedLanguage, messages, pageType.isSlack],
+    [selectedLanguage, messages, pageType],
   );
-
-  const handleLanguageChange = useCallback((newLanguage: string) => {
-    setSelectedLanguage(newLanguage);
-    chrome.storage.local.set({ selectedLanguage: newLanguage });
-  }, []);
 
   const handleClose = useCallback(() => {
     setHasContent(false);
     setThreadData(null);
     setMessages([]);
-    setThreadUrl('');
+    setOriginalUrl('');
+    setFormattedUrl('');
     setArticleContent('');
+    setArticleTitle('');
+    setContentType(null);
   }, []);
 
   const handleRegenerate = useCallback(() => {
@@ -210,7 +166,10 @@ const SidePanel = () => {
         setThreadData(null);
         setMessages([]);
         setHasContent(true);
-        setThreadUrl(message.url ? convertToWebUrl(message.url) : '');
+        const url = message.url || '';
+        setOriginalUrl(url);
+        setFormattedUrl(convertToWebUrl(url));
+        setContentType('slack');
 
         setTimeout(() => {
           setThreadData(message.payload);
@@ -222,8 +181,14 @@ const SidePanel = () => {
         setThreadData(null);
         setMessages([]);
         setHasContent(true);
-        setThreadUrl(message.data.url);
-        setArticleTitle(message.data.title || '');
+        if (message.data.url) {
+          setOriginalUrl(message.data.url);
+          setFormattedUrl(message.data.url);
+        }
+        if (message.data.title) {
+          setArticleTitle(message.data.title);
+        }
+        setContentType('article');
 
         const formattedArticle = `
 Title: ${message.data.title || ''}
@@ -246,17 +211,19 @@ ${message.data.content || ''}
   }, [handleAskAssistant]);
 
   useEffect(() => {
-    if (selectedLanguage) {
-      if (threadData) {
-        const formattedData = formatThreadForLLM(threadData);
-        setMessages([]);
-        handleAskAssistant(formattedData, true);
-      } else if (articleContent) {
-        setMessages([]);
-        handleAskAssistant(articleContent, true);
-      }
+    if (!selectedLanguage || isTyping || !isInitialLoad.current) return;
+
+    if (threadData) {
+      const formattedData = formatThreadForLLM(threadData);
+      setMessages([]);
+      handleAskAssistant(formattedData, true);
+    } else if (articleContent) {
+      setMessages([]);
+      handleAskAssistant(articleContent, true);
     }
-  }, [selectedLanguage, threadData, articleContent]);
+
+    isInitialLoad.current = false;
+  }, [selectedLanguage, threadData, articleContent, handleAskAssistant, isTyping]);
 
   const onSubmit = async (data: FormData) => {
     if (!data.question.trim() || isTyping) return;
@@ -293,7 +260,7 @@ ${message.data.content || ''}
       {/* Settings Section */}
       <Box p={4} borderBottom="1px" borderColor={borderColor}>
         <Flex justify="space-between">
-          <LanguageSelector value={selectedLanguage} onChange={handleLanguageChange} isDisabled={isGenerating} />
+          <LanguageSelector value={selectedLanguage} onChange={setSelectedLanguage} isDisabled={isGenerating} />
 
           <IconButton
             aria-label="Toggle color mode"
@@ -310,7 +277,7 @@ ${message.data.content || ''}
       <Box flex="1" overflowY="auto" position="relative">
         {!hasContent ? (
           <Flex height="100%" direction="column" justify="center" align="center" p={4} gap={1}>
-            {pageType.isSlack ? (
+            {pageType.type === 'slack' ? (
               <>
                 <Text fontSize="xs" color={textColorSecondary}>
                   Click
@@ -347,9 +314,18 @@ ${message.data.content || ''}
         ) : (
           <VStack spacing={4} align="stretch">
             <Header
-              threadUrl={threadUrl}
+              threadUrl={contentType === 'slack' ? formattedUrl : originalUrl}
               articleTitle={articleTitle}
-              isSlack={pageType.isSlack}
+              isSlack={contentType === 'slack'}
+              threadInfo={
+                contentType === 'slack' && threadData
+                  ? {
+                      channelName: threadData.channel,
+                      userName: threadData.messages[0]?.user || '',
+                      timestamp: formatRelativeTime(parseFloat(threadData.messages[0]?.ts || '0') * 1000),
+                    }
+                  : undefined
+              }
               onClose={handleClose}
               onRegenerate={handleRegenerate}
             />

@@ -1,4 +1,9 @@
 import type { ThreadData } from './types';
+import { formatDistanceToNowStrict } from 'date-fns';
+
+export const convertToWebUrl = (url: string): string => {
+  return url.replace('/archives/', '/messages/').replace(/&cid=[^&]+/, '');
+};
 
 export const formatThreadForLLM = (threadData: ThreadData) => {
   return JSON.stringify(
@@ -18,4 +23,8 @@ export const formatThreadForLLM = (threadData: ThreadData) => {
     null,
     2,
   );
+};
+
+export const formatRelativeTime = (timestamp: number): string => {
+  return formatDistanceToNowStrict(timestamp, { addSuffix: true });
 };
