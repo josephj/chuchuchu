@@ -1,10 +1,9 @@
 import '@src/SidePanel.css';
 import { withErrorBoundary, withSuspense } from '@extension/shared';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { askAssistant } from './ask-assistant';
-import ReactMarkdown from 'react-markdown';
 import { formatThreadForLLM } from './utils';
-import type { Language, ThreadData, ThreadDataMessage } from './types';
+import type { Language, ThreadData, ThreadDataMessage, ArticleDataResultMessage } from './types';
 import { LanguageSelector, SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE_CODE } from './LanguageSelector';
 import { useForm } from 'react-hook-form';
 import {
@@ -21,6 +20,7 @@ import {
   useColorMode,
 } from '@chakra-ui/react';
 import { RepeatIcon, DeleteIcon, MoonIcon, SunIcon } from '@chakra-ui/icons';
+import { Messages } from './Messages';
 
 type Message = {
   role: 'assistant' | 'user';
@@ -77,17 +77,13 @@ const SidePanel = () => {
   const [hasContent, setHasContent] = useState(false);
   const [articleContent, setArticleContent] = useState<string>('');
   const [articleTitle, setArticleTitle] = useState<string>('');
-  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const bg = useColorModeValue('gray.50', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
-  const messageAssistantBg = useColorModeValue('blue.50', 'blue.900');
-  const messageUserBg = useColorModeValue('gray.50', 'gray.700');
   const textColor = useColorModeValue('gray.800', 'whiteAlpha.900');
   const textColorSecondary = useColorModeValue('gray.600', 'whiteAlpha.700');
   const linkColor = useColorModeValue('blue.500', 'blue.300');
-  const codeBg = useColorModeValue('gray.100', 'whiteAlpha.200');
-  const blockquoteBorderColor = useColorModeValue('gray.200', 'gray.600');
+  const buttonBg = useColorModeValue('white', 'gray.700');
 
   useEffect(() => {
     chrome.storage.local.get('selectedLanguage').then(result => {
@@ -212,14 +208,11 @@ const SidePanel = () => {
     setThreadData(null);
     setMessages([]);
     setThreadUrl('');
-    setUserInput('');
     setArticleContent('');
   }, []);
 
   useEffect(() => {
-    const handleMessage = (
-      message: ThreadDataMessage | { type: 'CURRENT_PAGE_TYPE'; isSlack: boolean; url: string },
-    ) => {
+    const handleMessage = (message: ThreadDataMessage | ArticleDataResultMessage) => {
       if (message.type === 'THREAD_DATA_RESULT') {
         setThreadData(null);
         setMessages([]);
@@ -231,22 +224,22 @@ const SidePanel = () => {
           const formattedData = formatThreadForLLM(message.payload);
           handleAskAssistant(formattedData, true);
         }, 100);
-      } else if (message.type === 'ARTICLE_DATA_RESULT' && message.data) {
+      } else if (message.type === 'ARTICLE_DATA_RESULT') {
         console.log('[DEBUG] ARTICLE_DATA_RESULT is executed');
         setThreadData(null);
         setMessages([]);
         setHasContent(true);
         setThreadUrl(message.data.url);
-        setArticleTitle(message.data.title);
+        setArticleTitle(message.data.title || '');
 
         const formattedArticle = `
-Title: ${message.data.title}
+Title: ${message.data.title || ''}
 ${message.data.siteName ? `Source: ${message.data.siteName}` : ''}
 ${message.data.byline ? `Author: ${message.data.byline}` : ''}
 ${message.data.excerpt ? `Summary: ${message.data.excerpt}` : ''}
 
 Content:
-${message.data.content}
+${message.data.content || ''}
         `.trim();
 
         setArticleContent(formattedArticle);
@@ -302,43 +295,6 @@ ${message.data.content}
     });
   }, []);
 
-  const scrollToLatestMessage = (smooth = true) => {
-    if (messagesEndRef.current?.parentElement) {
-      const messages = messagesEndRef.current.parentElement.querySelectorAll('[data-message]');
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage) {
-        const handleUserScroll = () => {
-          window.removeEventListener('wheel', handleUserScroll);
-          window.removeEventListener('touchmove', handleUserScroll);
-          lastMessage.scrollIntoView({ behavior: 'auto', block: 'start' });
-        };
-
-        window.addEventListener('wheel', handleUserScroll, { passive: true });
-        window.addEventListener('touchmove', handleUserScroll, { passive: true });
-
-        lastMessage.scrollIntoView({
-          behavior: smooth ? 'smooth' : 'auto',
-          block: 'start',
-        });
-
-        // Clean up event listeners after animation
-        setTimeout(
-          () => {
-            window.removeEventListener('wheel', handleUserScroll);
-            window.removeEventListener('touchmove', handleUserScroll);
-          },
-          smooth ? 300 : 0,
-        );
-      }
-    }
-  };
-
-  useEffect(() => {
-    if (!isTyping && messages.length > 0) {
-      scrollToLatestMessage();
-    }
-  }, [messages, isTyping]);
-
   return (
     <Flex direction="column" h="100vh" bg={bg} color={textColor}>
       {/* Settings Section */}
@@ -366,14 +322,7 @@ ${message.data.content}
                 <Text fontSize="xs" color={textColorSecondary}>
                   Click
                 </Text>
-                <Flex
-                  h="24px"
-                  align="center"
-                  gap={2}
-                  bg={useColorModeValue('white', 'gray.700')}
-                  px={2}
-                  borderRadius="full"
-                  boxShadow="lg">
+                <Flex h="24px" align="center" gap={2} bg={buttonBg} px={2} borderRadius="full" boxShadow="lg">
                   <Text fontSize="xs">⭐️</Text>
                   <Text fontSize="xs" color={textColor}>
                     Summarize
@@ -460,81 +409,7 @@ ${message.data.content}
             </Box>
 
             {/* Messages Section */}
-            <VStack spacing={4} align="stretch" px={4}>
-              {messages.map((message, index) => (
-                <Box
-                  key={index}
-                  data-message
-                  bg={message.role === 'assistant' ? messageAssistantBg : messageUserBg}
-                  borderRadius="lg"
-                  p={4}
-                  color={textColor}>
-                  <Box>
-                    {message.role === 'user' ? (
-                      <Text>{message.content}</Text>
-                    ) : (
-                      <Box
-                        sx={{
-                          fontSize: 'md',
-                          'h1, h2, h3, h4, h5, h6': {
-                            fontWeight: 'bold',
-                            my: 2,
-                          },
-                          h1: { fontSize: '2xl' },
-                          h2: { fontSize: 'xl' },
-                          h3: { fontSize: 'lg' },
-                          p: {
-                            my: 2,
-                          },
-                          'ul, ol': {
-                            pl: 4,
-                            my: 2,
-                            listStylePosition: 'inside',
-                          },
-                          ul: {
-                            listStyleType: 'disc',
-                          },
-                          ol: {
-                            listStyleType: 'decimal',
-                          },
-                          li: {
-                            my: 1,
-                            pl: 1,
-                          },
-                          code: {
-                            bg: codeBg,
-                            px: 1,
-                            borderRadius: 'sm',
-                          },
-                          pre: {
-                            bg: codeBg,
-                            p: 2,
-                            borderRadius: 'md',
-                            overflowX: 'auto',
-                          },
-                          blockquote: {
-                            borderLeftWidth: '4px',
-                            borderLeftColor: blockquoteBorderColor,
-                            pl: 4,
-                            my: 2,
-                          },
-                        }}>
-                        <ReactMarkdown>{message.content}</ReactMarkdown>
-                      </Box>
-                    )}
-                  </Box>
-                  <Text fontSize="xs" color={textColorSecondary} mt={2}>
-                    {new Date(message.timestamp).toLocaleTimeString()}
-                  </Text>
-                </Box>
-              ))}
-              {isTyping && (
-                <Text fontSize="sm" color={textColorSecondary} animation="pulse 2s infinite">
-                  Assistant is typing...
-                </Text>
-              )}
-              <Box ref={messagesEndRef} />
-            </VStack>
+            <Messages messages={messages} isTyping={isTyping} />
           </VStack>
         )}
       </Box>
