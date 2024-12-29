@@ -350,8 +350,6 @@ ${message.data.content || ''}
               threadUrl={threadUrl}
               articleTitle={articleTitle}
               isSlack={pageType.isSlack}
-              threadData={threadData}
-              articleContent={articleContent}
               onClose={handleClose}
               onRegenerate={handleRegenerate}
             />
