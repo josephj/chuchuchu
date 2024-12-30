@@ -117,7 +117,7 @@ const getTranscriptFromPage = (): string | null => {
           return text.trim();
         })
         .join('\n');
-      console.log('[DEBUG] Successfully extracted transcript, length:', transcript.length);
+      console.log('[DEBUG] Successfully extracted transcript:', transcript);
       return transcript;
     }
 
@@ -178,7 +178,8 @@ export const captureYouTube = () => {
         console.log('[DEBUG] Starting YouTube content capture');
 
         // Try to get transcript from script tags first, then fall back to page scraping
-        const transcript = (await getTranscriptFromScripts()) || getTranscriptFromPage();
+        const transcript = await getTranscriptFromScripts(); //) || getTranscriptFromPage();
+        console.log('[DEBUG] transcript --->>>', transcript);
 
         const data: YouTubeData = {
           title: document.title.replace('- YouTube', '').trim(),
