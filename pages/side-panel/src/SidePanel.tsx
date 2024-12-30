@@ -3,7 +3,7 @@ import { withErrorBoundary, withSuspense } from '@extension/shared';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { askAssistant } from './ask-assistant';
 import { formatThreadForLLM, convertToWebUrl, formatRelativeTime } from './utils';
-import type { Language, ThreadData, ThreadDataMessage, ArticleDataResultMessage } from './types';
+import type { Language, ThreadData, ThreadDataMessage, ArticleDataResultMessage, ArticleData } from './types';
 import { LanguageSelector, SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE_CODE } from './LanguageSelector';
 import { useForm } from 'react-hook-form';
 import {
@@ -68,7 +68,7 @@ const SidePanel = () => {
   const [formattedUrl, setFormattedUrl] = useState<string>('');
   const pageType = usePageType();
   const [hasContent, setHasContent] = useState(false);
-  const [articleContent, setArticleContent] = useState<string>('');
+  const [articleContent, setArticleContent] = useState<string | ArticleData>('');
   const [articleTitle, setArticleTitle] = useState<string>('');
   const [contentType, setContentType] = useState<'slack' | 'article' | null>(null);
 
@@ -172,9 +172,34 @@ const SidePanel = () => {
       const formattedData = formatThreadForLLM(threadData);
       handleAskAssistant(formattedData, true);
     } else if (articleContent) {
-      handleAskAssistant(articleContent, true);
+      const formattedContent =
+        typeof articleContent === 'string'
+          ? articleContent
+          : pageType.type === 'youtube'
+            ? `Title: ${articleTitle}
+${articleContent.channel ? `Channel: ${articleContent.channel}` : ''}
+${articleContent.publishDate ? `Published: ${articleContent.publishDate}` : ''}
+
+Description:
+${articleContent.description || 'No description available'}
+
+${
+  articleContent.transcript
+    ? `Transcript:
+${articleContent.transcript}`
+    : ''
+}`
+            : `Title: ${articleTitle}
+${articleContent.siteName ? `Source: ${articleContent.siteName}` : ''}
+${articleContent.byline ? `Author: ${articleContent.byline}` : ''}
+${articleContent.excerpt ? `Summary: ${articleContent.excerpt}` : ''}
+
+Content:
+${articleContent.content || ''}`.trim();
+
+      handleAskAssistant(formattedContent, true);
     }
-  }, [threadData, articleContent, handleAskAssistant]);
+  }, [threadData, articleContent, handleAskAssistant, pageType.type, articleTitle]);
 
   useEffect(() => {
     const handleMessage = (message: ThreadDataMessage | ArticleDataResultMessage) => {
@@ -206,27 +231,40 @@ const SidePanel = () => {
           setArticleTitle(message.data.title);
         }
         setContentType('article');
+        setArticleContent(message.data);
 
-        const formattedArticle = `
-Title: ${message.data.title || ''}
+        const formattedContent =
+          pageType.type === 'youtube'
+            ? `Title: ${message.data.title || ''}
+${message.data.channel ? `Channel: ${message.data.channel}` : ''}
+${message.data.publishDate ? `Published: ${message.data.publishDate}` : ''}
+
+Description:
+${message.data.description || 'No description available'}
+
+${
+  message.data.transcript
+    ? `Transcript:
+${message.data.transcript}`
+    : ''
+}`
+            : `Title: ${message.data.title || ''}
 ${message.data.siteName ? `Source: ${message.data.siteName}` : ''}
 ${message.data.byline ? `Author: ${message.data.byline}` : ''}
 ${message.data.excerpt ? `Summary: ${message.data.excerpt}` : ''}
 
 Content:
-${message.data.content || ''}
-        `.trim();
+${message.data.content || ''}`.trim();
 
-        setArticleContent(formattedArticle);
-        setOriginalContent(formattedArticle);
-        console.log('[DEBUG] formattedArticle', formattedArticle);
-        handleAskAssistant(formattedArticle, true);
+        setOriginalContent(formattedContent);
+        console.log('[DEBUG] formattedContent', formattedContent);
+        handleAskAssistant(formattedContent, true);
       }
     };
 
     chrome.runtime.onMessage.addListener(handleMessage);
     return () => chrome.runtime.onMessage.removeListener(handleMessage);
-  }, [handleAskAssistant]);
+  }, [handleAskAssistant, pageType.type]);
 
   useEffect(() => {
     if (!selectedLanguage || isTyping || !isInitialLoad.current) return;
@@ -236,12 +274,31 @@ ${message.data.content || ''}
       setMessages([]);
       handleAskAssistant(formattedData, true);
     } else if (articleContent) {
+      const formattedContent =
+        pageType.type === 'youtube' && typeof articleContent !== 'string'
+          ? `Title: ${articleTitle}
+${articleContent.channel ? `Channel: ${articleContent.channel}` : ''}
+${articleContent.publishDate ? `Published: ${articleContent.publishDate}` : ''}
+
+Description:
+${articleContent.description || 'No description available'}
+
+${
+  articleContent.transcript
+    ? `Transcript:
+${articleContent.transcript}`
+    : ''
+}`
+          : typeof articleContent === 'string'
+            ? articleContent
+            : articleContent.content || '';
+
       setMessages([]);
-      handleAskAssistant(articleContent, true);
+      handleAskAssistant(formattedContent, true);
     }
 
     isInitialLoad.current = false;
-  }, [selectedLanguage, threadData, articleContent, handleAskAssistant, isTyping]);
+  }, [selectedLanguage, threadData, articleContent, handleAskAssistant, isTyping, pageType.type, articleTitle]);
 
   const onSubmit = async (data: FormData) => {
     if (!data.question.trim() || isTyping) return;
@@ -265,6 +322,17 @@ ${message.data.content || ''}
 
   const handleCapturePage = useCallback(() => {
     console.log('[DEBUG] handleCapturePage is executed');
+    // Clear previous content first
+    setHasContent(false);
+    setThreadData(null);
+    setMessages([]);
+    setOriginalUrl('');
+    setFormattedUrl('');
+    setArticleContent('');
+    setArticleTitle('');
+    setContentType(null);
+    setOriginalContent('');
+
     chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
       const currentTab = tabs[0];
       if (currentTab?.id) {

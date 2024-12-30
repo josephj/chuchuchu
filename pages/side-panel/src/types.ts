@@ -68,6 +68,10 @@ export type ArticleData = {
   siteName: string | null;
   byline: string | null;
   url: string;
+  description?: string | null;
+  transcript?: string | null;
+  channel?: string | null;
+  publishDate?: string | null;
 };
 
 export type CaptureArticleMessage = {
