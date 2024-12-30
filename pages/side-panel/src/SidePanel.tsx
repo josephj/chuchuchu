@@ -51,6 +51,7 @@ const SidePanel = () => {
   const [showWarning, setShowWarning] = useState(false);
   const [showHoverWarning, setShowHoverWarning] = useState(false);
   const [isOnOriginalPage, setIsOnOriginalPage] = useState(true);
+  const [originalContent, setOriginalContent] = useState<string>('');
   const isInitialLoad = useRef(true);
   const {
     register,
@@ -98,7 +99,11 @@ const SidePanel = () => {
           content: msg.content,
         }));
 
-        await askAssistant(systemPrompt, prompt, isInitialAnalysis ? [] : previousMessages, {
+        const messagesWithContext = isInitialAnalysis
+          ? []
+          : [{ role: 'user' as const, content: originalContent }, ...previousMessages];
+
+        await askAssistant(systemPrompt, prompt, messagesWithContext, {
           onAbort: () => {
             setIsTyping(false);
             setIsGenerating(false);
@@ -145,7 +150,7 @@ const SidePanel = () => {
         setIsGenerating(false);
       }
     },
-    [selectedLanguage, messages, pageType],
+    [selectedLanguage, messages, pageType, originalContent],
   );
 
   const handleClose = useCallback(() => {
@@ -185,6 +190,7 @@ const SidePanel = () => {
         setTimeout(() => {
           setThreadData(message.payload);
           const formattedData = formatThreadForLLM(message.payload);
+          setOriginalContent(formattedData);
           handleAskAssistant(formattedData, true);
         }, 100);
       } else if (message.type === 'ARTICLE_DATA_RESULT') {
@@ -212,6 +218,7 @@ ${message.data.content || ''}
         `.trim();
 
         setArticleContent(formattedArticle);
+        setOriginalContent(formattedArticle);
         console.log('[DEBUG] formattedArticle', formattedArticle);
         handleAskAssistant(formattedArticle, true);
       }
