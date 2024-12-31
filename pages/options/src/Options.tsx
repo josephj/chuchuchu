@@ -1,11 +1,42 @@
 import { withErrorBoundary, withSuspense, useStorage } from '@extension/shared';
 import { exampleThemeStorage } from '@extension/storage';
-import { Center, Checkbox, Flex, Text, IconButton, Box, Tooltip } from '@chakra-ui/react';
-import { useEffect, useState, useCallback } from 'react';
-import { MoonIcon, SunIcon } from '@chakra-ui/icons';
+import { createStorage } from '@extension/storage/lib/base/base';
+import { StorageEnum } from '@extension/storage/lib/base/enums';
+import {
+  Center,
+  Switch,
+  Grid,
+  GridItem,
+  FormControl,
+  FormLabel,
+  FormHelperText,
+  Icon,
+  Input,
+  Heading,
+  Box,
+  List,
+  ListItem,
+  Spinner,
+  Accordion,
+  AccordionItem,
+  AccordionButton,
+  AccordionPanel,
+  AccordionIcon,
+  Button,
+  Collapse,
+  useColorModeValue,
+  VStack,
+  Textarea,
+  IconButton,
+} from '@chakra-ui/react';
+import { CheckIcon, ChevronUpIcon, ChevronDownIcon, DeleteIcon, AddIcon } from '@chakra-ui/icons';
+import { useEffect, useState } from 'react';
 import Select from 'react-select';
-import type { Theme } from '@chakra-ui/react';
-import type { Language } from './types';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import type { Theme as ReactSelectTheme } from 'react-select';
+import type { OptionsFormData, UrlPattern } from './types';
+import { optionsFormSchema } from './types';
 import { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE_CODE } from './vars';
 
 type LanguageOption = {
@@ -15,47 +46,168 @@ type LanguageOption = {
   name: string;
 };
 
+const languageStorage = createStorage<string>('selectedLanguage', DEFAULT_LANGUAGE_CODE, {
+  storageEnum: StorageEnum.Local,
+  liveUpdate: true,
+});
+
+const openInWebStorage = createStorage<boolean>('openInWeb', true, {
+  storageEnum: StorageEnum.Local,
+  liveUpdate: true,
+});
+
+// Model API Keys Storage
+const openAIKeyStorage = createStorage<string>('openai-api-key', '', {
+  storageEnum: StorageEnum.Local,
+  liveUpdate: true,
+});
+
+const anthropicKeyStorage = createStorage<string>('anthropic-api-key', '', {
+  storageEnum: StorageEnum.Local,
+  liveUpdate: true,
+});
+
+const deepseekKeyStorage = createStorage<string>('deepseek-api-key', '', {
+  storageEnum: StorageEnum.Local,
+  liveUpdate: true,
+});
+
+const googleKeyStorage = createStorage<string>('google-api-key', '', {
+  storageEnum: StorageEnum.Local,
+  liveUpdate: true,
+});
+
+const ollamaUrlStorage = createStorage<string>('ollama-url', '', {
+  storageEnum: StorageEnum.Local,
+  liveUpdate: true,
+});
+
+const groqKeyStorage = createStorage<string>('groq-api-key', '', {
+  storageEnum: StorageEnum.Local,
+  liveUpdate: true,
+});
+
+const urlPatternsStorage = createStorage<UrlPattern[]>('url-patterns', [], {
+  storageEnum: StorageEnum.Local,
+  liveUpdate: true,
+});
+
+type ModelInfo = {
+  openai?: string[];
+  anthropic?: string[];
+  deepseek?: string[];
+  google?: string[];
+  ollama?: string[];
+  groq?: string[];
+};
+
 const Options = () => {
   const theme = useStorage(exampleThemeStorage);
+  const selectedLanguage = useStorage(languageStorage);
+  const openInWeb = useStorage(openInWebStorage);
+  const openAIKey = useStorage(openAIKeyStorage);
+  const anthropicKey = useStorage(anthropicKeyStorage);
+  const deepseekKey = useStorage(deepseekKeyStorage);
+  const googleKey = useStorage(googleKeyStorage);
+  const ollamaUrl = useStorage(ollamaUrlStorage);
+  const groqKey = useStorage(groqKeyStorage);
+  const urlPatterns = useStorage(urlPatternsStorage);
   const isLight = theme === 'light';
-  const [openInWeb, setOpenInWeb] = useState(true);
-  const [selectedLanguage, setSelectedLanguage] = useState<Language['code']>(DEFAULT_LANGUAGE_CODE);
+  const [savedSettings, setSavedSettings] = useState<{ [K in keyof OptionsFormData]?: boolean }>({});
+  const [modelList, setModelList] = useState<ModelInfo>({});
+  const [isLoadingModels, setIsLoadingModels] = useState<{ [key: string]: boolean }>({});
+  const [expandedModels, setExpandedModels] = useState<{ [key: string]: boolean }>({});
+  const textColorSecondary = useColorModeValue('gray.600', 'whiteAlpha.700');
 
   useEffect(() => {
-    chrome.storage.local.get('openInWeb').then(result => {
-      if (result.openInWeb === false) {
-        setOpenInWeb(false);
-      } else {
-        chrome.storage.local.set({ openInWeb: true });
-      }
-    });
-  }, []);
+    // Clear saved indicators after 2 seconds
+    const timer = setTimeout(() => {
+      setSavedSettings({});
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [savedSettings]);
+
+  const { control, setValue, handleSubmit } = useForm<OptionsFormData>({
+    resolver: zodResolver(optionsFormSchema),
+    defaultValues: {
+      language: DEFAULT_LANGUAGE_CODE,
+      theme: !isLight,
+      openInWeb: true,
+      openAIKey: openAIKey || '',
+      anthropicKey: anthropicKey || '',
+      deepseekKey: deepseekKey || '',
+      googleKey: googleKey || '',
+      ollamaUrl: ollamaUrl || '',
+      groqKey: groqKey || '',
+    },
+  });
 
   useEffect(() => {
-    chrome.storage.local.get('selectedLanguage').then(result => {
-      if (result.selectedLanguage) {
-        setSelectedLanguage(result.selectedLanguage);
-      } else {
-        setSelectedLanguage('zh-TW');
-        chrome.storage.local.set({ selectedLanguage: 'zh-TW' });
-      }
-    });
-  }, []);
+    setValue('language', selectedLanguage);
+    setValue('openInWeb', openInWeb);
+    setValue('openAIKey', openAIKey || '');
+    setValue('anthropicKey', anthropicKey || '');
+    setValue('deepseekKey', deepseekKey || '');
+    setValue('googleKey', googleKey || '');
+    setValue('ollamaUrl', ollamaUrl || '');
+    setValue('groqKey', groqKey || '');
+  }, [setValue, selectedLanguage, openInWeb, openAIKey, anthropicKey, deepseekKey, googleKey, ollamaUrl, groqKey]);
 
-  const handleOpenInWebChange = (newValue: boolean) => {
-    setOpenInWeb(newValue);
-    chrome.storage.local.set({ openInWeb: newValue });
-    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-      if (tabs[0]?.id) {
-        chrome.tabs.sendMessage(tabs[0].id, { type: 'OPEN_IN_WEB_CHANGED', value: newValue });
-      }
-    });
+  const onSubmit = async (data: OptionsFormData) => {
+    // Handle theme change
+    if (data.theme !== !isLight) {
+      exampleThemeStorage.toggle();
+      setSavedSettings(prev => ({ ...prev, theme: true }));
+    }
+
+    // Handle language change
+    if (data.language !== selectedLanguage) {
+      await languageStorage.set(data.language);
+      setSavedSettings(prev => ({ ...prev, language: true }));
+    }
+
+    // Handle openInWeb change
+    if (data.openInWeb !== openInWeb) {
+      await openInWebStorage.set(data.openInWeb);
+      chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+        if (tabs[0]?.id) {
+          chrome.tabs.sendMessage(tabs[0].id, { type: 'OPEN_IN_WEB_CHANGED', value: data.openInWeb });
+        }
+      });
+      setSavedSettings(prev => ({ ...prev, openInWeb: true }));
+    }
+
+    // Handle API key changes
+    if (data.openAIKey !== openAIKey) {
+      await openAIKeyStorage.set(data.openAIKey);
+      setSavedSettings(prev => ({ ...prev, openAIKey: true }));
+    }
+
+    if (data.anthropicKey !== anthropicKey) {
+      await anthropicKeyStorage.set(data.anthropicKey);
+      setSavedSettings(prev => ({ ...prev, anthropicKey: true }));
+    }
+
+    if (data.deepseekKey !== deepseekKey) {
+      await deepseekKeyStorage.set(data.deepseekKey);
+      setSavedSettings(prev => ({ ...prev, deepseekKey: true }));
+    }
+
+    if (data.googleKey !== googleKey) {
+      await googleKeyStorage.set(data.googleKey);
+      setSavedSettings(prev => ({ ...prev, googleKey: true }));
+    }
+
+    if (data.ollamaUrl !== ollamaUrl) {
+      await ollamaUrlStorage.set(data.ollamaUrl);
+      setSavedSettings(prev => ({ ...prev, ollamaUrl: true }));
+    }
+
+    if (data.groqKey !== groqKey) {
+      await groqKeyStorage.set(data.groqKey);
+      setSavedSettings(prev => ({ ...prev, groqKey: true }));
+    }
   };
-
-  const handleLanguageChange = useCallback((newLanguage: string) => {
-    setSelectedLanguage(newLanguage);
-    chrome.storage.local.set({ selectedLanguage: newLanguage });
-  }, []);
 
   const selectStyles = {
     control: (base: Record<string, unknown>) => ({
@@ -74,70 +226,486 @@ const Options = () => {
     }),
   };
 
-  const selectTheme = (theme: Theme) =>
-    ({
-      ...theme,
-      colors: {
-        ...theme.colors,
-        neutral0: isLight ? '#FFFFFF' : '#2D3748', // background
-        neutral5: isLight ? '#E2E8F0' : '#4A5568',
-        neutral10: isLight ? '#E2E8F0' : '#4A5568',
-        neutral20: isLight ? '#E2E8F0' : '#4A5568', // borders
-        neutral30: isLight ? '#A0AEC0' : '#718096',
-        neutral40: isLight ? '#718096' : '#A0AEC0',
-        neutral50: isLight ? '#718096' : '#A0AEC0', // placeholder text
-        neutral60: isLight ? '#4A5568' : '#CBD5E0',
-        neutral70: isLight ? '#2D3748' : '#E2E8F0',
-        neutral80: isLight ? '#1A202C' : '#F7FAFC', // text
-        neutral90: isLight ? '#000000' : '#FFFFFF',
-        primary: isLight ? '#3182CE' : '#90CDF4', // selected option text
-        primary25: isLight ? '#EBF8FF' : '#2A4365', // hovered option
-        primary50: isLight ? '#4299E1' : '#2C5282', // active option
-        primary75: isLight ? '#2B6CB0' : '#2A4365',
-      },
-    }) as Theme;
+  const selectTheme = (theme: ReactSelectTheme) => ({
+    ...theme,
+    colors: {
+      ...theme.colors,
+      neutral0: isLight ? '#FFFFFF' : '#2D3748',
+      neutral5: isLight ? '#E2E8F0' : '#4A5568',
+      neutral10: isLight ? '#E2E8F0' : '#4A5568',
+      neutral20: isLight ? '#E2E8F0' : '#4A5568',
+      neutral30: isLight ? '#A0AEC0' : '#718096',
+      neutral40: isLight ? '#718096' : '#A0AEC0',
+      neutral50: isLight ? '#718096' : '#A0AEC0',
+      neutral60: isLight ? '#4A5568' : '#CBD5E0',
+      neutral70: isLight ? '#2D3748' : '#E2E8F0',
+      neutral80: isLight ? '#1A202C' : '#F7FAFC',
+      neutral90: isLight ? '#000000' : '#FFFFFF',
+      primary: isLight ? '#3182CE' : '#90CDF4',
+      primary25: isLight ? '#EBF8FF' : '#2A4365',
+      primary50: isLight ? '#4299E1' : '#2C5282',
+      primary75: isLight ? '#2B6CB0' : '#2A4365',
+    },
+  });
+
+  const fetchOpenAIModels = async (key: string) => {
+    try {
+      setIsLoadingModels(prev => ({ ...prev, openai: true }));
+      const response = await fetch('https://api.openai.com/v1/models', {
+        headers: {
+          Authorization: `Bearer ${key}`,
+        },
+      });
+      if (!response.ok) throw new Error('Invalid API key');
+      const data = await response.json();
+      // Filter for chat models only
+      const chatModels = data.data
+        .map((model: { id: string }) => model.id)
+        .filter((id: string) => id.includes('gpt') && (id.includes('turbo') || id.endsWith('-preview')));
+      setModelList(prev => ({
+        ...prev,
+        openai: chatModels,
+      }));
+    } catch (error) {
+      setModelList(prev => ({ ...prev, openai: undefined }));
+    } finally {
+      setIsLoadingModels(prev => ({ ...prev, openai: false }));
+    }
+  };
+
+  const fetchAnthropicModels = async (key: string) => {
+    try {
+      setIsLoadingModels(prev => ({ ...prev, anthropic: true }));
+      const response = await fetch('https://api.anthropic.com/v1/models', {
+        headers: {
+          'x-api-key': key,
+          'anthropic-version': '2023-06-01',
+        },
+      });
+      if (!response.ok) throw new Error('Invalid API key');
+      const data = await response.json();
+      // Filter for chat models only (Claude models)
+      const chatModels = data.models
+        .map((model: { id: string }) => model.id)
+        .filter((id: string) => id.startsWith('claude'));
+      setModelList(prev => ({
+        ...prev,
+        anthropic: chatModels,
+      }));
+    } catch (error) {
+      setModelList(prev => ({ ...prev, anthropic: undefined }));
+    } finally {
+      setIsLoadingModels(prev => ({ ...prev, anthropic: false }));
+    }
+  };
+
+  const fetchOllamaModels = async (url: string) => {
+    try {
+      setIsLoadingModels(prev => ({ ...prev, ollama: true }));
+      const response = await fetch(`${url}/api/tags`);
+      if (!response.ok) throw new Error('Invalid URL');
+      const data = await response.json();
+      // Filter for chat models (excluding specific task models)
+      const chatModels = data.models
+        .map((model: { name: string }) => model.name)
+        .filter(
+          (name: string) =>
+            !name.includes('codegen') &&
+            !name.includes('instruct') &&
+            !name.includes('code-') &&
+            !name.includes('-vision'),
+        );
+      setModelList(prev => ({
+        ...prev,
+        ollama: chatModels,
+      }));
+    } catch (error) {
+      setModelList(prev => ({ ...prev, ollama: undefined }));
+    } finally {
+      setIsLoadingModels(prev => ({ ...prev, ollama: false }));
+    }
+  };
+
+  // Add effect to check and fetch models when keys change
+  useEffect(() => {
+    if (openAIKey) fetchOpenAIModels(openAIKey);
+  }, [openAIKey]);
+
+  useEffect(() => {
+    if (anthropicKey) fetchAnthropicModels(anthropicKey);
+  }, [anthropicKey]);
+
+  useEffect(() => {
+    if (ollamaUrl) fetchOllamaModels(ollamaUrl);
+  }, [ollamaUrl]);
+
+  const toggleModelList = (provider: string) => {
+    setExpandedModels(prev => ({
+      ...prev,
+      [provider]: !prev[provider],
+    }));
+  };
+
+  const renderModelList = (provider: keyof ModelInfo, models?: string[]) => {
+    if (!models?.length) return null;
+
+    return (
+      <Box mt={2}>
+        <Button
+          width="100%"
+          variant="ghost"
+          onClick={() => toggleModelList(provider)}
+          rightIcon={expandedModels[provider] ? <ChevronDownIcon /> : <ChevronUpIcon />}
+          size="sm"
+          color={textColorSecondary}>
+          Available Models {models.length > 0 && `(${models.length})`}
+        </Button>
+        <Collapse in={expandedModels[provider]}>
+          <Box pt={2}>
+            {isLoadingModels[provider] ? (
+              <Spinner size="sm" />
+            ) : (
+              <List spacing={1}>
+                {models.map(model => (
+                  <ListItem key={model} fontSize="sm" color="gray.600">
+                    {model}
+                  </ListItem>
+                ))}
+              </List>
+            )}
+          </Box>
+        </Collapse>
+      </Box>
+    );
+  };
+
+  const handleAddPattern = () => {
+    const newPattern: UrlPattern = {
+      pattern: '',
+      model: '',
+      prompt: '',
+    };
+    urlPatternsStorage.set([...(urlPatterns || []), newPattern]);
+  };
+
+  const handleUpdatePattern = (index: number, field: keyof UrlPattern, value: string) => {
+    const updatedPatterns = [...(urlPatterns || [])];
+    updatedPatterns[index] = {
+      ...updatedPatterns[index],
+      [field]: value,
+    };
+    urlPatternsStorage.set(updatedPatterns);
+  };
+
+  const handleDeletePattern = (index: number) => {
+    const updatedPatterns = [...(urlPatterns || [])];
+    updatedPatterns.splice(index, 1);
+    urlPatternsStorage.set(updatedPatterns);
+  };
 
   return (
-    <Center>
-      <Flex direction="column" gap={4}>
-        {/* Language Selector */}
-        <Flex gap={2} alignItems="center">
-          <Tooltip label="Language" placement="top">
-            <Box>
-              <Text fontSize="lg">🌐</Text>
-            </Box>
-          </Tooltip>
-          <Select<LanguageOption>
-            value={SUPPORTED_LANGUAGES.find(lang => lang.code === selectedLanguage)}
-            onChange={option => handleLanguageChange(option?.code || DEFAULT_LANGUAGE_CODE)}
-            options={SUPPORTED_LANGUAGES}
-            styles={selectStyles}
-            theme={selectTheme}
-            placeholder="Select language..."
-            isSearchable
-            components={{
-              IndicatorSeparator: () => null,
-            }}
-          />
-        </Flex>
+    <Center p={6}>
+      <form onChange={handleSubmit(onSubmit)} style={{ width: '100%', maxWidth: '600px' }}>
+        <Accordion defaultIndex={[0]} allowMultiple>
+          {/* General Settings */}
+          <AccordionItem>
+            <h2>
+              <AccordionButton>
+                <Box as="span" flex="1" textAlign="left">
+                  <Heading size="md">General Settings</Heading>
+                </Box>
+                <AccordionIcon />
+              </AccordionButton>
+            </h2>
+            <AccordionPanel pb={4}>
+              <Grid templateColumns="200px 1fr" gap={6} alignItems="start" w="full">
+                {/* Language Setting */}
+                <GridItem display="flex" justifyContent="flex-end" alignItems="center" pr={4}>
+                  <FormLabel fontWeight="medium" m={0} htmlFor="language-select">
+                    Language
+                  </FormLabel>
+                </GridItem>
+                <GridItem display="flex" alignItems="center" gap={2}>
+                  <FormControl id="language-select">
+                    <Controller
+                      control={control}
+                      name="language"
+                      render={({ field: { onChange, value } }) => (
+                        <Select<LanguageOption>
+                          value={SUPPORTED_LANGUAGES.find(lang => lang.code === value)}
+                          onChange={option => onChange(option?.code || DEFAULT_LANGUAGE_CODE)}
+                          options={SUPPORTED_LANGUAGES}
+                          styles={selectStyles}
+                          theme={selectTheme}
+                          placeholder="Select language..."
+                          isSearchable
+                          components={{
+                            IndicatorSeparator: () => null,
+                          }}
+                        />
+                      )}
+                    />
+                    <FormHelperText>Choose your preferred language for the extension</FormHelperText>
+                  </FormControl>
+                  {savedSettings.language && <Icon as={CheckIcon} color="green.500" />}
+                </GridItem>
 
-        {/* Dark/Light Mode Switch */}
-        <Flex justifyContent="center">
-          <IconButton
-            aria-label="Toggle theme"
-            icon={isLight ? <MoonIcon /> : <SunIcon />}
-            onClick={exampleThemeStorage.toggle}
-            size="sm"
-            variant="ghost"
-          />
-        </Flex>
+                {/* Theme Setting */}
+                <GridItem display="flex" justifyContent="flex-end" alignItems="center" pr={4}>
+                  <FormLabel fontWeight="medium" m={0} htmlFor="theme-toggle">
+                    Theme
+                  </FormLabel>
+                </GridItem>
+                <GridItem display="flex" alignItems="center" gap={2}>
+                  <FormControl id="theme-toggle">
+                    <Controller
+                      control={control}
+                      name="theme"
+                      render={({ field: { onChange, value } }) => (
+                        <Switch isChecked={value} onChange={onChange} size="lg" />
+                      )}
+                    />
+                    <FormHelperText>Switch between light and dark mode</FormHelperText>
+                  </FormControl>
+                  {savedSettings.theme && <Icon as={CheckIcon} color="green.500" />}
+                </GridItem>
+              </Grid>
+            </AccordionPanel>
+          </AccordionItem>
 
-        {/* Open in Web Toggle */}
-        <Flex gap={2} alignItems="center">
-          <Text fontWeight="medium">Open links in web:</Text>
-          <Checkbox isChecked={openInWeb} onChange={e => handleOpenInWebChange(e.target.checked)} />
-        </Flex>
-      </Flex>
+          {/* Slack Settings */}
+          <AccordionItem>
+            <h2>
+              <AccordionButton>
+                <Box as="span" flex="1" textAlign="left">
+                  <Heading size="md">Slack Settings</Heading>
+                </Box>
+                <AccordionIcon />
+              </AccordionButton>
+            </h2>
+            <AccordionPanel pb={4}>
+              <Grid templateColumns="200px 1fr" gap={6} alignItems="start" w="full">
+                {/* Open in Web Setting */}
+                <GridItem display="flex" justifyContent="flex-end" alignItems="center" pr={4}>
+                  <FormLabel fontWeight="medium" m={0} htmlFor="open-in-web">
+                    Open in Web
+                  </FormLabel>
+                </GridItem>
+                <GridItem display="flex" alignItems="center" gap={2}>
+                  <FormControl id="open-in-web">
+                    <Controller
+                      control={control}
+                      name="openInWeb"
+                      render={({ field: { onChange, value } }) => (
+                        <Switch isChecked={value} onChange={onChange} size="lg" />
+                      )}
+                    />
+                    <FormHelperText>Choose whether to open links in web browser</FormHelperText>
+                  </FormControl>
+                  {savedSettings.openInWeb && <Icon as={CheckIcon} color="green.500" />}
+                </GridItem>
+              </Grid>
+            </AccordionPanel>
+          </AccordionItem>
+
+          {/* Model Settings */}
+          <AccordionItem>
+            <h2>
+              <AccordionButton>
+                <Box as="span" flex="1" textAlign="left">
+                  <Heading size="md">Model Settings</Heading>
+                </Box>
+                <AccordionIcon />
+              </AccordionButton>
+            </h2>
+            <AccordionPanel pb={4}>
+              <Grid templateColumns="200px 1fr" gap={6} alignItems="start" w="full">
+                {/* OpenAI API Key */}
+                <GridItem display="flex" justifyContent="flex-end" alignItems="center" pr={4}>
+                  <FormLabel fontWeight="medium" m={0} htmlFor="openai-key">
+                    OpenAI API Key
+                  </FormLabel>
+                </GridItem>
+                <GridItem display="flex" flexDirection="column" gap={2}>
+                  <Box display="flex" alignItems="center" gap={2}>
+                    <FormControl id="openai-key">
+                      <Controller
+                        control={control}
+                        name="openAIKey"
+                        render={({ field }) => <Input {...field} type="password" placeholder="sk-..." />}
+                      />
+                    </FormControl>
+                    {savedSettings.openAIKey && <Icon as={CheckIcon} color="green.500" />}
+                  </Box>
+                  {renderModelList('openai', modelList.openai)}
+                </GridItem>
+
+                {/* Anthropic API Key */}
+                <GridItem display="flex" justifyContent="flex-end" alignItems="center" pr={4}>
+                  <FormLabel fontWeight="medium" m={0} htmlFor="anthropic-key">
+                    Anthropic API Key
+                  </FormLabel>
+                </GridItem>
+                <GridItem display="flex" flexDirection="column" gap={2}>
+                  <Box display="flex" alignItems="center" gap={2}>
+                    <FormControl id="anthropic-key">
+                      <Controller
+                        control={control}
+                        name="anthropicKey"
+                        render={({ field }) => <Input {...field} type="password" placeholder="sk-ant-..." />}
+                      />
+                    </FormControl>
+                    {savedSettings.anthropicKey && <Icon as={CheckIcon} color="green.500" />}
+                  </Box>
+                  {renderModelList('anthropic', modelList.anthropic)}
+                </GridItem>
+
+                {/* DeepSeek API Key */}
+                <GridItem display="flex" justifyContent="flex-end" alignItems="center" pr={4}>
+                  <FormLabel fontWeight="medium" m={0} htmlFor="deepseek-key">
+                    DeepSeek API Key
+                  </FormLabel>
+                </GridItem>
+                <GridItem display="flex" alignItems="center" gap={2}>
+                  <FormControl id="deepseek-key">
+                    <Controller
+                      control={control}
+                      name="deepseekKey"
+                      render={({ field }) => <Input {...field} type="password" placeholder="..." />}
+                    />
+                  </FormControl>
+                  {savedSettings.deepseekKey && <Icon as={CheckIcon} color="green.500" />}
+                </GridItem>
+
+                {/* Google API Key */}
+                <GridItem display="flex" justifyContent="flex-end" alignItems="center" pr={4}>
+                  <FormLabel fontWeight="medium" m={0} htmlFor="google-key">
+                    Google API Key
+                  </FormLabel>
+                </GridItem>
+                <GridItem display="flex" alignItems="center" gap={2}>
+                  <FormControl id="google-key">
+                    <Controller
+                      control={control}
+                      name="googleKey"
+                      render={({ field }) => <Input {...field} type="password" placeholder="..." />}
+                    />
+                  </FormControl>
+                  {savedSettings.googleKey && <Icon as={CheckIcon} color="green.500" />}
+                </GridItem>
+
+                {/* Ollama URL */}
+                <GridItem display="flex" justifyContent="flex-end" alignItems="center" pr={4}>
+                  <FormLabel fontWeight="medium" m={0} htmlFor="ollama-url">
+                    Ollama URL
+                  </FormLabel>
+                </GridItem>
+                <GridItem display="flex" flexDirection="column" gap={2}>
+                  <Box display="flex" alignItems="center" gap={2}>
+                    <FormControl id="ollama-url">
+                      <Controller
+                        control={control}
+                        name="ollamaUrl"
+                        render={({ field }) => <Input {...field} type="text" placeholder="http://localhost:11434" />}
+                      />
+                    </FormControl>
+                    {savedSettings.ollamaUrl && <Icon as={CheckIcon} color="green.500" />}
+                  </Box>
+                  {renderModelList('ollama', modelList.ollama)}
+                </GridItem>
+
+                {/* Groq API Key */}
+                <GridItem display="flex" justifyContent="flex-end" alignItems="center" pr={4}>
+                  <FormLabel fontWeight="medium" m={0} htmlFor="groq-key">
+                    Groq API Key
+                  </FormLabel>
+                </GridItem>
+                <GridItem display="flex" alignItems="center" gap={2}>
+                  <FormControl id="groq-key">
+                    <Controller
+                      control={control}
+                      name="groqKey"
+                      render={({ field }) => <Input {...field} type="password" placeholder="gsk_..." />}
+                    />
+                  </FormControl>
+                  {savedSettings.groqKey && <Icon as={CheckIcon} color="green.500" />}
+                </GridItem>
+              </Grid>
+            </AccordionPanel>
+          </AccordionItem>
+
+          {/* URL Pattern Mapping */}
+          <AccordionItem>
+            <h2>
+              <AccordionButton>
+                <Box as="span" flex="1" textAlign="left">
+                  <Heading size="md">URL Pattern Mapping</Heading>
+                </Box>
+                <AccordionIcon />
+              </AccordionButton>
+            </h2>
+            <AccordionPanel pb={4}>
+              <VStack spacing={4} align="stretch">
+                {urlPatterns?.map((pattern, index) => (
+                  <Grid key={index} templateColumns="1fr 1fr 2fr auto" gap={4} alignItems="start">
+                    <FormControl>
+                      <FormLabel fontSize="sm">URL Pattern</FormLabel>
+                      <Input
+                        size="sm"
+                        value={pattern.pattern}
+                        onChange={e => handleUpdatePattern(index, 'pattern', e.target.value)}
+                        placeholder="e.g., *://*.youtube.com/*"
+                      />
+                    </FormControl>
+                    <FormControl>
+                      <FormLabel fontSize="sm">Model</FormLabel>
+                      <Select<{ value: string; label: string }>
+                        value={{ value: pattern.model, label: pattern.model }}
+                        onChange={option => handleUpdatePattern(index, 'model', option?.value || '')}
+                        options={[
+                          ...(modelList.openai?.map(model => ({ value: model, label: model })) || []),
+                          ...(modelList.anthropic?.map(model => ({ value: model, label: model })) || []),
+                          ...(modelList.ollama?.map(model => ({ value: model, label: model })) || []),
+                        ]}
+                        styles={{
+                          ...selectStyles,
+                          control: (base: Record<string, unknown>) => ({
+                            ...base,
+                            minHeight: '32px',
+                          }),
+                        }}
+                        theme={selectTheme}
+                      />
+                    </FormControl>
+                    <FormControl>
+                      <FormLabel fontSize="sm">Custom Prompt</FormLabel>
+                      <Textarea
+                        size="sm"
+                        value={pattern.prompt}
+                        onChange={e => handleUpdatePattern(index, 'prompt', e.target.value)}
+                        placeholder="Enter custom prompt..."
+                        rows={3}
+                      />
+                    </FormControl>
+                    <IconButton
+                      aria-label="Delete pattern"
+                      icon={<DeleteIcon />}
+                      onClick={() => handleDeletePattern(index)}
+                      size="sm"
+                      colorScheme="red"
+                      variant="ghost"
+                      alignSelf="flex-end"
+                    />
+                  </Grid>
+                ))}
+                <Button leftIcon={<AddIcon />} onClick={handleAddPattern} size="sm" alignSelf="flex-start">
+                  Add Pattern
+                </Button>
+              </VStack>
+            </AccordionPanel>
+          </AccordionItem>
+        </Accordion>
+      </form>
     </Center>
   );
 };
