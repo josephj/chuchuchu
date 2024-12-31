@@ -31,10 +31,58 @@ type YouTubePlayerResponse = {
   };
 };
 
-const getTranscriptFromScripts = async (): Promise<string | null> => {
-  console.log('[DEBUG] Attempting to get transcript from script tags');
+const getTranscriptFromAPI = async (videoId: string): Promise<string | null> => {
+  console.log('[DEBUG] Attempting to get transcript from API');
   try {
-    // Get current video ID to verify the transcript belongs to this video
+    // First get the caption tracks from the timedtext API
+    const tracksResponse = await fetch(`https://www.youtube.com/api/timedtext?v=${videoId}&type=list`);
+    const tracksXML = await tracksResponse.text();
+    const parser = new DOMParser();
+    const tracksDoc = parser.parseFromString(tracksXML, 'text/xml');
+    const tracks = Array.from(tracksDoc.getElementsByTagName('track'));
+
+    // Find English track or use the first available
+    const englishTrack =
+      tracks.find(
+        track => track.getAttribute('lang_code') === 'en' || track.getAttribute('lang_original') === 'English',
+      ) || tracks[0];
+
+    if (!englishTrack) {
+      console.log('[DEBUG] No caption tracks found');
+      return null;
+    }
+
+    const lang = englishTrack.getAttribute('lang_code');
+    const name = englishTrack.getAttribute('name');
+
+    // Get the actual transcript
+    const transcriptResponse = await fetch(
+      `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}${name ? `&name=${name}` : ''}`,
+    );
+    const transcriptXML = await transcriptResponse.text();
+    const transcriptDoc = parser.parseFromString(transcriptXML, 'text/xml');
+    const textElements = transcriptDoc.getElementsByTagName('text');
+
+    if (textElements.length === 0) {
+      console.log('[DEBUG] No text elements found in transcript');
+      return null;
+    }
+
+    const transcript = Array.from(textElements)
+      .map(element => element.textContent?.replace(/&#39;/g, "'") || '')
+      .join(' ');
+
+    console.log('[DEBUG] Extracted transcript:', transcript.substring(0, 200) + '...');
+    return transcript;
+  } catch (error) {
+    console.error('[DEBUG] Error getting transcript from API:', error);
+    return null;
+  }
+};
+
+const getTranscriptFromScripts = async (): Promise<string | null> => {
+  console.log('[DEBUG] Attempting to get transcript');
+  try {
     const currentVideoId = getVideoId(window.location.href);
     console.log('[DEBUG] Current video ID:', currentVideoId);
     if (!currentVideoId) {
@@ -42,6 +90,13 @@ const getTranscriptFromScripts = async (): Promise<string | null> => {
       return null;
     }
 
+    // Try the API method first
+    const apiTranscript = await getTranscriptFromAPI(currentVideoId);
+    if (apiTranscript) {
+      return apiTranscript;
+    }
+
+    // Fall back to the old method if API fails
     const scripts = Array.from(document.querySelectorAll('script'));
     console.log('[DEBUG] Found script tags:', scripts.length);
 
@@ -104,37 +159,42 @@ const getTranscriptFromScripts = async (): Promise<string | null> => {
   }
 };
 
-const getTranscriptFromPage = (): string | null => {
-  console.log('[DEBUG] Attempting to get transcript from page');
-  try {
-    const transcriptElements = document.querySelectorAll('ytd-transcript-segment-renderer');
-    console.log('[DEBUG] Found transcript elements:', transcriptElements.length);
-
-    if (transcriptElements.length > 0) {
-      const transcript = Array.from(transcriptElements)
-        .map(segment => {
-          const text = segment.querySelector('#text')?.textContent || '';
-          return text.trim();
-        })
-        .join('\n');
-      console.log('[DEBUG] Successfully extracted transcript:', transcript);
-      return transcript;
-    }
-
-    console.log('[DEBUG] No transcript elements found on page');
-    return null;
-  } catch (error) {
-    console.error('[DEBUG] Error getting transcript from page:', error);
-    return null;
-  }
-};
-
-const getDescriptionFromPage = (): string | null => {
+const getDescriptionFromPage = async (): string | null => {
   console.log('[DEBUG] Attempting to get description from page');
   try {
-    const description = document.querySelector('#description-inline-expander, #description')?.textContent;
+    const expandButton = document.querySelector('tp-yt-paper-button#expand');
+    if (expandButton instanceof HTMLElement) {
+      console.log('[DEBUG] Found expand button, clicking it');
+      expandButton.click();
+      // Give a small delay for the content to expand
+      // We'll still try to get the content immediately in case the button was already clicked
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    const selectors = [
+      '#description-inline-expander .ytd-text-inline-expander',
+      '#description-inline-expander ytd-expander[collapsed] #description',
+      '#description-inline-expander #description',
+      'ytd-expander[slot="expander"] #content',
+    ];
+
+    let description: string | null = null;
+
+    for (const selector of selectors) {
+      const element = document.querySelector(selector);
+      if (element?.textContent) {
+        description = element.textContent;
+        break;
+      }
+    }
+
     const trimmedDescription = description?.trim() || null;
-    console.log('[DEBUG] Found description:', trimmedDescription ? 'Yes' : 'No', 'Length:', trimmedDescription?.length);
+    console.log(
+      '[DEBUG] >>>> Found description:',
+      trimmedDescription ? 'Yes' : 'No',
+      'Length:',
+      trimmedDescription?.length,
+    );
     return trimmedDescription;
   } catch (error) {
     console.error('[DEBUG] Error getting description from page:', error);
@@ -181,9 +241,10 @@ export const captureYouTube = () => {
         const transcript = await getTranscriptFromScripts(); //) || getTranscriptFromPage();
         console.log('[DEBUG] transcript --->>>', transcript);
 
+        const description = await getDescriptionFromPage();
         const data: YouTubeData = {
           title: document.title.replace('- YouTube', '').trim(),
-          description: getDescriptionFromPage(),
+          description,
           transcript,
           channel: getChannelFromPage(),
           publishDate: getPublishDateFromPage(),

@@ -21,8 +21,9 @@ import {
   PopoverContent,
   PopoverBody,
   Link,
+  Collapse,
 } from '@chakra-ui/react';
-import { MoonIcon, SunIcon, WarningIcon } from '@chakra-ui/icons';
+import { MoonIcon, SunIcon, WarningIcon, ChevronUpIcon, ChevronDownIcon } from '@chakra-ui/icons';
 import { Messages } from './Messages';
 import { Header } from './Header';
 import { useStorage } from './lib/use-storage';
@@ -71,6 +72,7 @@ const SidePanel = () => {
   const [articleContent, setArticleContent] = useState<string | ArticleData>('');
   const [articleTitle, setArticleTitle] = useState<string>('');
   const [contentType, setContentType] = useState<'slack' | 'article' | null>(null);
+  const [showOriginalContent, setShowOriginalContent] = useState(false);
 
   const bg = useColorModeValue('gray.50', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
@@ -176,25 +178,26 @@ const SidePanel = () => {
         typeof articleContent === 'string'
           ? articleContent
           : pageType.type === 'youtube'
-            ? `Title: ${articleTitle}
-${articleContent.channel ? `Channel: ${articleContent.channel}` : ''}
-${articleContent.publishDate ? `Published: ${articleContent.publishDate}` : ''}
+            ? `---
+title: ${articleTitle}
+${articleContent.channel ? `channel: ${articleContent.channel}` : ''}
+${articleContent.publishDate ? `published: ${articleContent.publishDate}` : ''}
+type: youtube
+---
 
-Description:
-${articleContent.description || 'No description available'}
+${articleContent.description ? `## Description\n${articleContent.description}` : 'No description available'}
 
-${
-  articleContent.transcript
-    ? `Transcript:
-${articleContent.transcript}`
-    : ''
-}`
-            : `Title: ${articleTitle}
-${articleContent.siteName ? `Source: ${articleContent.siteName}` : ''}
-${articleContent.byline ? `Author: ${articleContent.byline}` : ''}
-${articleContent.excerpt ? `Summary: ${articleContent.excerpt}` : ''}
+${articleContent.transcript ? `## Transcript\n${articleContent.transcript}` : ''}`
+            : `---
+title: ${articleTitle}
+${articleContent.siteName ? `source: ${articleContent.siteName}` : ''}
+${articleContent.byline ? `author: ${articleContent.byline}` : ''}
+type: article
+---
 
-Content:
+${articleContent.excerpt ? `## Summary\n${articleContent.excerpt}\n` : ''}
+
+## Content
 ${articleContent.content || ''}`.trim();
 
       handleAskAssistant(formattedContent, true);
@@ -235,25 +238,26 @@ ${articleContent.content || ''}`.trim();
 
         const formattedContent =
           pageType.type === 'youtube'
-            ? `Title: ${message.data.title || ''}
-${message.data.channel ? `Channel: ${message.data.channel}` : ''}
-${message.data.publishDate ? `Published: ${message.data.publishDate}` : ''}
+            ? `---
+title: ${message.data.title || ''}
+${message.data.channel ? `channel: ${message.data.channel}` : ''}
+${message.data.publishDate ? `published: ${message.data.publishDate}` : ''}
+type: youtube
+---
 
-Description:
-${message.data.description || 'No description available'}
+${message.data.description ? `## Description\n${message.data.description}` : 'No description available'}
 
-${
-  message.data.transcript
-    ? `Transcript:
-${message.data.transcript}`
-    : ''
-}`
-            : `Title: ${message.data.title || ''}
-${message.data.siteName ? `Source: ${message.data.siteName}` : ''}
-${message.data.byline ? `Author: ${message.data.byline}` : ''}
-${message.data.excerpt ? `Summary: ${message.data.excerpt}` : ''}
+${message.data.transcript ? `## Transcript\n${message.data.transcript}` : ''}`
+            : `---
+title: ${message.data.title || ''}
+${message.data.siteName ? `source: ${message.data.siteName}` : ''}
+${message.data.byline ? `author: ${message.data.byline}` : ''}
+type: article
+---
 
-Content:
+${message.data.excerpt ? `## Summary\n${message.data.excerpt}\n` : ''}
+
+## Content
 ${message.data.content || ''}`.trim();
 
         setOriginalContent(formattedContent);
@@ -276,22 +280,29 @@ ${message.data.content || ''}`.trim();
     } else if (articleContent) {
       const formattedContent =
         pageType.type === 'youtube' && typeof articleContent !== 'string'
-          ? `Title: ${articleTitle}
-${articleContent.channel ? `Channel: ${articleContent.channel}` : ''}
-${articleContent.publishDate ? `Published: ${articleContent.publishDate}` : ''}
+          ? `---
+title: ${articleTitle}
+${articleContent.channel ? `channel: ${articleContent.channel}` : ''}
+${articleContent.publishDate ? `published: ${articleContent.publishDate}` : ''}
+type: youtube
+---
 
-Description:
-${articleContent.description || 'No description available'}
+${articleContent.description ? `## Description\n${articleContent.description}` : 'No description available'}
 
-${
-  articleContent.transcript
-    ? `Transcript:
-${articleContent.transcript}`
-    : ''
-}`
+${articleContent.transcript ? `## Transcript\n${articleContent.transcript}` : ''}`
           : typeof articleContent === 'string'
             ? articleContent
-            : articleContent.content || '';
+            : `---
+title: ${articleTitle}
+${articleContent.siteName ? `source: ${articleContent.siteName}` : ''}
+${articleContent.byline ? `author: ${articleContent.byline}` : ''}
+type: article
+---
+
+${articleContent.excerpt ? `## Summary\n${articleContent.excerpt}\n` : ''}
+
+## Content
+${articleContent.content || ''}`.trim();
 
       setMessages([]);
       handleAskAssistant(formattedContent, true);
@@ -383,6 +394,8 @@ ${articleContent.transcript}`
       chrome.tabs.onUpdated.removeListener(checkCurrentPage);
     };
   }, [hasContent, originalUrl, formattedUrl, contentType]);
+
+  const handleToggleContent = () => setShowOriginalContent(prev => !prev);
 
   return (
     <Flex direction="column" h="100vh" bg={bg} color={textColor}>
@@ -510,25 +523,56 @@ ${articleContent.transcript}`
 
       {/* Input Section */}
       {hasContent && (
-        <Box p={4} borderTop="1px" borderColor={borderColor}>
-          <form onSubmit={handleFormSubmit(onSubmit)}>
-            <Flex gap={2}>
-              <Textarea
-                {...register('question')}
-                onKeyDown={handleKeyDown}
-                isDisabled={isTyping}
-                rows={3}
-                placeholder="Ask a follow-up question... (Cmd/Ctrl + Enter to submit)"
-                resize="none"
-                color={textColor}
-                _placeholder={{ color: textColorSecondary }}
-              />
-              <Button type="submit" isDisabled={isTyping || !watch('question').trim()} colorScheme="blue">
-                Send
-              </Button>
-            </Flex>
-          </form>
-        </Box>
+        <>
+          <Box p={4} borderTop="1px" borderColor={borderColor}>
+            <form onSubmit={handleFormSubmit(onSubmit)}>
+              <Flex gap={2}>
+                <Textarea
+                  {...register('question')}
+                  onKeyDown={handleKeyDown}
+                  isDisabled={isTyping}
+                  rows={3}
+                  placeholder="Ask a follow-up question... (Cmd/Ctrl + Enter to submit)"
+                  resize="none"
+                  color={textColor}
+                  _placeholder={{ color: textColorSecondary }}
+                />
+                <Button type="submit" isDisabled={isTyping || !watch('question').trim()} colorScheme="blue">
+                  Send
+                </Button>
+              </Flex>
+            </form>
+          </Box>
+
+          {/* Original Content Section */}
+          <Box borderTop="1px" borderColor={borderColor}>
+            <Button
+              width="100%"
+              variant="ghost"
+              onClick={handleToggleContent}
+              rightIcon={showOriginalContent ? <ChevronDownIcon /> : <ChevronUpIcon />}
+              size="sm"
+              color={textColorSecondary}>
+              Original Content
+            </Button>
+            <Collapse in={showOriginalContent}>
+              <Box p={4} maxH="300px" overflowY="auto" fontSize="sm" whiteSpace="pre-wrap">
+                {contentType === 'slack' && threadData ? (
+                  <VStack align="stretch" spacing={4}>
+                    {threadData.messages.map((msg, index) => (
+                      <Box key={index}>
+                        <Text fontWeight="bold">{msg.user}</Text>
+                        <Text>{msg.text}</Text>
+                      </Box>
+                    ))}
+                  </VStack>
+                ) : (
+                  <Text>{originalContent}</Text>
+                )}
+              </Box>
+            </Collapse>
+          </Box>
+        </>
       )}
     </Flex>
   );
