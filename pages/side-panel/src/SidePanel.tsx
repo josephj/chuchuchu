@@ -16,14 +16,9 @@ import {
   VStack,
   IconButton,
   useColorMode,
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-  PopoverBody,
-  Link,
   Collapse,
 } from '@chakra-ui/react';
-import { MoonIcon, SunIcon, WarningIcon, ChevronUpIcon, ChevronDownIcon, SettingsIcon } from '@chakra-ui/icons';
+import { MoonIcon, SunIcon, ChevronUpIcon, ChevronDownIcon, SettingsIcon } from '@chakra-ui/icons';
 import { Messages } from './Messages';
 import { Header } from './Header';
 import { useStorage } from './lib/use-storage';
@@ -409,49 +404,6 @@ ${articleContent.content || ''}`.trim();
           <LanguageSelector value={selectedLanguage} onChange={setSelectedLanguage} isDisabled={isGenerating} />
 
           <Flex gap={2}>
-            {hasContent && !isOnOriginalPage && (
-              <Popover
-                isOpen={showWarning || showHoverWarning}
-                placement="bottom-end"
-                onClose={() => setShowHoverWarning(false)}
-                isLazy
-                gutter={0}>
-                <PopoverTrigger>
-                  <Box onMouseEnter={() => setShowHoverWarning(true)} position="relative" p={2} margin={-2}>
-                    <IconButton
-                      aria-label="Tab change warning"
-                      icon={<WarningIcon color="orange.500" />}
-                      size="sm"
-                      variant="ghost"
-                    />
-                  </Box>
-                </PopoverTrigger>
-                <PopoverContent
-                  width="250px"
-                  onMouseEnter={() => setShowHoverWarning(true)}
-                  onMouseLeave={() => setShowHoverWarning(false)}>
-                  <PopoverBody>
-                    <VStack align="stretch" spacing={2}>
-                      <Text fontSize="xs">
-                        Please{' '}
-                        <Link color="red.500" onClick={handleClose}>
-                          close
-                        </Link>{' '}
-                        this summary or{' '}
-                        {pageType.type === 'slack' ? (
-                          'generate'
-                        ) : (
-                          <Link color="blue.500" onClick={handleCapturePage}>
-                            generate
-                          </Link>
-                        )}{' '}
-                        a new one for the current page.
-                      </Text>
-                    </VStack>
-                  </PopoverBody>
-                </PopoverContent>
-              </Popover>
-            )}
             <IconButton
               aria-label="Open settings"
               icon={<SettingsIcon />}
@@ -527,6 +479,13 @@ ${articleContent.content || ''}`.trim();
               }
               onClose={handleClose}
               onRegenerate={handleRegenerate}
+              showWarning={showWarning}
+              showHoverWarning={showHoverWarning}
+              isOnOriginalPage={isOnOriginalPage}
+              hasContent={hasContent}
+              onHoverWarningChange={setShowHoverWarning}
+              onCapturePage={handleCapturePage}
+              pageType={pageType}
             />
             <Messages messages={messages} isTyping={isTyping} />
           </VStack>
