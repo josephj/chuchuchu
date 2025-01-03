@@ -23,7 +23,7 @@ import {
   Link,
   Collapse,
 } from '@chakra-ui/react';
-import { MoonIcon, SunIcon, WarningIcon, ChevronUpIcon, ChevronDownIcon } from '@chakra-ui/icons';
+import { MoonIcon, SunIcon, WarningIcon, ChevronUpIcon, ChevronDownIcon, SettingsIcon } from '@chakra-ui/icons';
 import { Messages } from './Messages';
 import { Header } from './Header';
 import { useStorage } from './lib/use-storage';
@@ -38,6 +38,10 @@ type Message = {
 
 type FormData = {
   question: string;
+};
+
+const handleOpenOptions = () => {
+  chrome.runtime.openOptionsPage();
 };
 
 const SidePanel = () => {
@@ -448,6 +452,14 @@ ${articleContent.content || ''}`.trim();
                 </PopoverContent>
               </Popover>
             )}
+            <IconButton
+              aria-label="Open settings"
+              icon={<SettingsIcon />}
+              onClick={handleOpenOptions}
+              size="sm"
+              variant="ghost"
+              color={textColor}
+            />
             <IconButton
               aria-label="Toggle color mode"
               icon={colorMode === 'light' ? <MoonIcon /> : <SunIcon />}
