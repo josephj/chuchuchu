@@ -27,6 +27,7 @@ const manifest = deepmerge(
     name: '__MSG_extensionName__',
     version: packageJson.version,
     description: '__MSG_extensionDescription__',
+    key: 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1XCCEbiWvMdvHbLlNaKQaxvqkSXxsh1HW3iXuUcgamczrT8ZHs9jZ50rSA6S5wuWXWtt3iPpv0QLgetU1e4puSJZqTBw2zIkvAQ478ZEYQp5id8RayX/P5M6sY6xtwF+RTq7b9+FOBEOYcVaIoIzdmSCDVYnOubwf395jGdK3+YcwlxEA5hK1HRJ7gYeB4c04DY3BUS8/itcfAvZsgdaxyWfJK9hWGNfW7UCYhXHoM/O9+fCLCvJEutQc/RiN1iEXvh76AjTRXgqvS+Ue6lC5Ju/Kc7olIH2mKDreIX43sEPTxMY96DEfhSNNbcVrquuJ+zlqwyvZ9tYF5lA+/YT2wIDAQAB',
     host_permissions: ['<all_urls>'],
     permissions: ['storage', 'scripting', 'tabs', 'webNavigation', 'declarativeNetRequest'],
     options_page: 'options/index.html',
