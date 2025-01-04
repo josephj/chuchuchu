@@ -46,6 +46,7 @@ const SidePanel = () => {
     DEFAULT_LANGUAGE_CODE,
   );
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
   const [threadData, setThreadData] = useState<ThreadData | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [showWarning, setShowWarning] = useState(false);
@@ -204,8 +205,9 @@ ${articleContent.content || ''}`.trim();
   }, [threadData, articleContent, handleAskAssistant, pageType.type, articleTitle]);
 
   useEffect(() => {
-    const handleMessage = (message: ThreadDataMessage | ArticleDataResultMessage) => {
+    const handleMessage = (message: ThreadDataMessage | ArticleDataResultMessage | { type: 'RELOAD_AND_CAPTURE' }) => {
       if (message.type === 'THREAD_DATA_RESULT') {
+        setIsCapturing(false);
         setThreadData(null);
         setMessages([]);
         setHasContent(true);
@@ -221,6 +223,7 @@ ${articleContent.content || ''}`.trim();
           handleAskAssistant(formattedData, true);
         }, 100);
       } else if (message.type === 'ARTICLE_DATA_RESULT') {
+        setIsCapturing(false);
         console.log('[DEBUG] ARTICLE_DATA_RESULT is executed');
         setThreadData(null);
         setMessages([]);
@@ -262,12 +265,25 @@ ${message.data.content || ''}`.trim();
         setOriginalContent(formattedContent);
         console.log('[DEBUG] formattedContent', formattedContent);
         handleAskAssistant(formattedContent, true);
+      } else if (message.type === 'RELOAD_AND_CAPTURE') {
+        setIsCapturing(true);
       }
     };
 
     chrome.runtime.onMessage.addListener(handleMessage);
     return () => chrome.runtime.onMessage.removeListener(handleMessage);
   }, [handleAskAssistant, pageType.type]);
+
+  useEffect(() => {
+    const handleTabUpdate = (tabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
+      if (changeInfo.status === 'loading' && isCapturing) {
+        setIsCapturing(true);
+      }
+    };
+
+    chrome.tabs.onUpdated.addListener(handleTabUpdate);
+    return () => chrome.tabs.onUpdated.removeListener(handleTabUpdate);
+  }, [isCapturing]);
 
   useEffect(() => {
     if (!selectedLanguage || isTyping || !isInitialLoad.current) return;
@@ -342,6 +358,7 @@ ${articleContent.content || ''}`.trim();
     setArticleTitle('');
     setContentType(null);
     setOriginalContent('');
+    setIsCapturing(true);
 
     chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
       const currentTab = tabs[0];
@@ -445,7 +462,12 @@ ${articleContent.content || ''}`.trim();
               </>
             ) : (
               <VStack spacing={3}>
-                <Button onClick={handleCapturePage} colorScheme="blue" leftIcon={<Text>⭐️</Text>}>
+                <Button
+                  onClick={handleCapturePage}
+                  colorScheme="blue"
+                  leftIcon={<Text>⭐️</Text>}
+                  isLoading={isCapturing}
+                  loadingText="Capturing page">
                   Summarize current page
                 </Button>
                 {pageType.url && (
