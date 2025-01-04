@@ -45,6 +45,32 @@ chrome.runtime.onMessage.addListener(message => {
     console.log('[DEBUG] ARTICLE_DATA_RESULT:', message.data);
   }
 
+  if (message.type === 'RELOAD_AND_CAPTURE') {
+    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+      const currentTab = tabs[0];
+      if (currentTab?.id) {
+        console.log('[DEBUG] Reloading tab for capture');
+        // First reload the page
+        chrome.tabs.reload(currentTab.id, { bypassCache: true }, () => {
+          console.log('[DEBUG] Tab reloaded, waiting for complete');
+          // Wait for the page to load and then trigger capture
+          chrome.tabs.onUpdated.addListener(function listener(tabId, info) {
+            if (tabId === currentTab.id && info.status === 'complete') {
+              console.log('[DEBUG] Tab load complete, waiting before capture');
+              chrome.tabs.onUpdated.removeListener(listener);
+              // Give a bit more time for YouTube to initialize
+              setTimeout(() => {
+                console.log('[DEBUG] Triggering capture');
+                chrome.tabs.sendMessage(currentTab.id!, { type: 'CAPTURE_ARTICLE' });
+              }, 2000);
+            }
+          });
+        });
+      }
+    });
+    return true; // Keep the message channel open for the async response
+  }
+
   if (message.type === 'OPEN_SIDE_PANEL') {
     chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
       const currentTab = tabs[0];
