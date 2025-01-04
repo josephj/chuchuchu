@@ -17,6 +17,7 @@ import {
   IconButton,
   useColorMode,
   Collapse,
+  HStack,
 } from '@chakra-ui/react';
 import { MoonIcon, SunIcon, ChevronUpIcon, ChevronDownIcon, SettingsIcon } from '@chakra-ui/icons';
 import { Messages } from './Messages';
@@ -49,8 +50,6 @@ const SidePanel = () => {
   const [isCapturing, setIsCapturing] = useState(false);
   const [threadData, setThreadData] = useState<ThreadData | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [showWarning, setShowWarning] = useState(false);
-  const [showHoverWarning, setShowHoverWarning] = useState(false);
   const [isOnOriginalPage, setIsOnOriginalPage] = useState(true);
   const [originalContent, setOriginalContent] = useState<string>('');
   const isInitialLoad = useRef(true);
@@ -164,8 +163,6 @@ const SidePanel = () => {
     setArticleContent('');
     setArticleTitle('');
     setContentType(null);
-    setShowWarning(false);
-    setShowHoverWarning(false);
     setIsOnOriginalPage(true);
   }, []);
 
@@ -384,16 +381,6 @@ ${articleContent.content || ''}`.trim();
         })();
 
         setIsOnOriginalPage(isMatchingUrl);
-        if (isMatchingUrl) {
-          setShowWarning(false);
-          setShowHoverWarning(false);
-        } else {
-          setShowWarning(true);
-          setShowHoverWarning(false);
-          setTimeout(() => {
-            setShowWarning(false);
-          }, 3000);
-        }
       });
     };
 
@@ -446,20 +433,25 @@ ${articleContent.content || ''}`.trim();
         {!hasContent ? (
           <Flex height="100%" direction="column" justify="center" align="center" p={4} gap={1}>
             {pageType.type === 'slack' ? (
-              <>
-                <Text fontSize="xs" color={textColorSecondary}>
-                  Click
-                </Text>
-                <Flex h="24px" align="center" gap={2} bg={buttonBg} px={2} borderRadius="full" boxShadow="lg">
-                  <Text fontSize="xs">⭐️</Text>
-                  <Text fontSize="xs" color={textColor}>
-                    Summarize
+              <VStack spacing={4} width="100%" align="center">
+                <Button isDisabled colorScheme="blue" leftIcon={<Text>⭐️</Text>}>
+                  Summarize current page
+                </Button>
+                <HStack spacing={1}>
+                  <Text fontSize="xs" color={textColorSecondary}>
+                    Click
                   </Text>
-                </Flex>
-                <Text fontSize="xs" color={textColorSecondary}>
-                  in any conversation
-                </Text>
-              </>
+                  <Flex h="24px" align="center" gap={2} bg={buttonBg} px={3} borderRadius="md" boxShadow="lg">
+                    <Text fontSize="xs">⭐️</Text>
+                    <Text fontSize="xs" color={textColor}>
+                      Summarize
+                    </Text>
+                  </Flex>
+                  <Text fontSize="xs" color={textColorSecondary}>
+                    in any conversation
+                  </Text>
+                </HStack>
+              </VStack>
             ) : (
               <VStack spacing={3}>
                 <Button
@@ -487,7 +479,7 @@ ${articleContent.content || ''}`.trim();
         ) : (
           <VStack spacing={4} align="stretch">
             <Header
-              threadUrl={contentType === 'slack' ? formattedUrl : originalUrl}
+              threadUrl={formattedUrl}
               articleTitle={articleTitle}
               isSlack={contentType === 'slack'}
               threadInfo={
@@ -501,11 +493,8 @@ ${articleContent.content || ''}`.trim();
               }
               onClose={handleClose}
               onRegenerate={handleRegenerate}
-              showWarning={showWarning}
-              showHoverWarning={showHoverWarning}
               isOnOriginalPage={isOnOriginalPage}
               hasContent={hasContent}
-              onHoverWarningChange={setShowHoverWarning}
               onCapturePage={handleCapturePage}
               pageType={pageType}
             />

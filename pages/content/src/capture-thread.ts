@@ -1,5 +1,5 @@
 export const captureThread = () => {
-  if (window.location.hostname !== 'app.slack.com') {
+  if (!window.location.hostname.endsWith('slack.com')) {
     return;
   }
 
