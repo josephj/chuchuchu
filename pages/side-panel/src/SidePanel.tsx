@@ -2,7 +2,7 @@ import '@src/SidePanel.css';
 import { withErrorBoundary, withSuspense } from '@extension/shared';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { askAssistant } from './ask-assistant';
-import { formatThreadForLLM, convertToWebUrl, formatRelativeTime } from './utils';
+import { formatThreadForLLM, convertToWebUrl, formatRelativeTime, estimateTokens } from './utils';
 import type { Language, ThreadData, ThreadDataMessage, ArticleDataResultMessage, ArticleData } from './types';
 import { LanguageSelector, SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE_CODE } from './LanguageSelector';
 import { useForm } from 'react-hook-form';
@@ -546,7 +546,7 @@ ${articleContent.content || ''}`.trim();
               rightIcon={showOriginalContent ? <ChevronDownIcon /> : <ChevronUpIcon />}
               size="sm"
               color={textColorSecondary}>
-              Original Content
+              Original content ({estimateTokens(originalContent)} tokens)
             </Button>
             <Collapse in={showOriginalContent}>
               <Box p={4} maxH="300px" overflowY="auto" fontSize="sm" whiteSpace="pre-wrap">

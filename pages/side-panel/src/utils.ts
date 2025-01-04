@@ -35,3 +35,9 @@ ${message.reactions.length > 0 ? `\nReactions: ${message.reactions.map(r => `${r
 export const formatRelativeTime = (timestamp: number): string => {
   return formatDistanceToNowStrict(timestamp, { addSuffix: true });
 };
+
+// Rough estimate of GPT tokens based on characters
+export const estimateTokens = (text: string): number => {
+  // GPT models typically use ~4 characters per token on average for English text
+  return Math.ceil(text.length / 4);
+};
