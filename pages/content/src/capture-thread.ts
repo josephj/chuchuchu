@@ -6,14 +6,20 @@ export const captureThread = () => {
   let hasThreadPane = false;
   let currentThreadInfo: { channel: string; threadTs: string } | null = null;
 
-  const getThreadInfoFromUrl = (url: string) => {
-    const channelMatch = url.match(/\/archives\/([A-Z0-9]+)/);
-    const tsMatch = url.match(/\/p?(\d+\.\d+)/);
+  const getThreadInfoFromTimestamp = () => {
+    const timestampLabel = document.querySelector(
+      '[data-qa="threads_flexpane"] [data-qa="message_container"] [data-qa="timestamp_label"]',
+    )?.parentNode as HTMLAnchorElement;
+    if (!timestampLabel?.href) return null;
+
+    const channelMatch = timestampLabel.href.match(/\/archives\/([A-Z0-9]+)/);
+    const tsMatch = timestampLabel.href.match(/\/p?(\d{10})(\d{6})/);
 
     if (channelMatch && tsMatch) {
+      const threadTs = `${tsMatch[1]}.${tsMatch[2]}`;
       return {
         channel: channelMatch[1],
-        threadTs: tsMatch[1],
+        threadTs,
       };
     }
     return null;
@@ -23,7 +29,7 @@ export const captureThread = () => {
     const threadPane = document.querySelector('[data-qa="threads_flexpane"]');
 
     if (threadPane) {
-      const threadInfo = getThreadInfoFromUrl(window.location.href);
+      const threadInfo = getThreadInfoFromTimestamp();
 
       if (!hasThreadPane || (threadInfo && threadInfo.threadTs !== currentThreadInfo?.threadTs)) {
         hasThreadPane = true;
@@ -44,7 +50,6 @@ export const captureThread = () => {
   checkThreadPane();
 
   const observer = new MutationObserver(checkThreadPane);
-
   observer.observe(document.body, {
     childList: true,
     subtree: true,

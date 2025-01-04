@@ -410,6 +410,16 @@ ${articleContent.content || ''}`.trim();
 
   const handleToggleContent = () => setShowOriginalContent(prev => !prev);
 
+  const handleSummarizeSlack = useCallback(() => {
+    setIsCapturing(true);
+    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+      const currentTab = tabs[0];
+      if (currentTab?.id) {
+        chrome.tabs.sendMessage(currentTab.id, { type: 'CAPTURE_THREAD' });
+      }
+    });
+  }, []);
+
   return (
     <Flex direction="column" h="100vh" bg={bg} color={textColor}>
       {/* Settings Section */}
@@ -444,7 +454,11 @@ ${articleContent.content || ''}`.trim();
           <Flex height="100%" direction="column" justify="center" align="center" p={4} gap={1}>
             {pageType.type === 'slack' ? (
               <VStack spacing={4} width="100%" align="center">
-                <Button isDisabled={!isThreadPaneAvailable} colorScheme="blue" leftIcon={<Text>⭐️</Text>}>
+                <Button
+                  isDisabled={!isThreadPaneAvailable}
+                  colorScheme="blue"
+                  leftIcon={<Text>⭐️</Text>}
+                  onClick={handleSummarizeSlack}>
                   Summarize current page
                 </Button>
                 <HStack spacing={1}>
