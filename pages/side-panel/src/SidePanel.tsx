@@ -72,6 +72,7 @@ const SidePanel = () => {
   const [articleTitle, setArticleTitle] = useState<string>('');
   const [contentType, setContentType] = useState<'slack' | 'article' | null>(null);
   const [showOriginalContent, setShowOriginalContent] = useState(false);
+  const [isThreadPaneAvailable, setIsThreadPaneAvailable] = useState(false);
 
   const bg = useColorModeValue('gray.50', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
@@ -202,8 +203,17 @@ ${articleContent.content || ''}`.trim();
   }, [threadData, articleContent, handleAskAssistant, pageType.type, articleTitle]);
 
   useEffect(() => {
-    const handleMessage = (message: ThreadDataMessage | ArticleDataResultMessage | { type: 'RELOAD_AND_CAPTURE' }) => {
-      if (message.type === 'THREAD_DATA_RESULT') {
+    const handleMessage = (
+      message:
+        | ThreadDataMessage
+        | ArticleDataResultMessage
+        | { type: 'RELOAD_AND_CAPTURE' | 'THREAD_PANE_AVAILABLE' | 'THREAD_PANE_CLOSED' },
+    ) => {
+      if (message.type === 'THREAD_PANE_AVAILABLE') {
+        setIsThreadPaneAvailable(true);
+      } else if (message.type === 'THREAD_PANE_CLOSED') {
+        setIsThreadPaneAvailable(false);
+      } else if (message.type === 'THREAD_DATA_RESULT') {
         setIsCapturing(false);
         setThreadData(null);
         setMessages([]);
@@ -434,7 +444,7 @@ ${articleContent.content || ''}`.trim();
           <Flex height="100%" direction="column" justify="center" align="center" p={4} gap={1}>
             {pageType.type === 'slack' ? (
               <VStack spacing={4} width="100%" align="center">
-                <Button isDisabled colorScheme="blue" leftIcon={<Text>⭐️</Text>}>
+                <Button isDisabled={!isThreadPaneAvailable} colorScheme="blue" leftIcon={<Text>⭐️</Text>}>
                   Summarize current page
                 </Button>
                 <HStack spacing={1}>
