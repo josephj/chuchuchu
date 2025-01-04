@@ -19,8 +19,6 @@ export const captureYouTube = () => {
           publishDate: getPublishDate(),
           url: window.location.href,
         };
-        console.log('[DEBUG] data :', data);
-
         chrome.runtime.sendMessage({
           type: 'ARTICLE_DATA_RESULT',
           data,
