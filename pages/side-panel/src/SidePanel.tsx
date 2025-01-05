@@ -367,12 +367,19 @@ ${articleContent.content || ''}`.trim();
     setOriginalContent('');
     setIsCapturing(true);
 
+    // Set a timeout to reset the capturing state if no data is received
+    const timeoutId = setTimeout(() => {
+      setIsCapturing(false);
+    }, 10000);
+
     chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
       const currentTab = tabs[0];
       if (currentTab?.id) {
         chrome.tabs.sendMessage(currentTab.id, { type: 'CAPTURE_ARTICLE' });
       }
     });
+
+    return () => clearTimeout(timeoutId);
   }, []);
 
   useEffect(() => {
@@ -412,12 +419,20 @@ ${articleContent.content || ''}`.trim();
 
   const handleSummarizeSlack = useCallback(() => {
     setIsCapturing(true);
+
+    // Set a timeout to reset the capturing state if no data is received
+    const timeoutId = setTimeout(() => {
+      setIsCapturing(false);
+    }, 10000);
+
     chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
       const currentTab = tabs[0];
       if (currentTab?.id) {
         chrome.tabs.sendMessage(currentTab.id, { type: 'CAPTURE_THREAD' });
       }
     });
+
+    return () => clearTimeout(timeoutId);
   }, []);
 
   return (
