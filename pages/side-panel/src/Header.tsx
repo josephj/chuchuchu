@@ -62,8 +62,6 @@ export const Header = ({
   const textColor = useColorModeValue('gray.800', 'whiteAlpha.900');
   const linkColor = useColorModeValue('blue.500', 'blue.300');
 
-  if (!threadUrl) return null;
-
   return (
     <Flex
       flexDirection="column"
@@ -90,18 +88,20 @@ export const Header = ({
               </Text>
             )
           )}
-          <Tooltip label={threadUrl} placement="bottom-start" openDelay={500}>
-            <Link
-              href={threadUrl}
-              isExternal
-              color={linkColor}
-              fontSize="xs"
-              isTruncated
-              maxWidth="100%"
-              _hover={{ textDecoration: 'underline' }}>
-              {isSlack ? formatDisplayUrl(threadUrl) : threadUrl}
-            </Link>
-          </Tooltip>
+          {threadUrl && (
+            <Tooltip label={threadUrl} placement="bottom-start" openDelay={500}>
+              <Link
+                href={threadUrl}
+                isExternal
+                color={linkColor}
+                fontSize="xs"
+                isTruncated
+                maxWidth="100%"
+                _hover={{ textDecoration: 'underline' }}>
+                {isSlack ? formatDisplayUrl(threadUrl) : threadUrl}
+              </Link>
+            </Tooltip>
+          )}
         </Stack>
         <VStack gap={2} flex="0" width="100px">
           <Tooltip label="Clear conversation" placement="top" openDelay={500}>

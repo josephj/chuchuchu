@@ -458,7 +458,9 @@ ${articleContent.content || ''}`.trim();
                   isDisabled={!isThreadPaneAvailable}
                   colorScheme="blue"
                   leftIcon={<Text>⭐️</Text>}
-                  onClick={handleSummarizeSlack}>
+                  onClick={handleSummarizeSlack}
+                  isLoading={isCapturing}
+                  loadingText="Capturing thread">
                   Summarize current page
                 </Button>
                 <HStack spacing={1}>
