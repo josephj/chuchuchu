@@ -435,6 +435,18 @@ ${articleContent.content || ''}`.trim();
     return () => clearTimeout(timeoutId);
   }, []);
 
+  // Check thread availability when component mounts
+  useEffect(() => {
+    if (pageType.type === 'slack') {
+      chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+        const currentTab = tabs[0];
+        if (currentTab?.id) {
+          chrome.tabs.sendMessage(currentTab.id, { type: 'CHECK_THREAD_PANE' });
+        }
+      });
+    }
+  }, [pageType.type]);
+
   return (
     <Flex direction="column" h="100vh" bg={bg} color={textColor}>
       {/* Settings Section */}

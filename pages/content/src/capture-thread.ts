@@ -67,6 +67,23 @@ export const captureThread = () => {
         },
         '*',
       );
+    } else if (message.type === 'CHECK_THREAD_PANE') {
+      // Check thread pane availability immediately and send the result
+      const threadPane = document.querySelector('[data-qa="threads_flexpane"]');
+      const threadInfo = threadPane ? getThreadInfoFromTimestamp() : null;
+
+      if (threadPane) {
+        hasThreadPane = true;
+        currentThreadInfo = threadInfo;
+        chrome.runtime.sendMessage({
+          type: 'THREAD_PANE_AVAILABLE',
+          threadInfo,
+        });
+      } else {
+        hasThreadPane = false;
+        currentThreadInfo = null;
+        chrome.runtime.sendMessage({ type: 'THREAD_PANE_CLOSED' });
+      }
     }
   });
 
