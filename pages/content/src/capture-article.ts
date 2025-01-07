@@ -11,7 +11,6 @@ export type ArticleData = {
 
 export const captureArticle = () => {
   const handleMessage = (message: { type: string }, _: chrome.runtime.MessageSender, sendResponse: () => void) => {
-    console.log('[DEBUG] handleMessage is executed');
     if (message.type === 'CAPTURE_ARTICLE') {
       try {
         const documentClone = document.cloneNode(true) as Document;

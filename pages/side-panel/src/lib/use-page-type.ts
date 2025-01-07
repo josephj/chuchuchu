@@ -16,6 +16,8 @@ export const usePageType = () => {
             type = 'slack';
           } else if (url.includes('youtube.com')) {
             type = 'youtube';
+          } else if (url.includes('zoom.us')) {
+            type = 'zoom';
           }
 
           setPageType({ type, url });

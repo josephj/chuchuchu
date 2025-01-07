@@ -84,6 +84,6 @@ export type ArticleDataResultMessage = {
 };
 
 export type PageType = {
-  type: 'slack' | 'default' | 'youtube';
+  type: 'slack' | 'default' | 'youtube' | 'zoom';
   url: string;
 };
