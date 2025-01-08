@@ -8,6 +8,7 @@ const isYouTubeDomain = window.location.hostname.endsWith('youtube.com');
 const isZoomDomain = window.location.hostname.endsWith('zoom.us');
 
 if (isSlackDomain) {
+  console.log('[DEBUG] Slack domain detected, capturing thread');
   captureThread();
 } else if (isYouTubeDomain) {
   captureYouTube();

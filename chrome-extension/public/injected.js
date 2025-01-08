@@ -179,7 +179,6 @@
         throw new Error(`Slack API error: ${data.error}`);
       }
 
-      // Helper function to replace user mentions in text
       return {
         thread_ts: threadTs,
         channel_id: channel,
@@ -204,7 +203,6 @@
         }),
       };
     } catch (error) {
-      console.error('[DEBUG] Error fetching thread:', error);
       throw error;
     }
   }
@@ -246,7 +244,8 @@
               sessionStorage.setItem('slack-token', token);
             }
           } catch (formError) {
-            console.error('Error extracting token from data:', formError);
+            // Keep error logging for production error tracking
+            console.error('Error extracting token from form data:', formError);
           }
         }
       }
@@ -270,6 +269,7 @@
               '*',
             );
           } catch (error) {
+            // Keep error logging for production error tracking
             console.error('Error processing XHR thread response:', error);
           }
         }
@@ -286,8 +286,8 @@
 
 (function () {
   let lastUrl = window.location.href;
+  let observer = null;
 
-  // Watch for URL changes
   function checkUrlChange() {
     if (window.location.href !== lastUrl) {
       const oldUrl = lastUrl;
@@ -296,7 +296,6 @@
     }
   }
 
-  // Parse Slack timestamp from various URL formats
   function parseThreadTs(url) {
     const patterns = [
       /\/p(\d+)$/, // archives/messages format
@@ -306,7 +305,6 @@
     for (const pattern of patterns) {
       const match = url.match(pattern);
       if (match) {
-        // Convert p{timestamp} format to timestamp.microseconds
         const ts = match[1].replace(/^(\d{10})(\d{6})$/, '$1.$2');
         return ts;
       }
@@ -314,20 +312,14 @@
     return null;
   }
 
-  // Handle URL changes
   async function handleUrlChange(oldUrl, newUrl) {
     const threadTs = parseThreadTs(newUrl);
     if (!threadTs) return;
 
-    // Get the token from session storage
     const token = sessionStorage.getItem('slack-token');
-    if (!token) {
-      console.warn('[DEBUG] No token found in session storage');
-      return;
-    }
+    if (!token) return;
 
     try {
-      // Fetch thread data directly
       const channelId = newUrl.split('/archives/')[1]?.split('/')[0];
       if (!channelId) return;
 
@@ -340,7 +332,7 @@
           token: token,
           channel: channelId,
           ts: threadTs,
-          limit: 1000, // Adjust this value based on your needs
+          limit: 1000,
         }),
       });
 
@@ -356,17 +348,14 @@
           },
           '*',
         );
-      } else {
-        console.error('[DEBUG] Failed to fetch thread:', data.error);
       }
     } catch (error) {
-      console.error('[DEBUG] Error fetching thread data:', error);
+      // Keep error logging for production error tracking
+      console.error('Error fetching thread data:', error);
     }
 
-    // Give Slack's UI time to load
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // Try to find and click the message (keeping existing UI interaction code)
     const messages = document.querySelectorAll('[data-ts]');
     for (const msg of messages) {
       if (msg.getAttribute('data-ts') === threadTs) {
@@ -375,24 +364,29 @@
           msg.querySelector('[data-qa="message_thread_button"]') || msg.querySelector('[data-qa="message_content"]');
         if (threadButton) {
           threadButton.click();
-          console.log('[DEBUG] Thread opened:', threadTs);
+          break;
         }
-        break;
       }
     }
   }
 
-  // Start monitoring URL changes
-  const observer = new MutationObserver(checkUrlChange);
-  observer.observe(document.body, { subtree: true, childList: true });
+  function setupObserver() {
+    if (observer) {
+      observer.disconnect();
+    }
 
-  // Also check periodically for SPA navigation
-  setInterval(checkUrlChange, 1000);
+    if (document.body) {
+      observer = new MutationObserver(checkUrlChange);
+      observer.observe(document.body, { subtree: true, childList: true });
+      setInterval(checkUrlChange, 1000);
+      handleUrlChange('', window.location.href);
+    } else {
+      setTimeout(setupObserver, 100);
+    }
+  }
 
-  // Handle initial URL if it's a thread
-  handleUrlChange('', window.location.href);
+  setupObserver();
 
-  // Expose function for manual triggering
   window.openSlackThread = async threadTs => {
     const messages = document.querySelectorAll('[data-ts]');
     for (const msg of messages) {
@@ -411,24 +405,26 @@
 })();
 
 window.addEventListener('message', async event => {
-  // Verify the message origin if needed
   if (event.data.type === 'FETCH_THREAD_DATA') {
     const { channel, threadTs } = event.data.payload;
     const token = sessionStorage.getItem('slack-token');
+
     if (!token) {
-      console.warn('[DEBUG] No token found in session storage');
       return;
     }
 
-    const threadData = await window.fetchSlackThread(channel, threadTs, token);
-
-    // Send the result back to the content script
-    window.postMessage(
-      {
-        type: 'THREAD_DATA_RESULT',
-        payload: threadData,
-      },
-      '*',
-    );
+    try {
+      const threadData = await window.fetchSlackThread(channel, threadTs, token);
+      window.postMessage(
+        {
+          type: 'THREAD_DATA_RESULT',
+          payload: threadData,
+        },
+        '*',
+      );
+    } catch (error) {
+      // Keep error logging for production error tracking
+      console.error('Error in message handler:', error);
+    }
   }
 });
