@@ -78,6 +78,10 @@ export type CaptureArticleMessage = {
   type: 'CAPTURE_ARTICLE';
 };
 
+export type CaptureThreadMessage = {
+  type: 'CAPTURE_THREAD';
+};
+
 export type ArticleDataResultMessage = {
   type: 'ARTICLE_DATA_RESULT';
   data: ArticleData;

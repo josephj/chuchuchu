@@ -59,14 +59,24 @@ export const captureThread = () => {
     if (message.type === 'OPEN_IN_WEB_CHANGED') {
       console.log('Open in web preference changed:', message.value);
     } else if (message.type === 'CAPTURE_THREAD' && currentThreadInfo) {
-      // Trigger the thread data fetch using the injected script
-      window.postMessage(
-        {
-          type: 'FETCH_THREAD_DATA',
-          payload: currentThreadInfo,
-        },
-        '*',
-      );
+      // Scroll to top before capturing
+      const threadPane = document.querySelector('[data-qa="threads_flexpane"]');
+      threadPane?.querySelector('[data-qa="slack_kit_scrollbar"]')?.scrollTo(0, 0);
+
+      // Update thread info after scrolling
+      setTimeout(() => {
+        currentThreadInfo = getThreadInfoFromTimestamp();
+        if (currentThreadInfo) {
+          // Trigger the thread data fetch using the injected script
+          window.postMessage(
+            {
+              type: 'FETCH_THREAD_DATA',
+              payload: currentThreadInfo,
+            },
+            '*',
+          );
+        }
+      }, 100); // Small delay to ensure the scroll has completed
     } else if (message.type === 'CHECK_THREAD_PANE') {
       // Check thread pane availability immediately and send the result
       const threadPane = document.querySelector('[data-qa="threads_flexpane"]');
