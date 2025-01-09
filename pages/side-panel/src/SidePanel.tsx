@@ -81,20 +81,17 @@ const SidePanel = () => {
   const buttonBg = useColorModeValue('white', 'gray.700');
 
   const handleAskAssistant = useCallback(
-    async (prompt: string, isInitialAnalysis = false) => {
+    async (prompt: string, isInitialAnalysis = false, languageCode?: string) => {
       setIsTyping(true);
       setIsGenerating(true);
 
-      const selectedLang = SUPPORTED_LANGUAGES.find(lang => lang.code === selectedLanguage);
+      const selectedLang = SUPPORTED_LANGUAGES.find(lang => lang.code === (languageCode || selectedLanguage));
       if (!selectedLang) return;
 
       try {
         const systemPrompt = isInitialAnalysis
           ? getInitialPrompt(pageType, selectedLang)
           : getFollowUpPrompt(selectedLang);
-
-        console.log('[DEBUG] System Prompt:', systemPrompt);
-        console.log('[DEBUG] User Prompt:', prompt);
 
         const previousMessages = messages.map(msg => ({
           role: msg.role,
@@ -167,16 +164,19 @@ const SidePanel = () => {
     setIsOnOriginalPage(true);
   }, []);
 
-  const handleRegenerate = useCallback(() => {
-    if (threadData) {
-      const formattedData = formatThreadForLLM(threadData);
-      handleAskAssistant(formattedData, true);
-    } else if (articleContent) {
-      const formattedContent =
-        typeof articleContent === 'string'
-          ? articleContent
-          : pageType.type === 'youtube'
-            ? `---
+  const handleRegenerate = useCallback(
+    (languageCode?: string) => {
+      if (threadData) {
+        const formattedData = formatThreadForLLM(threadData);
+        const selectedLang = SUPPORTED_LANGUAGES.find(lang => lang.code === (languageCode || selectedLanguage));
+        if (!selectedLang) return;
+        handleAskAssistant(formattedData, true, languageCode);
+      } else if (articleContent) {
+        const formattedContent =
+          typeof articleContent === 'string'
+            ? articleContent
+            : pageType.type === 'youtube'
+              ? `---
 title: ${articleTitle}
 ${articleContent.channel ? `channel: ${articleContent.channel}` : ''}
 ${articleContent.publishDate ? `published: ${articleContent.publishDate}` : ''}
@@ -186,7 +186,7 @@ type: youtube
 ${articleContent.description ? `## Description\n${articleContent.description}` : 'No description available'}
 
 ${articleContent.transcript ? `## Transcript\n${articleContent.transcript}` : ''}`
-            : `---
+              : `---
 title: ${articleTitle}
 ${articleContent.siteName ? `source: ${articleContent.siteName}` : ''}
 ${articleContent.byline ? `author: ${articleContent.byline}` : ''}
@@ -198,9 +198,11 @@ ${articleContent.excerpt ? `## Summary\n${articleContent.excerpt}\n` : ''}
 ## Content
 ${articleContent.content || ''}`.trim();
 
-      handleAskAssistant(formattedContent, true);
-    }
-  }, [threadData, articleContent, handleAskAssistant, pageType.type, articleTitle]);
+        handleAskAssistant(formattedContent, true, languageCode);
+      }
+    },
+    [threadData, articleContent, handleAskAssistant, pageType.type, articleTitle, selectedLanguage],
+  );
 
   useEffect(() => {
     const handleMessage = (
@@ -231,7 +233,6 @@ ${articleContent.content || ''}`.trim();
         }, 100);
       } else if (message.type === 'ARTICLE_DATA_RESULT') {
         setIsCapturing(false);
-        console.log('[DEBUG] ARTICLE_DATA_RESULT is executed');
         setThreadData(null);
         setMessages([]);
         setHasContent(true);
@@ -270,7 +271,6 @@ ${message.data.excerpt ? `## Summary\n${message.data.excerpt}\n` : ''}
 ${message.data.content || ''}`.trim();
 
         setOriginalContent(formattedContent);
-        console.log('[DEBUG] formattedContent', formattedContent);
         handleAskAssistant(formattedContent, true);
       } else if (message.type === 'RELOAD_AND_CAPTURE') {
         setIsCapturing(true);
@@ -354,7 +354,6 @@ ${articleContent.content || ''}`.trim();
   };
 
   const handleCapturePage = useCallback(() => {
-    console.log('[DEBUG] handleCapturePage is executed');
     // Clear previous content first
     setHasContent(false);
     setThreadData(null);
@@ -449,12 +448,19 @@ ${articleContent.content || ''}`.trim();
     }
   }, [pageType.type]);
 
+  const handleChangeLanguage = async (code: string) => {
+    await setSelectedLanguage(code);
+    if (hasContent) {
+      handleRegenerate(code);
+    }
+  };
+
   return (
     <Flex direction="column" h="100vh" bg={bg} color={textColor}>
       {/* Settings Section */}
       <Box p={4} borderBottom="1px" borderColor={borderColor}>
         <Flex justify="space-between" align="center">
-          <LanguageSelector value={selectedLanguage} onChange={setSelectedLanguage} isDisabled={isGenerating} />
+          <LanguageSelector value={selectedLanguage} onChange={handleChangeLanguage} isDisabled={isGenerating} />
 
           <Flex gap={2}>
             <IconButton

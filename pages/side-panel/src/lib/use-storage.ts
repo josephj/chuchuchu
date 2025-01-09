@@ -63,6 +63,7 @@ export function useStorage<T>(
     async (newValue: T) => {
       await chrome.storage[configRef.area].set({ [configRef.key]: newValue });
       setValue(newValue);
+      return newValue;
     },
     [configRef.key, configRef.area],
   );

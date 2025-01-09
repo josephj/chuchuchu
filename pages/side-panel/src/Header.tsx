@@ -31,20 +31,6 @@ type Props = {
   pageType?: { type: string };
 };
 
-const formatDisplayUrl = (url: string): string => {
-  try {
-    const urlObj = new URL(url);
-    const pathParts = urlObj.pathname.split('/');
-    // Get team ID (usually the first part after /messages/)
-    const teamId = pathParts[2];
-    // Get the channel and thread parts
-    const remainingPath = pathParts.slice(3).join('/');
-    return `/${teamId.slice(0, 6)}/${remainingPath}`;
-  } catch {
-    return url;
-  }
-};
-
 export const Header = ({
   threadUrl,
   articleTitle,
@@ -98,7 +84,7 @@ export const Header = ({
                 isTruncated
                 maxWidth="100%"
                 _hover={{ textDecoration: 'underline' }}>
-                {isSlack ? formatDisplayUrl(threadUrl) : threadUrl}
+                {threadUrl}
               </Link>
             </Tooltip>
           )}
