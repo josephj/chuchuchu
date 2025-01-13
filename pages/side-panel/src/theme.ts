@@ -1,0 +1,119 @@
+import { extendTheme } from '@chakra-ui/react';
+
+// Dracula theme colours
+const colors = {
+  dracula: {
+    // Dark theme
+    background: '#282a36',
+    currentLine: '#44475a',
+    foreground: '#f8f8f2',
+    comment: '#6272a4',
+    cyan: '#8be9fd',
+    green: '#50fa7b',
+    orange: '#ffb86c',
+    pink: '#ff79c6',
+    purple: '#bd93f9',
+    red: '#ff5555',
+    yellow: '#f1fa8c',
+    // Light theme
+    light: {
+      background: '#f8f8f2',
+      currentLine: '#e9e9f4',
+      foreground: '#282a36',
+      comment: '#a6a6b5',
+      selection: '#d7d7e2',
+      cyan: '#0095c3',
+      green: '#1d9a4e',
+      orange: '#cc7832',
+      pink: '#d9376e',
+      purple: '#9b6bdf',
+      red: '#e64747',
+      yellow: '#b68800',
+    },
+  },
+};
+
+export const theme = extendTheme({
+  config: {
+    initialColorMode: 'dark',
+    useSystemColorMode: false,
+  },
+  colors,
+  styles: {
+    global: (props: { colorMode: 'light' | 'dark' }) => ({
+      body: {
+        bg: props.colorMode === 'dark' ? 'dracula.background' : 'dracula.light.background',
+        color: props.colorMode === 'dark' ? 'dracula.foreground' : 'dracula.light.foreground',
+      },
+    }),
+  },
+  components: {
+    Alert: {
+      baseStyle: {
+        container: {
+          borderRadius: 'md',
+        },
+      },
+      variants: {
+        'left-accent': (props: { colorMode: 'light' | 'dark' }) => ({
+          container: {
+            bg: props.colorMode === 'dark' ? 'dracula.background' : 'dracula.light.background',
+            borderLeftColor: props.colorMode === 'dark' ? 'dracula.red' : 'dracula.light.red',
+          },
+          icon: {
+            color: props.colorMode === 'dark' ? 'dracula.red' : 'dracula.light.red',
+          },
+          title: {
+            color: props.colorMode === 'dark' ? 'dracula.red' : 'dracula.light.red',
+          },
+          description: {
+            color: props.colorMode === 'dark' ? 'dracula.foreground' : 'dracula.light.foreground',
+          },
+        }),
+      },
+      defaultProps: {
+        variant: 'left-accent',
+      },
+    },
+    Button: {
+      variants: {
+        solid: (props: { colorMode: 'light' | 'dark' }) => ({
+          bg: props.colorMode === 'dark' ? 'dracula.pink' : 'dracula.light.pink',
+          color: props.colorMode === 'dark' ? 'white' : 'white',
+          _hover: {
+            bg: props.colorMode === 'dark' ? 'dracula.red' : 'dracula.light.red',
+          },
+        }),
+        ghost: (props: { colorMode: 'light' | 'dark' }) => ({
+          _hover: {
+            bg: props.colorMode === 'dark' ? 'dracula.currentLine' : 'dracula.light.currentLine',
+          },
+        }),
+      },
+    },
+    IconButton: {
+      variants: {
+        ghost: (props: { colorMode: 'light' | 'dark' }) => ({
+          _hover: {
+            bg: props.colorMode === 'dark' ? 'dracula.currentLine' : 'dracula.light.currentLine',
+          },
+        }),
+      },
+    },
+    Textarea: {
+      variants: {
+        outline: (props: { colorMode: 'light' | 'dark' }) => ({
+          bg: props.colorMode === 'dark' ? 'dracula.currentLine' : 'dracula.light.background',
+          borderColor: props.colorMode === 'dark' ? 'dracula.comment' : 'dracula.light.comment',
+          _hover: {
+            borderColor: props.colorMode === 'dark' ? 'dracula.purple' : 'dracula.light.purple',
+          },
+          _focus: {
+            borderColor: props.colorMode === 'dark' ? 'dracula.purple' : 'dracula.light.purple',
+            boxShadow: `0 0 0 1px ${props.colorMode === 'dark' ? colors.dracula.purple : colors.dracula.light.purple}`,
+          },
+        }),
+      },
+    },
+  },
+});

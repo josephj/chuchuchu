@@ -1,12 +1,7 @@
 import { Box, Text, VStack, useColorModeValue } from '@chakra-ui/react';
 import ReactMarkdown from 'react-markdown';
 import { useEffect, useRef } from 'react';
-
-type Message = {
-  role: 'assistant' | 'user';
-  content: string;
-  timestamp: number;
-};
+import type { Message } from './types';
 
 type Props = {
   messages: Message[];
@@ -15,12 +10,12 @@ type Props = {
 
 export const Messages = ({ messages, isTyping }: Props) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messageAssistantBg = useColorModeValue('blue.50', 'blue.900');
-  const messageUserBg = useColorModeValue('gray.50', 'gray.700');
-  const textColor = useColorModeValue('gray.800', 'whiteAlpha.900');
-  const textColorSecondary = useColorModeValue('gray.600', 'whiteAlpha.700');
-  const codeBg = useColorModeValue('gray.100', 'whiteAlpha.200');
-  const blockquoteBorderColor = useColorModeValue('gray.200', 'gray.600');
+  const messageAssistantBg = useColorModeValue('transparent', 'dracula.background');
+  const messageUserBg = useColorModeValue('dracula.light.currentLine', 'dracula.background');
+  const textColor = useColorModeValue('dracula.light.foreground', 'dracula.foreground');
+  const textColorSecondary = useColorModeValue('dracula.light.comment', 'dracula.comment');
+  const codeBg = useColorModeValue('dracula.light.currentLine', 'dracula.background');
+  const blockquoteBorderColor = useColorModeValue('dracula.light.purple', 'dracula.purple');
 
   const scrollToLatestMessage = (smooth = true) => {
     if (messagesEndRef.current?.parentElement) {
@@ -67,18 +62,18 @@ export const Messages = ({ messages, isTyping }: Props) => {
           data-message
           bg={message.role === 'assistant' ? messageAssistantBg : messageUserBg}
           borderRadius="lg"
-          p={4}
           color={textColor}>
           <Box>
             {message.role === 'user' ? (
-              <Text>{message.content}</Text>
-            ) : (
+              <Text fontSize="14px">{message.content}</Text>
+            ) : typeof message.content === 'string' ? (
               <Box
                 sx={{
-                  fontSize: 'md',
+                  fontSize: '14px',
                   'h1, h2, h3, h4, h5, h6': {
                     fontWeight: 'bold',
                     my: 2,
+                    color: 'dracula.purple',
                   },
                   h1: { fontSize: '2xl' },
                   h2: { fontSize: 'xl' },
@@ -105,6 +100,7 @@ export const Messages = ({ messages, isTyping }: Props) => {
                     bg: codeBg,
                     px: 1,
                     borderRadius: 'sm',
+                    color: 'dracula.pink',
                   },
                   pre: {
                     bg: codeBg,
@@ -112,24 +108,36 @@ export const Messages = ({ messages, isTyping }: Props) => {
                     borderRadius: 'md',
                     overflowX: 'auto',
                   },
+                  'pre code': {
+                    color: 'dracula.green',
+                  },
                   blockquote: {
                     borderLeftWidth: '4px',
                     borderLeftColor: blockquoteBorderColor,
                     pl: 4,
                     my: 2,
+                    color: 'dracula.yellow',
+                  },
+                  a: {
+                    color: 'dracula.purple',
+                    _hover: {
+                      color: 'dracula.pink',
+                    },
                   },
                 }}>
                 <ReactMarkdown>{message.content}</ReactMarkdown>
               </Box>
+            ) : (
+              message.content
             )}
           </Box>
-          <Text fontSize="xs" color={textColorSecondary} mt={2}>
+          <Text fontSize="xs" color={textColorSecondary} mt={2} textAlign="right">
             {new Date(message.timestamp).toLocaleTimeString()}
           </Text>
         </Box>
       ))}
       {isTyping && (
-        <Text fontSize="sm" color={textColorSecondary} animation="pulse 2s infinite">
+        <Text fontSize="14px" color={textColorSecondary} animation="pulse 2s infinite">
           Assistant is typing...
         </Text>
       )}

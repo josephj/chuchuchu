@@ -91,3 +91,9 @@ export type PageType = {
   type: 'slack' | 'default' | 'youtube' | 'zoom';
   url: string;
 };
+
+export type Message = {
+  role: 'assistant' | 'user';
+  content: string | JSX.Element;
+  timestamp: number;
+};

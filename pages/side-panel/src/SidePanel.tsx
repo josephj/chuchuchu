@@ -3,7 +3,7 @@ import { withErrorBoundary, withSuspense } from '@extension/shared';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { askAssistant } from './ask-assistant';
 import { formatThreadForLLM, convertToWebUrl, formatRelativeTime, estimateTokens } from './utils';
-import type { Language, ThreadData, ThreadDataMessage, ArticleDataResultMessage, ArticleData } from './types';
+import type { Language, ThreadData, ThreadDataMessage, ArticleDataResultMessage, ArticleData, Message } from './types';
 import { LanguageSelector, SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE_CODE } from './LanguageSelector';
 import { useForm } from 'react-hook-form';
 import {
@@ -18,6 +18,9 @@ import {
   useColorMode,
   Collapse,
   HStack,
+  ChakraProvider,
+  Alert,
+  AlertIcon,
 } from '@chakra-ui/react';
 import { MoonIcon, SunIcon, ChevronUpIcon, ChevronDownIcon, SettingsIcon } from '@chakra-ui/icons';
 import { Messages } from './Messages';
@@ -25,12 +28,7 @@ import { Header } from './Header';
 import { useStorage } from './lib/use-storage';
 import { usePageType } from './lib/use-page-type';
 import { getInitialPrompt, getFollowUpPrompt } from './prompts';
-
-type Message = {
-  role: 'assistant' | 'user';
-  content: string;
-  timestamp: number;
-};
+import { theme } from './theme';
 
 type FormData = {
   question: string;
@@ -74,11 +72,11 @@ const SidePanel = () => {
   const [showOriginalContent, setShowOriginalContent] = useState(false);
   const [isThreadPaneAvailable, setIsThreadPaneAvailable] = useState(false);
 
-  const bg = useColorModeValue('gray.50', 'gray.800');
-  const borderColor = useColorModeValue('gray.200', 'gray.700');
-  const textColor = useColorModeValue('gray.800', 'whiteAlpha.900');
-  const textColorSecondary = useColorModeValue('gray.600', 'whiteAlpha.700');
-  const buttonBg = useColorModeValue('white', 'gray.700');
+  const bg = useColorModeValue('white', 'dracula.background');
+  const borderColor = useColorModeValue('gray.200', 'dracula.currentLine');
+  const textColor = useColorModeValue('gray.800', 'dracula.foreground');
+  const textColorSecondary = useColorModeValue('gray.600', 'dracula.comment');
+  const buttonBg = useColorModeValue('white', 'dracula.currentLine');
 
   const handleAskAssistant = useCallback(
     async (prompt: string, isInitialAnalysis = false, languageCode?: string) => {
@@ -112,7 +110,12 @@ const SidePanel = () => {
               ...prev,
               {
                 role: 'assistant',
-                content: 'Error: Failed to generate response. Please try again.',
+                content: (
+                  <Alert status="error" variant="left-accent">
+                    <AlertIcon />
+                    Failed to generate response. Please try again.
+                  </Alert>
+                ),
                 timestamp: Date.now(),
               },
             ]);
@@ -141,7 +144,12 @@ const SidePanel = () => {
           ...prev,
           {
             role: 'assistant',
-            content: 'Error: Failed to process prompt. Please try again.',
+            content: (
+              <Alert status="error" variant="left-accent">
+                <AlertIcon />
+                Failed to process prompt. Please try again.
+              </Alert>
+            ),
             timestamp: Date.now(),
           },
         ]);
@@ -567,7 +575,7 @@ ${articleContent.content || ''}`.trim();
       {/* Input Section */}
       {hasContent && (
         <>
-          <Box p={4} borderTop="1px" borderColor={borderColor}>
+          <Box p={4} borderTop="1px" borderColor={borderColor} fontSize="13px">
             <form onSubmit={handleFormSubmit(onSubmit)}>
               <Flex gap={2}>
                 <Textarea
@@ -575,6 +583,7 @@ ${articleContent.content || ''}`.trim();
                   onKeyDown={handleKeyDown}
                   isDisabled={isTyping}
                   rows={3}
+                  fontSize="13px"
                   placeholder="Ask a follow-up question... (Cmd/Ctrl + Enter to submit)"
                   resize="none"
                   color={textColor}
@@ -592,6 +601,7 @@ ${articleContent.content || ''}`.trim();
             <Button
               width="100%"
               variant="ghost"
+              fontSize="xs"
               onClick={handleToggleContent}
               rightIcon={showOriginalContent ? <ChevronDownIcon /> : <ChevronUpIcon />}
               size="sm"
@@ -621,4 +631,14 @@ ${articleContent.content || ''}`.trim();
   );
 };
 
-export default withErrorBoundary(withSuspense(SidePanel, <div> Loading ... </div>), <div> Error Occur </div>);
+export default withErrorBoundary(
+  withSuspense(
+    () => (
+      <ChakraProvider theme={theme}>
+        <SidePanel />
+      </ChakraProvider>
+    ),
+    <div> Loading ... </div>,
+  ),
+  <div> Error Occur </div>,
+);
