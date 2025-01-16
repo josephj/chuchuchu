@@ -5,7 +5,6 @@ import {
   Link,
   IconButton,
   Tooltip,
-  VStack,
   useColorModeValue,
   Alert,
   AlertIcon,
@@ -43,10 +42,10 @@ export const Header = ({
   onCapturePage,
   pageType,
 }: Props) => {
-  const bg = useColorModeValue('gray.50', 'gray.800');
-  const borderColor = useColorModeValue('gray.200', 'gray.700');
-  const textColor = useColorModeValue('gray.800', 'whiteAlpha.900');
-  const linkColor = useColorModeValue('blue.500', 'blue.300');
+  const bg = useColorModeValue('dracula.light.background', 'dracula.background');
+  const borderColor = useColorModeValue('dracula.light.currentLine', 'dracula.currentLine');
+  const textColor = useColorModeValue('dracula.light.foreground', 'dracula.foreground');
+  const linkColor = useColorModeValue('dracula.light.purple', 'dracula.purple');
 
   return (
     <Flex
@@ -61,16 +60,45 @@ export const Header = ({
       p={4}
       width="100%">
       <Flex justify="space-between" width="100%" gap={1}>
+        <Tooltip label="Clear conversation" placement="top" openDelay={500}>
+          <IconButton
+            icon={<CloseIcon fontSize="10px" />}
+            onClick={onClose}
+            aria-label="Clear conversation"
+            variant="ghost"
+            size="xs"
+          />
+        </Tooltip>
         <Stack spacing={0} flex="1" width="calc(100% - 100px)">
           {isSlack && threadInfo ? (
             <Text fontSize="sm" fontWeight="medium" color={textColor} noOfLines={2}>
               {threadInfo.channelName ? `#${threadInfo.channelName} • ` : ''}
-              {threadInfo.userName} • {threadInfo.timestamp}
+              {threadInfo.userName} • {threadInfo.timestamp}{' '}
+              <Tooltip label="Regenerate summary" placement="top" openDelay={500}>
+                <IconButton
+                  icon={<RepeatIcon />}
+                  onClick={onRegenerate}
+                  aria-label="Regenerate summary"
+                  colorScheme="pink"
+                  variant="ghost"
+                  size="xs"
+                />
+              </Tooltip>
             </Text>
           ) : (
             articleTitle && (
               <Text fontSize="sm" fontWeight="medium" color={textColor} noOfLines={2}>
-                {articleTitle}
+                {articleTitle}{' '}
+                <Tooltip label="Regenerate summary" placement="top" openDelay={500}>
+                  <IconButton
+                    icon={<RepeatIcon />}
+                    onClick={onRegenerate}
+                    aria-label="Regenerate summary"
+                    colorScheme="pink"
+                    variant="ghost"
+                    size="xs"
+                  />
+                </Tooltip>
               </Text>
             )
           )}
@@ -89,28 +117,6 @@ export const Header = ({
             </Tooltip>
           )}
         </Stack>
-        <VStack gap={2} flex="0" width="100px">
-          <Tooltip label="Clear conversation" placement="top" openDelay={500}>
-            <IconButton
-              colorScheme="red"
-              icon={<CloseIcon fontSize="8px" />}
-              onClick={onClose}
-              aria-label="Clear conversation"
-              variant="outline"
-              size="xs"
-            />
-          </Tooltip>
-          <Tooltip label="Regenerate summary" placement="top" openDelay={500}>
-            <IconButton
-              icon={<RepeatIcon />}
-              onClick={onRegenerate}
-              aria-label="Regenerate summary"
-              colorScheme="green"
-              variant="outline"
-              size="xs"
-            />
-          </Tooltip>
-        </VStack>
       </Flex>
       {hasContent && !isOnOriginalPage && (
         <Alert alignItems="flex-start" status="warning" size="sm" mt={2} py={2} borderRadius="md">

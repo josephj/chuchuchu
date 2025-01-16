@@ -1,6 +1,6 @@
 {
   "name": "@extension/devtools-panel",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "chrome extension - devtools panel",
   "private": true,
   "sideEffects": true,

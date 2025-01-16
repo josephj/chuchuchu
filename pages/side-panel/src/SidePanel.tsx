@@ -72,11 +72,11 @@ const SidePanel = () => {
   const [showOriginalContent, setShowOriginalContent] = useState(false);
   const [isThreadPaneAvailable, setIsThreadPaneAvailable] = useState(false);
 
-  const bg = useColorModeValue('white', 'dracula.background');
-  const borderColor = useColorModeValue('gray.200', 'dracula.currentLine');
-  const textColor = useColorModeValue('gray.800', 'dracula.foreground');
-  const textColorSecondary = useColorModeValue('gray.600', 'dracula.comment');
-  const buttonBg = useColorModeValue('white', 'dracula.currentLine');
+  const bg = useColorModeValue('dracula.light.background', 'dracula.background');
+  const borderColor = useColorModeValue('dracula.light.currentLine', 'dracula.currentLine');
+  const textColor = useColorModeValue('dracula.light.foreground', 'dracula.foreground');
+  const textColorSecondary = useColorModeValue('dracula.light.comment', 'dracula.comment');
+  const buttonBg = useColorModeValue('dracula.light.currentLine', 'dracula.currentLine');
 
   const handleAskAssistant = useCallback(
     async (prompt: string, isInitialAnalysis = false, languageCode?: string) => {
@@ -174,11 +174,14 @@ const SidePanel = () => {
 
   const handleRegenerate = useCallback(
     (languageCode?: string) => {
+      console.log('threadData :', threadData);
       if (threadData) {
         const formattedData = formatThreadForLLM(threadData);
-        const selectedLang = SUPPORTED_LANGUAGES.find(lang => lang.code === (languageCode || selectedLanguage));
+        const selectedLang = SUPPORTED_LANGUAGES.find(
+          lang => lang.code === languageCode || lang.code === selectedLanguage,
+        );
         if (!selectedLang) return;
-        handleAskAssistant(formattedData, true, languageCode);
+        handleAskAssistant(formattedData, true, selectedLang.code);
       } else if (articleContent) {
         const formattedContent =
           typeof articleContent === 'string'

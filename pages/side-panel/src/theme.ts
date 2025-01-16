@@ -57,7 +57,7 @@ export const theme = extendTheme({
       variants: {
         'left-accent': (props: { colorMode: 'light' | 'dark' }) => ({
           container: {
-            bg: props.colorMode === 'dark' ? 'dracula.background' : 'dracula.light.background',
+            bg: props.colorMode === 'dark' ? 'dracula.currentLine' : 'dracula.light.comment',
             borderLeftColor: props.colorMode === 'dark' ? 'dracula.red' : 'dracula.light.red',
           },
           icon: {
@@ -104,7 +104,7 @@ export const theme = extendTheme({
       variants: {
         outline: (props: { colorMode: 'light' | 'dark' }) => ({
           bg: props.colorMode === 'dark' ? 'dracula.currentLine' : 'dracula.light.background',
-          borderColor: props.colorMode === 'dark' ? 'dracula.comment' : 'dracula.light.comment',
+          borderColor: props.colorMode === 'dark' ? 'dracula.comment' : 'dracula.light.yellow',
           _hover: {
             borderColor: props.colorMode === 'dark' ? 'dracula.purple' : 'dracula.light.purple',
           },
