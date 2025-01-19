@@ -57,7 +57,7 @@ export const theme = extendTheme({
       variants: {
         'left-accent': (props: { colorMode: 'light' | 'dark' }) => ({
           container: {
-            bg: props.colorMode === 'dark' ? 'dracula.currentLine' : 'dracula.light.comment',
+            bg: props.colorMode === 'dark' ? 'dracula.currentLine' : 'dracula.light.currentLine',
             borderLeftColor: props.colorMode === 'dark' ? 'dracula.red' : 'dracula.light.red',
           },
           icon: {

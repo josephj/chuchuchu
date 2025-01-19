@@ -173,8 +173,10 @@ const SidePanel = () => {
   }, []);
 
   const handleRegenerate = useCallback(
-    (languageCode?: string) => {
-      console.log('threadData :', threadData);
+    (languageCodeOrEvent?: string | React.MouseEvent) => {
+      // If it's a MouseEvent (from the regenerate button), we don't need the language code
+      const languageCode = typeof languageCodeOrEvent === 'string' ? languageCodeOrEvent : undefined;
+
       if (threadData) {
         const formattedData = formatThreadForLLM(threadData);
         const selectedLang = SUPPORTED_LANGUAGES.find(
