@@ -20,15 +20,15 @@ const colors = {
       background: '#f8f8f2',
       currentLine: '#e9e9f4',
       foreground: '#282a36',
-      comment: '#a6a6b5',
+      comment: '#6272a4',
       selection: '#d7d7e2',
       cyan: '#0095c3',
-      green: '#1d9a4e',
-      orange: '#cc7832',
+      green: '#2a9134',
+      orange: '#c85000',
       pink: '#d9376e',
-      purple: '#9b6bdf',
-      red: '#e64747',
-      yellow: '#b68800',
+      purple: '#7c3aed',
+      red: '#dc2626',
+      yellow: '#854d0e',
     },
   },
 };
@@ -104,7 +104,7 @@ export const theme = extendTheme({
       variants: {
         outline: (props: { colorMode: 'light' | 'dark' }) => ({
           bg: props.colorMode === 'dark' ? 'dracula.currentLine' : 'dracula.light.background',
-          borderColor: props.colorMode === 'dark' ? 'dracula.comment' : 'dracula.light.yellow',
+          borderColor: props.colorMode === 'dark' ? 'dracula.comment' : 'dracula.light.comment',
           _hover: {
             borderColor: props.colorMode === 'dark' ? 'dracula.purple' : 'dracula.light.purple',
           },

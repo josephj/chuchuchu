@@ -16,6 +16,7 @@ export const Messages = ({ messages, isTyping }: Props) => {
   const textColorSecondary = useColorModeValue('dracula.light.comment', 'dracula.comment');
   const codeBg = useColorModeValue('dracula.light.currentLine', 'dracula.background');
   const blockquoteBorderColor = useColorModeValue('dracula.light.purple', 'dracula.purple');
+  const codeFg = useColorModeValue('dracula.light.pink', 'dracula.pink');
 
   const scrollToLatestMessage = (smooth = true) => {
     if (messagesEndRef.current?.parentElement) {
@@ -111,7 +112,7 @@ export const Messages = ({ messages, isTyping }: Props) => {
                   overflowX: 'auto',
                 },
                 'pre code': {
-                  color: 'dracula.green',
+                  color: codeFg,
                 },
                 blockquote: {
                   borderLeftWidth: '4px',

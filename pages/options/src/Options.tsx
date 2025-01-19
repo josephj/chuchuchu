@@ -2,6 +2,8 @@ import { withErrorBoundary, withSuspense, useStorage } from '@extension/shared';
 import { exampleThemeStorage } from '@extension/storage';
 import { createStorage } from '@extension/storage/lib/base/base';
 import { StorageEnum } from '@extension/storage/lib/base/enums';
+import { theme } from '../../side-panel/src/theme';
+import { type JSX, Fragment } from 'react';
 import {
   Center,
   Switch,
@@ -28,6 +30,7 @@ import {
   VStack,
   Textarea,
   IconButton,
+  ChakraProvider,
 } from '@chakra-ui/react';
 import { CheckIcon, ChevronUpIcon, ChevronDownIcon, DeleteIcon, AddIcon } from '@chakra-ui/icons';
 import { useEffect, useState } from 'react';
@@ -117,7 +120,13 @@ const Options = () => {
   const [modelList, setModelList] = useState<ModelInfo>({});
   const [isLoadingModels, setIsLoadingModels] = useState<{ [key: string]: boolean }>({});
   const [expandedModels, setExpandedModels] = useState<{ [key: string]: boolean }>({});
-  const textColorSecondary = useColorModeValue('gray.600', 'whiteAlpha.700');
+  const textColorSecondary = useColorModeValue('dracula.light.comment', 'dracula.comment');
+
+  // Add Dracula theme colors
+  const bg = useColorModeValue('dracula.light.background', 'dracula.background');
+  const borderColor = useColorModeValue('dracula.light.currentLine', 'dracula.currentLine');
+  const textColor = useColorModeValue('dracula.light.foreground', 'dracula.foreground');
+  const buttonBg = useColorModeValue('dracula.light.currentLine', 'dracula.currentLine');
 
   useEffect(() => {
     // Clear saved indicators after 2 seconds
@@ -404,13 +413,13 @@ const Options = () => {
   };
 
   return (
-    <Center p={6}>
-      <form onChange={handleSubmit(onSubmit)} style={{ width: '100%', maxWidth: '600px' }}>
+    <Center p={6} bg={bg} minH="100vh" color={textColor}>
+      <form onChange={handleSubmit(onSubmit)} style={{ width: '100%', maxWidth: '800px' }}>
         <Accordion defaultIndex={[0]} allowMultiple>
           {/* General Settings */}
-          <AccordionItem>
+          <AccordionItem borderColor={borderColor}>
             <h2>
-              <AccordionButton>
+              <AccordionButton _hover={{ bg: buttonBg }}>
                 <Box as="span" flex="1" textAlign="left">
                   <Heading size="md">General Settings</Heading>
                 </Box>
@@ -421,7 +430,7 @@ const Options = () => {
               <Grid templateColumns="200px 1fr" gap={6} alignItems="start" w="full">
                 {/* Language Setting */}
                 <GridItem display="flex" justifyContent="flex-end" alignItems="center" pr={4}>
-                  <FormLabel fontWeight="medium" m={0} htmlFor="language-select">
+                  <FormLabel fontWeight="medium" m={0} htmlFor="language-select" color={textColor}>
                     Language
                   </FormLabel>
                 </GridItem>
@@ -435,7 +444,16 @@ const Options = () => {
                           value={SUPPORTED_LANGUAGES.find(lang => lang.code === value)}
                           onChange={option => onChange(option?.code || DEFAULT_LANGUAGE_CODE)}
                           options={SUPPORTED_LANGUAGES}
-                          styles={selectStyles}
+                          styles={{
+                            ...selectStyles,
+                            control: (base: Record<string, unknown>) => ({
+                              ...base,
+                              minHeight: '32px',
+                              width: '200px',
+                              backgroundColor: theme === 'light' ? 'dracula.light.background' : 'dracula.background',
+                              borderColor: theme === 'light' ? 'dracula.light.currentLine' : 'dracula.currentLine',
+                            }),
+                          }}
                           theme={selectTheme}
                           placeholder="Select language..."
                           isSearchable
@@ -445,14 +463,16 @@ const Options = () => {
                         />
                       )}
                     />
-                    <FormHelperText>Choose your preferred language for the extension</FormHelperText>
+                    <FormHelperText color={textColorSecondary}>
+                      Choose your preferred language for the extension
+                    </FormHelperText>
                   </FormControl>
                   {savedSettings.language && <Icon as={CheckIcon} color="green.500" />}
                 </GridItem>
 
                 {/* Theme Setting */}
                 <GridItem display="flex" justifyContent="flex-end" alignItems="center" pr={4}>
-                  <FormLabel fontWeight="medium" m={0} htmlFor="theme-toggle">
+                  <FormLabel fontWeight="medium" m={0} htmlFor="theme-toggle" color={textColor}>
                     Theme
                   </FormLabel>
                 </GridItem>
@@ -465,7 +485,7 @@ const Options = () => {
                         <Switch isChecked={value} onChange={onChange} size="lg" />
                       )}
                     />
-                    <FormHelperText>Switch between light and dark mode</FormHelperText>
+                    <FormHelperText color={textColorSecondary}>Switch between light and dark mode</FormHelperText>
                   </FormControl>
                   {savedSettings.theme && <Icon as={CheckIcon} color="green.500" />}
                 </GridItem>
@@ -474,9 +494,9 @@ const Options = () => {
           </AccordionItem>
 
           {/* Slack Settings */}
-          <AccordionItem>
+          <AccordionItem borderColor={borderColor}>
             <h2>
-              <AccordionButton>
+              <AccordionButton _hover={{ bg: buttonBg }}>
                 <Box as="span" flex="1" textAlign="left">
                   <Heading size="md">Slack Settings</Heading>
                 </Box>
@@ -487,7 +507,7 @@ const Options = () => {
               <Grid templateColumns="200px 1fr" gap={6} alignItems="start" w="full">
                 {/* Open in Web Setting */}
                 <GridItem display="flex" justifyContent="flex-end" alignItems="center" pr={4}>
-                  <FormLabel fontWeight="medium" m={0} htmlFor="open-in-web">
+                  <FormLabel fontWeight="medium" m={0} htmlFor="open-in-web" color={textColor}>
                     Open in Web
                   </FormLabel>
                 </GridItem>
@@ -500,7 +520,9 @@ const Options = () => {
                         <Switch isChecked={value} onChange={onChange} size="lg" />
                       )}
                     />
-                    <FormHelperText>Choose whether to open links in web browser</FormHelperText>
+                    <FormHelperText color={textColorSecondary}>
+                      Choose whether to open links in web browser
+                    </FormHelperText>
                   </FormControl>
                   {savedSettings.openInWeb && <Icon as={CheckIcon} color="green.500" />}
                 </GridItem>
@@ -509,9 +531,9 @@ const Options = () => {
           </AccordionItem>
 
           {/* Model Settings */}
-          <AccordionItem>
+          <AccordionItem borderColor={borderColor}>
             <h2>
-              <AccordionButton>
+              <AccordionButton _hover={{ bg: buttonBg }}>
                 <Box as="span" flex="1" textAlign="left">
                   <Heading size="md">Model Settings</Heading>
                 </Box>
@@ -520,83 +542,59 @@ const Options = () => {
             </h2>
             <AccordionPanel pb={4}>
               <Grid templateColumns="200px 1fr" gap={6} alignItems="start" w="full">
-                {/* OpenAI API Key */}
-                <GridItem display="flex" justifyContent="flex-end" alignItems="center" pr={4}>
-                  <FormLabel fontWeight="medium" m={0} htmlFor="openai-key">
-                    OpenAI API Key
-                  </FormLabel>
-                </GridItem>
-                <GridItem display="flex" flexDirection="column" gap={2}>
-                  <Box display="flex" alignItems="center" gap={2}>
-                    <FormControl id="openai-key">
-                      <Controller
-                        control={control}
-                        name="openAIKey"
-                        render={({ field }) => <Input {...field} type="password" placeholder="sk-..." />}
-                      />
-                    </FormControl>
-                    {savedSettings.openAIKey && <Icon as={CheckIcon} color="green.500" />}
-                  </Box>
-                  {renderModelList('openai', modelList.openai)}
-                </GridItem>
-
-                {/* Anthropic API Key */}
-                <GridItem display="flex" justifyContent="flex-end" alignItems="center" pr={4}>
-                  <FormLabel fontWeight="medium" m={0} htmlFor="anthropic-key">
-                    Anthropic API Key
-                  </FormLabel>
-                </GridItem>
-                <GridItem display="flex" flexDirection="column" gap={2}>
-                  <Box display="flex" alignItems="center" gap={2}>
-                    <FormControl id="anthropic-key">
-                      <Controller
-                        control={control}
-                        name="anthropicKey"
-                        render={({ field }) => <Input {...field} type="password" placeholder="sk-ant-..." />}
-                      />
-                    </FormControl>
-                    {savedSettings.anthropicKey && <Icon as={CheckIcon} color="green.500" />}
-                  </Box>
-                  {renderModelList('anthropic', modelList.anthropic)}
-                </GridItem>
-
-                {/* DeepSeek API Key */}
-                <GridItem display="flex" justifyContent="flex-end" alignItems="center" pr={4}>
-                  <FormLabel fontWeight="medium" m={0} htmlFor="deepseek-key">
-                    DeepSeek API Key
-                  </FormLabel>
-                </GridItem>
-                <GridItem display="flex" alignItems="center" gap={2}>
-                  <FormControl id="deepseek-key">
-                    <Controller
-                      control={control}
-                      name="deepseekKey"
-                      render={({ field }) => <Input {...field} type="password" placeholder="..." />}
-                    />
-                  </FormControl>
-                  {savedSettings.deepseekKey && <Icon as={CheckIcon} color="green.500" />}
-                </GridItem>
-
-                {/* Google API Key */}
-                <GridItem display="flex" justifyContent="flex-end" alignItems="center" pr={4}>
-                  <FormLabel fontWeight="medium" m={0} htmlFor="google-key">
-                    Google API Key
-                  </FormLabel>
-                </GridItem>
-                <GridItem display="flex" alignItems="center" gap={2}>
-                  <FormControl id="google-key">
-                    <Controller
-                      control={control}
-                      name="googleKey"
-                      render={({ field }) => <Input {...field} type="password" placeholder="..." />}
-                    />
-                  </FormControl>
-                  {savedSettings.googleKey && <Icon as={CheckIcon} color="green.500" />}
-                </GridItem>
+                {/* API Key Inputs */}
+                {Object.entries({
+                  'OpenAI API Key': { name: 'openAIKey', placeholder: 'sk-...' },
+                  'Anthropic API Key': { name: 'anthropicKey', placeholder: 'sk-ant-...' },
+                  'DeepSeek API Key': { name: 'deepseekKey', placeholder: '...' },
+                  'Google API Key': { name: 'googleKey', placeholder: '...' },
+                  'Groq API Key': { name: 'groqKey', placeholder: 'gsk_...' },
+                }).map(
+                  ([label, { name, placeholder }]): JSX.Element => (
+                    <Fragment key={name}>
+                      <GridItem display="flex" justifyContent="flex-end" alignItems="center" pr={4}>
+                        <FormLabel fontWeight="medium" m={0} htmlFor={name} color={textColor}>
+                          {label}
+                        </FormLabel>
+                      </GridItem>
+                      <GridItem display="flex" flexDirection="column" gap={2}>
+                        <Box display="flex" alignItems="center" gap={2}>
+                          <FormControl id={name}>
+                            <Controller
+                              control={control}
+                              name={name as keyof OptionsFormData}
+                              render={({ field: { value, ...rest } }) => (
+                                <Input
+                                  {...rest}
+                                  value={typeof value === 'string' ? value : ''}
+                                  type="password"
+                                  placeholder={placeholder}
+                                  bg={bg}
+                                  borderColor={borderColor}
+                                  _hover={{ borderColor: 'dracula.purple' }}
+                                  _focus={{
+                                    borderColor: 'dracula.purple',
+                                    boxShadow: 'none',
+                                  }}
+                                />
+                              )}
+                            />
+                          </FormControl>
+                          {savedSettings[name as keyof typeof savedSettings] && (
+                            <Icon as={CheckIcon} color="dracula.green" />
+                          )}
+                        </Box>
+                        {name === 'openAIKey' && renderModelList('openai', modelList.openai)}
+                        {name === 'anthropicKey' && renderModelList('anthropic', modelList.anthropic)}
+                        {name === 'ollamaUrl' && renderModelList('ollama', modelList.ollama)}
+                      </GridItem>
+                    </Fragment>
+                  ),
+                )}
 
                 {/* Ollama URL */}
                 <GridItem display="flex" justifyContent="flex-end" alignItems="center" pr={4}>
-                  <FormLabel fontWeight="medium" m={0} htmlFor="ollama-url">
+                  <FormLabel fontWeight="medium" m={0} htmlFor="ollama-url" color={textColor}>
                     Ollama URL
                   </FormLabel>
                 </GridItem>
@@ -606,38 +604,34 @@ const Options = () => {
                       <Controller
                         control={control}
                         name="ollamaUrl"
-                        render={({ field }) => <Input {...field} type="text" placeholder="http://localhost:11434" />}
+                        render={({ field }) => (
+                          <Input
+                            {...field}
+                            type="text"
+                            placeholder="http://localhost:11434"
+                            bg={bg}
+                            borderColor={borderColor}
+                            _hover={{ borderColor: 'dracula.purple' }}
+                            _focus={{
+                              borderColor: 'dracula.purple',
+                              boxShadow: 'none',
+                            }}
+                          />
+                        )}
                       />
                     </FormControl>
-                    {savedSettings.ollamaUrl && <Icon as={CheckIcon} color="green.500" />}
+                    {savedSettings.ollamaUrl && <Icon as={CheckIcon} color="dracula.green" />}
                   </Box>
                   {renderModelList('ollama', modelList.ollama)}
-                </GridItem>
-
-                {/* Groq API Key */}
-                <GridItem display="flex" justifyContent="flex-end" alignItems="center" pr={4}>
-                  <FormLabel fontWeight="medium" m={0} htmlFor="groq-key">
-                    Groq API Key
-                  </FormLabel>
-                </GridItem>
-                <GridItem display="flex" alignItems="center" gap={2}>
-                  <FormControl id="groq-key">
-                    <Controller
-                      control={control}
-                      name="groqKey"
-                      render={({ field }) => <Input {...field} type="password" placeholder="gsk_..." />}
-                    />
-                  </FormControl>
-                  {savedSettings.groqKey && <Icon as={CheckIcon} color="green.500" />}
                 </GridItem>
               </Grid>
             </AccordionPanel>
           </AccordionItem>
 
           {/* URL Pattern Mapping */}
-          <AccordionItem>
+          <AccordionItem borderColor={borderColor}>
             <h2>
-              <AccordionButton>
+              <AccordionButton _hover={{ bg: buttonBg }}>
                 <Box as="span" flex="1" textAlign="left">
                   <Heading size="md">URL Pattern Mapping</Heading>
                 </Box>
@@ -649,16 +643,27 @@ const Options = () => {
                 {urlPatterns?.map((pattern, index) => (
                   <Grid key={index} templateColumns="1fr 1fr 2fr auto" gap={4} alignItems="start">
                     <FormControl>
-                      <FormLabel fontSize="sm">URL Pattern</FormLabel>
+                      <FormLabel fontSize="sm" color={textColor}>
+                        URL Pattern
+                      </FormLabel>
                       <Input
                         size="sm"
                         value={pattern.pattern}
                         onChange={e => handleUpdatePattern(index, 'pattern', e.target.value)}
                         placeholder="e.g., *://*.youtube.com/*"
+                        bg={bg}
+                        borderColor={borderColor}
+                        _hover={{ borderColor: 'dracula.purple' }}
+                        _focus={{
+                          borderColor: 'dracula.purple',
+                          boxShadow: 'none',
+                        }}
                       />
                     </FormControl>
                     <FormControl>
-                      <FormLabel fontSize="sm">Model</FormLabel>
+                      <FormLabel fontSize="sm" color={textColor}>
+                        Model
+                      </FormLabel>
                       <Select<{ value: string; label: string }>
                         value={{ value: pattern.model, label: pattern.model }}
                         onChange={option => handleUpdatePattern(index, 'model', option?.value || '')}
@@ -672,19 +677,30 @@ const Options = () => {
                           control: (base: Record<string, unknown>) => ({
                             ...base,
                             minHeight: '32px',
+                            backgroundColor: theme === 'light' ? 'dracula.light.background' : 'dracula.background',
+                            borderColor: theme === 'light' ? 'dracula.light.currentLine' : 'dracula.currentLine',
                           }),
                         }}
                         theme={selectTheme}
                       />
                     </FormControl>
                     <FormControl>
-                      <FormLabel fontSize="sm">Custom Prompt</FormLabel>
+                      <FormLabel fontSize="sm" color={textColor}>
+                        Custom Prompt
+                      </FormLabel>
                       <Textarea
                         size="sm"
                         value={pattern.prompt}
                         onChange={e => handleUpdatePattern(index, 'prompt', e.target.value)}
                         placeholder="Enter custom prompt..."
                         rows={3}
+                        bg={bg}
+                        borderColor={borderColor}
+                        _hover={{ borderColor: 'dracula.purple' }}
+                        _focus={{
+                          borderColor: 'dracula.purple',
+                          boxShadow: 'none',
+                        }}
                       />
                     </FormControl>
                     <IconButton
@@ -695,10 +711,19 @@ const Options = () => {
                       colorScheme="red"
                       variant="ghost"
                       alignSelf="flex-end"
+                      color={textColor}
+                      _hover={{ bg: buttonBg }}
                     />
                   </Grid>
                 ))}
-                <Button leftIcon={<AddIcon />} onClick={handleAddPattern} size="sm" alignSelf="flex-start">
+                <Button
+                  leftIcon={<AddIcon />}
+                  onClick={handleAddPattern}
+                  size="sm"
+                  alignSelf="flex-start"
+                  bg={buttonBg}
+                  color={textColor}
+                  _hover={{ bg: 'dracula.purple' }}>
                   Add Pattern
                 </Button>
               </VStack>
@@ -710,4 +735,14 @@ const Options = () => {
   );
 };
 
-export default withErrorBoundary(withSuspense(Options, <div> Loading ... </div>), <div> Error Occur </div>);
+export default withErrorBoundary(
+  withSuspense(
+    () => (
+      <ChakraProvider theme={theme}>
+        <Options />
+      </ChakraProvider>
+    ),
+    <div> Loading ... </div>,
+  ),
+  <div> Error Occur </div>,
+);
