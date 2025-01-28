@@ -21,16 +21,34 @@ import {
   AccordionIcon,
   useColorModeValue,
   ChakraProvider,
+  Button,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalFooter,
+  ModalBody,
+  ModalCloseButton,
+  Input,
+  Textarea,
+  Slider,
+  SliderTrack,
+  SliderFilledTrack,
+  SliderThumb,
+  SliderMark,
+  Tooltip,
+  VStack,
+  Text,
 } from '@chakra-ui/react';
-import { CheckIcon } from '@chakra-ui/icons';
+import { CheckIcon, AddIcon } from '@chakra-ui/icons';
 import { useEffect, useState } from 'react';
 import Select from 'react-select';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { Theme as ReactSelectTheme } from 'react-select';
-import type { OptionsFormData } from './types';
-import { optionsFormSchema } from './types';
-import { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE_CODE } from './vars';
+import type { OptionsFormData, Hat } from './types';
+import { optionsFormSchema, hatSchema } from './types';
+import { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE_CODE, SUPPORTED_MODELS, DEFAULT_MODEL } from './vars';
 
 type LanguageOption = {
   value: string;
@@ -49,12 +67,24 @@ const openInWebStorage = createStorage<boolean>('openInWeb', true, {
   liveUpdate: true,
 });
 
+const hatsStorage = createStorage<Hat[]>('hats', [], {
+  storageEnum: StorageEnum.Sync,
+  liveUpdate: true,
+});
+
 const Options = () => {
   const theme = useStorage(exampleThemeStorage);
   const selectedLanguage = useStorage(languageStorage);
   const openInWeb = useStorage(openInWebStorage);
+  const hats = useStorage(hatsStorage);
   const isLight = theme === 'light';
   const [savedSettings, setSavedSettings] = useState<{ [K in keyof OptionsFormData]?: boolean }>({});
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newHat, setNewHat] = useState<Partial<Hat>>({
+    temperature: 0,
+    language: selectedLanguage,
+    model: DEFAULT_MODEL,
+  });
   const textColorSecondary = useColorModeValue('dracula.light.comment', 'dracula.comment');
 
   // Add Dracula theme colors
@@ -149,10 +179,45 @@ const Options = () => {
     },
   });
 
+  const handleAddHat = async () => {
+    try {
+      const validatedHat = hatSchema.parse(newHat);
+      await hatsStorage.set([...(hats || []), validatedHat]);
+      setIsModalOpen(false);
+      setNewHat({
+        temperature: 0,
+        language: selectedLanguage,
+        model: DEFAULT_MODEL,
+      });
+    } catch (error) {
+      console.error('Invalid hat data:', error);
+    }
+  };
+
+  const generateIdFromLabel = (label: string): string => {
+    return label
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9-\s]/g, '') // Remove special characters except hyphen
+      .replace(/\s+/g, '-') // Replace spaces with hyphens
+      .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+      .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
+  };
+
+  const handleLabelChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newLabel = e.target.value;
+    setNewHat(prev => ({
+      ...prev,
+      label: newLabel,
+      // Only update ID if it hasn't been manually edited or is empty
+      id: prev.id === generateIdFromLabel(prev.label || '') || !prev.id ? generateIdFromLabel(newLabel) : prev.id,
+    }));
+  };
+
   return (
     <Center p={6} bg={bg} minH="100vh" color={textColor}>
       <form onChange={handleSubmit(onSubmit)} style={{ width: '100%', maxWidth: '800px' }}>
-        <Accordion defaultIndex={[0, 1]} allowMultiple>
+        <Accordion defaultIndex={[0, 1, 2]} allowMultiple>
           {/* General Settings */}
           <AccordionItem borderColor={borderColor}>
             <h2>
@@ -266,8 +331,154 @@ const Options = () => {
               </Grid>
             </AccordionPanel>
           </AccordionItem>
+
+          {/* Hats Settings */}
+          <AccordionItem borderColor={borderColor}>
+            <h2>
+              <AccordionButton _hover={{ bg: buttonBg }}>
+                <Box as="span" flex="1" textAlign="left">
+                  <Heading size="md">Hats</Heading>
+                </Box>
+                <AccordionIcon />
+              </AccordionButton>
+            </h2>
+            <AccordionPanel pb={4}>
+              <VStack spacing={4} align="stretch">
+                {!hats || hats.length === 0 ? (
+                  <Text color={textColorSecondary}>No hats added yet</Text>
+                ) : (
+                  hats.map(hat => (
+                    <Box key={hat.id} p={4} borderWidth="1px" borderRadius="md">
+                      <Text fontWeight="bold">{hat.label}</Text>
+                      <Text fontSize="sm" color={textColorSecondary}>
+                        ID: {hat.id}
+                      </Text>
+                    </Box>
+                  ))
+                )}
+                <Button
+                  leftIcon={<AddIcon />}
+                  onClick={() => setIsModalOpen(true)}
+                  colorScheme="blue"
+                  variant="outline">
+                  Add new hat
+                </Button>
+              </VStack>
+            </AccordionPanel>
+          </AccordionItem>
         </Accordion>
       </form>
+
+      {/* Add Hat Modal */}
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} size="xl">
+        <ModalOverlay />
+        <ModalContent bg={bg} color={textColor}>
+          <ModalHeader>Add New Hat</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={4}>
+              <FormControl>
+                <FormLabel>Label</FormLabel>
+                <Input value={newHat.label || ''} onChange={handleLabelChange} placeholder="Enter hat label" />
+              </FormControl>
+              <FormControl>
+                <FormLabel>ID</FormLabel>
+                <Input
+                  value={newHat.id || ''}
+                  onChange={e => setNewHat({ ...newHat, id: e.target.value })}
+                  placeholder="Enter hat ID (English, numbers, dash, and underline only)"
+                />
+                <FormHelperText color={textColorSecondary}>
+                  Auto-generated from label, but can be manually edited
+                </FormHelperText>
+              </FormControl>
+              <FormControl>
+                <FormLabel>Prompt</FormLabel>
+                <Textarea
+                  value={newHat.prompt || ''}
+                  onChange={e => setNewHat({ ...newHat, prompt: e.target.value })}
+                  placeholder="Enter your prompt in Markdown format"
+                  minH="200px"
+                  size="md"
+                  resize="vertical"
+                />
+                <FormHelperText color={textColorSecondary}>
+                  Write your prompt in Markdown format. You can use variables like {'{text}'} for the content to
+                  summarize
+                </FormHelperText>
+              </FormControl>
+              <FormControl>
+                <FormLabel>Temperature ({newHat.temperature})</FormLabel>
+                <Box pt={2} pb={6} display="flex" justifyContent="center">
+                  <Slider
+                    value={newHat.temperature}
+                    onChange={value => setNewHat({ ...newHat, temperature: value })}
+                    min={0}
+                    max={2.5}
+                    step={0.1}
+                    aria-label="temperature-slider"
+                    width="80%">
+                    <SliderMark value={0} mt={4} ml={-2.5} fontSize="xs">
+                      Precise
+                    </SliderMark>
+                    <SliderMark value={1.25} mt={4} ml={-4} fontSize="xs">
+                      Balanced
+                    </SliderMark>
+                    <SliderMark value={2.5} mt={4} ml={-3} fontSize="xs">
+                      Creative
+                    </SliderMark>
+                    <SliderTrack>
+                      <SliderFilledTrack />
+                    </SliderTrack>
+                    <Tooltip
+                      hasArrow
+                      bg={bg}
+                      color={textColor}
+                      placement="top"
+                      label={`Temperature: ${newHat.temperature}`}>
+                      <SliderThumb />
+                    </Tooltip>
+                  </Slider>
+                </Box>
+                <FormHelperText color={textColorSecondary} fontSize="xs">
+                  Lower values produce more focused and deterministic outputs, while higher values increase creativity
+                  and randomness
+                </FormHelperText>
+              </FormControl>
+              <FormControl>
+                <FormLabel>Language</FormLabel>
+                <Select
+                  value={SUPPORTED_LANGUAGES.find(lang => lang.code === newHat.language)}
+                  onChange={option => setNewHat({ ...newHat, language: option?.code || DEFAULT_LANGUAGE_CODE })}
+                  options={SUPPORTED_LANGUAGES}
+                  styles={selectStyles}
+                  theme={selectTheme}
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Model</FormLabel>
+                <Select
+                  value={SUPPORTED_MODELS.find(model => model.value === newHat.model)}
+                  onChange={option => setNewHat({ ...newHat, model: option?.value || DEFAULT_MODEL })}
+                  options={SUPPORTED_MODELS}
+                  styles={selectStyles}
+                  theme={selectTheme}
+                  placeholder="Select model..."
+                />
+                <FormHelperText color={textColorSecondary}>Choose the GROQ model for this hat</FormHelperText>
+              </FormControl>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={() => setIsModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button colorScheme="blue" onClick={handleAddHat}>
+              Add Hat
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Center>
   );
 };

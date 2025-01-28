@@ -24,3 +24,11 @@ export const SUPPORTED_LANGUAGES = [...regionalVariants, ...baseLanguages].map(l
 }));
 
 export const DEFAULT_LANGUAGE_CODE = 'zh-TW';
+
+export const SUPPORTED_MODELS = [
+  { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B (32K context)' },
+  { value: 'llama2-70b-4096', label: 'LLaMA2 70B' },
+  { value: 'gemma-7b-it', label: 'Gemma 7B Instruct' },
+] as const;
+
+export const DEFAULT_MODEL = SUPPORTED_MODELS[0].value;
