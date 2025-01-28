@@ -60,13 +60,12 @@ export const captureZoom = () => {
         }
 
         const vttContent = await response.text();
-        const transcript = extractTranscriptFromVTT(vttContent);
-
+        console.log('vttContent :', vttContent);
         const data: ZoomData = {
           type: 'zoom',
           title,
           url: window.location.href,
-          content: transcript,
+          content: vttContent,
         };
 
         // Send the data back to the extension
