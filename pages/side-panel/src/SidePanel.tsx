@@ -28,6 +28,8 @@ import { usePageType } from './lib/use-page-type';
 import { theme } from './theme';
 import { HatSelector } from './HatSelector';
 import type { Hat } from '../../options/src/types';
+import { replaceTokens } from './prompts/utils';
+import { SUPPORTED_LANGUAGES } from './vars';
 
 type FormData = {
   question: string;
@@ -101,8 +103,15 @@ const SidePanel = () => {
       if (!selectedHatData) return;
 
       try {
-        const systemPrompt = selectedHatData.prompt;
-        console.log('systemPrompt :', systemPrompt);
+        const selectedLanguage = SUPPORTED_LANGUAGES.find(lang => lang.code === selectedHatData.language);
+        if (!selectedLanguage) return;
+
+        const systemPrompt = replaceTokens(selectedHatData.prompt, {
+          language: {
+            code: selectedLanguage.code,
+            name: selectedLanguage.name,
+          },
+        });
 
         const previousMessages = messages.map(msg => ({
           role: msg.role,

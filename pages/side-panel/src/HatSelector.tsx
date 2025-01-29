@@ -1,9 +1,8 @@
-import { useStorage } from '@extension/shared';
-import { createStorage } from '@extension/storage/lib/base/base';
-import { StorageEnum } from '@extension/storage/lib/base/enums';
 import Select from 'react-select';
-import { useColorModeValue } from '@chakra-ui/react';
+import { useColorModeValue, Box } from '@chakra-ui/react';
 import type { Hat } from '../../options/src/types';
+import { FaHatCowboy } from 'react-icons/fa';
+import { useState, useEffect } from 'react';
 
 type Props = {
   value?: string;
@@ -16,16 +15,23 @@ type HatOption = {
   label: string;
 };
 
-const hatsStorage = createStorage<Hat[]>('hats', [], {
-  storageEnum: StorageEnum.Sync,
-  liveUpdate: true,
-});
-
 export const HatSelector = ({ value, onChange, isDisabled }: Props) => {
-  const hats = useStorage(hatsStorage);
+  const [hats, setHats] = useState<Hat[]>([]);
   const isLight = useColorModeValue(true, false);
 
+  useEffect(() => {
+    chrome.storage.sync.get(['hats'], result => {
+      if (result.hats) {
+        setHats(result.hats);
+      }
+    });
+  }, []);
+
   const selectStyles = {
+    container: (base: Record<string, unknown>) => ({
+      ...base,
+      zIndex: 10,
+    }),
     control: (base: Record<string, unknown>) => ({
       ...base,
       minHeight: '32px',
@@ -40,6 +46,7 @@ export const HatSelector = ({ value, onChange, isDisabled }: Props) => {
     menu: (base: Record<string, unknown>) => ({
       ...base,
       backgroundColor: isLight ? 'white' : 'var(--chakra-colors-gray-700)',
+      zIndex: 11,
     }),
     option: (base: Record<string, unknown>, state: { isFocused: boolean; isSelected: boolean }) => ({
       ...base,
@@ -57,21 +64,40 @@ export const HatSelector = ({ value, onChange, isDisabled }: Props) => {
     }),
   };
 
-  const options: HatOption[] = (hats || []).map(hat => ({
+  const options: HatOption[] = hats.map((hat: Hat) => ({
     value: hat.id,
     label: hat.label,
   }));
 
   return (
-    <Select<HatOption>
-      value={options.find(option => option.value === value)}
-      onChange={option => onChange(option?.value || '')}
-      options={options}
-      isDisabled={isDisabled}
-      styles={selectStyles}
-      placeholder="Select a hat..."
-      noOptionsMessage={() => 'No hats available - create one in Options'}
-      isSearchable
-    />
+    <Box position="relative" zIndex={10}>
+      <FaHatCowboy
+        size={20}
+        style={{
+          position: 'absolute',
+          left: '8px',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          color: isLight ? 'var(--chakra-colors-gray-600)' : 'var(--chakra-colors-gray-400)',
+          zIndex: 11,
+        }}
+      />
+      <Select<HatOption>
+        value={options.find(option => option.value === value)}
+        onChange={option => onChange(option?.value || '')}
+        options={options}
+        isDisabled={isDisabled}
+        styles={{
+          ...selectStyles,
+          control: (base: Record<string, unknown>) => ({
+            ...selectStyles.control(base),
+            paddingLeft: '32px', // Make room for the icon
+          }),
+        }}
+        placeholder="Select a hat..."
+        noOptionsMessage={() => 'No hats available - create one in Options'}
+        isSearchable
+      />
+    </Box>
   );
 };

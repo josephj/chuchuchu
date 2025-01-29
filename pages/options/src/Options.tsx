@@ -12,6 +12,7 @@ import {
   FormLabel,
   Icon,
   Heading,
+  HStack,
   Box,
   Accordion,
   AccordionItem,
@@ -414,17 +415,17 @@ const Options = () => {
                         bg: hoverBg,
                       }}
                       transition="all 0.2s">
-                      <Box>
-                        <Text fontWeight="bold">{hat.label}</Text>
-                        <Text fontSize="sm" color={textColorSecondary}>
-                          ID: {hat.id}
+                      <HStack>
+                        <Text fontWeight="bold">{hat.label} </Text>
+                        <Text as="span" color={textColorSecondary} fontWeight="normal">
+                          ({hat.id})
                         </Text>
                         {hat.urlPattern && (
-                          <Text fontSize="sm" color={textColorSecondary}>
-                            URL: {hat.urlPattern}
+                          <Text fontSize="xs" color={textColorSecondary}>
+                            {hat.urlPattern}
                           </Text>
                         )}
-                      </Box>
+                      </HStack>
                       <Box
                         opacity={0}
                         _groupHover={{
