@@ -39,9 +39,16 @@ import {
   Tooltip,
   VStack,
   Text,
+  IconButton,
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogContent,
+  AlertDialogOverlay,
 } from '@chakra-ui/react';
-import { CheckIcon, AddIcon } from '@chakra-ui/icons';
-import { useEffect, useState } from 'react';
+import { CheckIcon, AddIcon, DeleteIcon, EditIcon } from '@chakra-ui/icons';
+import { useEffect, useState, useRef } from 'react';
 import Select from 'react-select';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -85,6 +92,10 @@ const Options = () => {
     language: selectedLanguage,
     model: DEFAULT_MODEL,
   });
+  const [editingHat, setEditingHat] = useState<Hat | null>(null);
+  const [hatToDelete, setHatToDelete] = useState<Hat | null>(null);
+  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
+  const cancelDeleteRef = useRef<HTMLButtonElement>(null);
   const textColorSecondary = useColorModeValue('dracula.light.comment', 'dracula.comment');
 
   // Add Dracula theme colors
@@ -92,6 +103,7 @@ const Options = () => {
   const borderColor = useColorModeValue('dracula.light.currentLine', 'dracula.currentLine');
   const textColor = useColorModeValue('dracula.light.foreground', 'dracula.foreground');
   const buttonBg = useColorModeValue('dracula.light.currentLine', 'dracula.currentLine');
+  const hoverBg = useColorModeValue('gray.50', 'whiteAlpha.50');
 
   useEffect(() => {
     // Clear saved indicators after 2 seconds
@@ -179,11 +191,46 @@ const Options = () => {
     },
   });
 
-  const handleAddHat = async () => {
+  const handleDeleteClick = (hat: Hat) => {
+    setHatToDelete(hat);
+    setIsDeleteAlertOpen(true);
+  };
+
+  const closeDeleteAlert = () => {
+    setIsDeleteAlertOpen(false);
+    setHatToDelete(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (hatToDelete) {
+      const updatedHats = (hats || []).filter(hat => hat.id !== hatToDelete.id);
+      await hatsStorage.set(updatedHats);
+      closeDeleteAlert();
+    }
+  };
+
+  const handleEditHat = (hat: Hat) => {
+    setEditingHat(hat);
+    setNewHat(hat);
+    setIsModalOpen(true);
+  };
+
+  const handleAddOrUpdateHat = async () => {
     try {
       const validatedHat = hatSchema.parse(newHat);
-      await hatsStorage.set([...(hats || []), validatedHat]);
+      let updatedHats: Hat[];
+
+      if (editingHat) {
+        // Update existing hat
+        updatedHats = (hats || []).map(hat => (hat.id === editingHat.id ? validatedHat : hat));
+      } else {
+        // Add new hat
+        updatedHats = [...(hats || []), validatedHat];
+      }
+
+      await hatsStorage.set(updatedHats);
       setIsModalOpen(false);
+      setEditingHat(null);
       setNewHat({
         temperature: 0,
         language: selectedLanguage,
@@ -192,6 +239,16 @@ const Options = () => {
     } catch (error) {
       console.error('Invalid hat data:', error);
     }
+  };
+
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setEditingHat(null);
+    setNewHat({
+      temperature: 0,
+      language: selectedLanguage,
+      model: DEFAULT_MODEL,
+    });
   };
 
   const generateIdFromLabel = (label: string): string => {
@@ -348,17 +405,77 @@ const Options = () => {
                   <Text color={textColorSecondary}>No hats added yet</Text>
                 ) : (
                   hats.map(hat => (
-                    <Box key={hat.id} p={4} borderWidth="1px" borderRadius="md">
-                      <Text fontWeight="bold">{hat.label}</Text>
-                      <Text fontSize="sm" color={textColorSecondary}>
-                        ID: {hat.id}
-                      </Text>
+                    <Box
+                      key={hat.id}
+                      p={4}
+                      borderWidth="1px"
+                      borderRadius="md"
+                      display="flex"
+                      justifyContent="space-between"
+                      alignItems="center"
+                      position="relative"
+                      role="group"
+                      onClick={() => handleEditHat(hat)}
+                      _hover={{
+                        borderColor: 'blue.500',
+                        cursor: 'pointer',
+                        bg: hoverBg,
+                      }}
+                      transition="all 0.2s">
+                      <Box>
+                        <Text fontWeight="bold">{hat.label}</Text>
+                        <Text fontSize="sm" color={textColorSecondary}>
+                          ID: {hat.id}
+                        </Text>
+                      </Box>
+                      <Box
+                        opacity={0}
+                        _groupHover={{
+                          opacity: 1,
+                        }}
+                        transition="opacity 0.2s"
+                        display="flex"
+                        position="absolute"
+                        right={4}
+                        onClick={e => e.stopPropagation()}>
+                        <IconButton
+                          aria-label="Edit hat"
+                          icon={<EditIcon />}
+                          size="sm"
+                          variant="ghost"
+                          colorScheme="blue"
+                          mr={2}
+                          onClick={e => {
+                            e.stopPropagation();
+                            handleEditHat(hat);
+                          }}
+                        />
+                        <IconButton
+                          aria-label="Delete hat"
+                          icon={<DeleteIcon />}
+                          size="sm"
+                          variant="ghost"
+                          colorScheme="red"
+                          onClick={e => {
+                            e.stopPropagation();
+                            handleDeleteClick(hat);
+                          }}
+                        />
+                      </Box>
                     </Box>
                   ))
                 )}
                 <Button
                   leftIcon={<AddIcon />}
-                  onClick={() => setIsModalOpen(true)}
+                  onClick={() => {
+                    setEditingHat(null);
+                    setNewHat({
+                      temperature: 0,
+                      language: selectedLanguage,
+                      model: DEFAULT_MODEL,
+                    });
+                    setIsModalOpen(true);
+                  }}
                   colorScheme="blue"
                   variant="outline">
                   Add new hat
@@ -369,11 +486,11 @@ const Options = () => {
         </Accordion>
       </form>
 
-      {/* Add Hat Modal */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} size="xl">
+      {/* Add/Edit Hat Modal */}
+      <Modal isOpen={isModalOpen} onClose={handleModalClose} size="xl">
         <ModalOverlay />
         <ModalContent bg={bg} color={textColor}>
-          <ModalHeader>Add New Hat</ModalHeader>
+          <ModalHeader>{editingHat ? 'Edit Hat' : 'Add New Hat'}</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
             <VStack spacing={4}>
@@ -469,16 +586,53 @@ const Options = () => {
               </FormControl>
             </VStack>
           </ModalBody>
-          <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={() => setIsModalOpen(false)}>
+          <ModalFooter display="flex" width="100%" alignItems="center" gap={3}>
+            {editingHat && (
+              <Button
+                colorScheme="red"
+                variant="ghost"
+                onClick={() => {
+                  handleDeleteClick(editingHat);
+                  handleModalClose();
+                }}
+                leftIcon={<DeleteIcon />}>
+                Delete
+              </Button>
+            )}
+            <Box flex={1} />
+            <Button variant="ghost" onClick={handleModalClose}>
               Cancel
             </Button>
-            <Button colorScheme="blue" onClick={handleAddHat}>
-              Add Hat
+            <Button colorScheme="blue" onClick={handleAddOrUpdateHat}>
+              {editingHat ? 'Update Hat' : 'Add Hat'}
             </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog isOpen={isDeleteAlertOpen} leastDestructiveRef={cancelDeleteRef} onClose={closeDeleteAlert}>
+        <AlertDialogOverlay>
+          <AlertDialogContent bg={bg} color={textColor}>
+            <AlertDialogHeader fontSize="lg" fontWeight="bold">
+              Delete Hat
+            </AlertDialogHeader>
+
+            <AlertDialogBody>
+              Are you sure you want to delete &ldquo;{hatToDelete?.label}&rdquo;? This action cannot be undone.
+            </AlertDialogBody>
+
+            <AlertDialogFooter>
+              <Button ref={cancelDeleteRef} onClick={closeDeleteAlert} variant="ghost" mr={3}>
+                Cancel
+              </Button>
+              <Button colorScheme="red" onClick={handleDeleteConfirm} fontWeight="bold">
+                Delete
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
     </Center>
   );
 };
