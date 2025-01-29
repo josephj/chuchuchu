@@ -3,8 +3,7 @@ import { withErrorBoundary, withSuspense } from '@extension/shared';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { askAssistant } from './ask-assistant';
 import { formatThreadForLLM, convertToWebUrl, formatRelativeTime, estimateTokens } from './utils';
-import type { Language, ThreadData, ThreadDataMessage, ArticleDataResultMessage, ArticleData, Message } from './types';
-import { LanguageSelector, SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE_CODE } from './LanguageSelector';
+import type { ThreadData, ThreadDataMessage, ArticleDataResultMessage, ArticleData, Message } from './types';
 import { useForm } from 'react-hook-form';
 import {
   Box,
@@ -25,10 +24,10 @@ import {
 import { MoonIcon, SunIcon, ChevronUpIcon, ChevronDownIcon, SettingsIcon } from '@chakra-ui/icons';
 import { Messages } from './Messages';
 import { Header } from './Header';
-import { useStorage } from './lib/use-storage';
 import { usePageType } from './lib/use-page-type';
-import { getInitialPrompt, getFollowUpPrompt } from './prompts';
 import { theme } from './theme';
+import { HatSelector } from './HatSelector';
+import type { Hat } from '../../options/src/types';
 
 type FormData = {
   question: string;
@@ -40,10 +39,8 @@ const handleOpenOptions = () => {
 
 const SidePanel = () => {
   const { colorMode, toggleColorMode } = useColorMode();
-  const [selectedLanguage, setSelectedLanguage] = useStorage<Language['code']>(
-    'selectedLanguage',
-    DEFAULT_LANGUAGE_CODE,
-  );
+  const [selectedHat, setSelectedHat] = useState('');
+  const [hats, setHats] = useState<Hat[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [threadData, setThreadData] = useState<ThreadData | null>(null);
@@ -78,22 +75,38 @@ const SidePanel = () => {
   const textColorSecondary = useColorModeValue('dracula.light.comment', 'dracula.comment');
   const buttonBg = useColorModeValue('dracula.light.currentLine', 'dracula.currentLine');
 
+  // Load hats on mount
+  useEffect(() => {
+    chrome.storage.sync.get(['hats', 'selectedHat'], result => {
+      if (result.hats) {
+        setHats(result.hats);
+      }
+      if (result.selectedHat) {
+        setSelectedHat(result.selectedHat);
+      }
+    });
+  }, []);
+
+  const handleHatChange = useCallback((hatId: string) => {
+    setSelectedHat(hatId);
+    chrome.storage.sync.set({ selectedHat: hatId });
+  }, []);
+
   const handleAskAssistant = useCallback(
-    async (prompt: string, isInitialAnalysis = false, languageCode?: string) => {
+    async (prompt: string, isInitialAnalysis = false) => {
       setIsTyping(true);
       setIsGenerating(true);
 
-      const selectedLang = SUPPORTED_LANGUAGES.find(lang => lang.code === (languageCode || selectedLanguage));
-      if (!selectedLang) return;
+      const selectedHatData = hats.find(hat => hat.id === selectedHat);
+      if (!selectedHatData) return;
 
       try {
-        const systemPrompt = isInitialAnalysis
-          ? getInitialPrompt(pageType, selectedLang)
-          : getFollowUpPrompt(selectedLang);
+        const systemPrompt = selectedHatData.prompt;
+        console.log('systemPrompt :', systemPrompt);
 
         const previousMessages = messages.map(msg => ({
           role: msg.role,
-          content: msg.content,
+          content: typeof msg.content === 'string' ? msg.content : '',
         }));
 
         const messagesWithContext = isInitialAnalysis
@@ -139,25 +152,12 @@ const SidePanel = () => {
           },
         });
       } catch (error) {
-        console.error('Failed to process prompt:', error);
-        setMessages(prev => [
-          ...prev,
-          {
-            role: 'assistant',
-            content: (
-              <Alert status="error" variant="left-accent">
-                <AlertIcon />
-                Failed to process prompt. Please try again.
-              </Alert>
-            ),
-            timestamp: Date.now(),
-          },
-        ]);
+        console.error('Error asking assistant:', error);
         setIsTyping(false);
         setIsGenerating(false);
       }
     },
-    [selectedLanguage, messages, pageType, originalContent],
+    [hats, selectedHat, messages, pageType, originalContent],
   );
 
   const handleClose = useCallback(() => {
@@ -172,24 +172,19 @@ const SidePanel = () => {
     setIsOnOriginalPage(true);
   }, []);
 
-  const handleRegenerate = useCallback(
-    (languageCodeOrEvent?: string | React.MouseEvent) => {
-      // If it's a MouseEvent (from the regenerate button), we don't need the language code
-      const languageCode = typeof languageCodeOrEvent === 'string' ? languageCodeOrEvent : undefined;
-
-      if (threadData) {
-        const formattedData = formatThreadForLLM(threadData);
-        const selectedLang = SUPPORTED_LANGUAGES.find(
-          lang => lang.code === languageCode || lang.code === selectedLanguage,
-        );
-        if (!selectedLang) return;
-        handleAskAssistant(formattedData, true, selectedLang.code);
-      } else if (articleContent) {
-        const formattedContent =
-          typeof articleContent === 'string'
-            ? articleContent
-            : pageType.type === 'youtube'
-              ? `---
+  const handleRegenerate = useCallback(async () => {
+    if (hasContent) {
+      setIsGenerating(true);
+      try {
+        if (threadData) {
+          const formattedData = formatThreadForLLM(threadData);
+          await handleAskAssistant(formattedData, true);
+        } else if (articleContent) {
+          const formattedContent =
+            typeof articleContent === 'string'
+              ? articleContent
+              : pageType.type === 'youtube'
+                ? `---
 title: ${articleTitle}
 ${articleContent.channel ? `channel: ${articleContent.channel}` : ''}
 ${articleContent.publishDate ? `published: ${articleContent.publishDate}` : ''}
@@ -199,7 +194,7 @@ type: youtube
 ${articleContent.description ? `## Description\n${articleContent.description}` : 'No description available'}
 
 ${articleContent.transcript ? `## Transcript\n${articleContent.transcript}` : ''}`
-              : `---
+                : `---
 title: ${articleTitle}
 ${articleContent.siteName ? `source: ${articleContent.siteName}` : ''}
 ${articleContent.byline ? `author: ${articleContent.byline}` : ''}
@@ -211,11 +206,15 @@ ${articleContent.excerpt ? `## Summary\n${articleContent.excerpt}\n` : ''}
 ## Content
 ${articleContent.content || ''}`.trim();
 
-        handleAskAssistant(formattedContent, true, languageCode);
+          await handleAskAssistant(formattedContent, true);
+        }
+      } catch (error) {
+        console.error('Error regenerating:', error);
+      } finally {
+        setIsGenerating(false);
       }
-    },
-    [threadData, articleContent, handleAskAssistant, pageType.type, articleTitle, selectedLanguage],
-  );
+    }
+  }, [articleContent, articleTitle, handleAskAssistant, hasContent, pageType.type, threadData]);
 
   useEffect(() => {
     const handleMessage = (
@@ -306,7 +305,7 @@ ${message.data.content || ''}`.trim();
   }, [isCapturing]);
 
   useEffect(() => {
-    if (!selectedLanguage || isTyping || !isInitialLoad.current) return;
+    if (!selectedHat || isTyping || !isInitialLoad.current) return;
 
     if (threadData) {
       const formattedData = formatThreadForLLM(threadData);
@@ -344,7 +343,7 @@ ${articleContent.content || ''}`.trim();
     }
 
     isInitialLoad.current = false;
-  }, [selectedLanguage, threadData, articleContent, handleAskAssistant, isTyping, pageType.type, articleTitle]);
+  }, [selectedHat, threadData, articleContent, handleAskAssistant, isTyping, pageType.type, articleTitle]);
 
   const onSubmit = async (data: FormData) => {
     if (!data.question.trim() || isTyping) return;
@@ -461,19 +460,12 @@ ${articleContent.content || ''}`.trim();
     }
   }, [pageType.type]);
 
-  const handleChangeLanguage = async (code: string) => {
-    await setSelectedLanguage(code);
-    if (hasContent) {
-      handleRegenerate(code);
-    }
-  };
-
   return (
     <Flex direction="column" h="100vh" bg={bg} color={textColor}>
       {/* Settings Section */}
       <Box p={4} borderBottom="1px" borderColor={borderColor}>
         <Flex justify="space-between" align="center">
-          <LanguageSelector value={selectedLanguage} onChange={handleChangeLanguage} isDisabled={isGenerating} />
+          <HatSelector value={selectedHat} onChange={handleHatChange} isDisabled={isGenerating} />
 
           <Flex gap={2}>
             <IconButton
