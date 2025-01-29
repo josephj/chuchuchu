@@ -10,7 +10,6 @@ import {
   GridItem,
   FormControl,
   FormLabel,
-  FormHelperText,
   Icon,
   Heading,
   Box,
@@ -322,9 +321,6 @@ const Options = () => {
                         />
                       )}
                     />
-                    <FormHelperText color={textColorSecondary}>
-                      Choose your preferred language for the extension
-                    </FormHelperText>
                   </FormControl>
                   {savedSettings.language && <Icon as={CheckIcon} color="green.500" />}
                 </GridItem>
@@ -344,7 +340,6 @@ const Options = () => {
                         <Switch isChecked={value} onChange={onChange} size="lg" />
                       )}
                     />
-                    <FormHelperText color={textColorSecondary}>Switch between light and dark mode</FormHelperText>
                   </FormControl>
                   {savedSettings.theme && <Icon as={CheckIcon} color="green.500" />}
                 </GridItem>
@@ -379,9 +374,6 @@ const Options = () => {
                         <Switch isChecked={value} onChange={onChange} size="lg" />
                       )}
                     />
-                    <FormHelperText color={textColorSecondary}>
-                      Choose whether to open links in web browser
-                    </FormHelperText>
                   </FormControl>
                   {savedSettings.openInWeb && <Icon as={CheckIcon} color="green.500" />}
                 </GridItem>
@@ -427,6 +419,11 @@ const Options = () => {
                         <Text fontSize="sm" color={textColorSecondary}>
                           ID: {hat.id}
                         </Text>
+                        {hat.urlPattern && (
+                          <Text fontSize="sm" color={textColorSecondary}>
+                            URL: {hat.urlPattern}
+                          </Text>
+                        )}
                       </Box>
                       <Box
                         opacity={0}
@@ -487,104 +484,107 @@ const Options = () => {
       </form>
 
       {/* Add/Edit Hat Modal */}
-      <Modal isOpen={isModalOpen} onClose={handleModalClose} size="xl">
+      <Modal isOpen={isModalOpen} onClose={handleModalClose} size="6xl">
         <ModalOverlay />
         <ModalContent bg={bg} color={textColor}>
           <ModalHeader>{editingHat ? 'Edit Hat' : 'Add New Hat'}</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
-            <VStack spacing={4}>
-              <FormControl>
-                <FormLabel>Label</FormLabel>
-                <Input value={newHat.label || ''} onChange={handleLabelChange} placeholder="Enter hat label" />
-              </FormControl>
-              <FormControl>
-                <FormLabel>ID</FormLabel>
-                <Input
-                  value={newHat.id || ''}
-                  onChange={e => setNewHat({ ...newHat, id: e.target.value })}
-                  placeholder="Enter hat ID (English, numbers, dash, and underline only)"
-                />
-                <FormHelperText color={textColorSecondary}>
-                  Auto-generated from label, but can be manually edited
-                </FormHelperText>
-              </FormControl>
-              <FormControl>
-                <FormLabel>Prompt</FormLabel>
-                <Textarea
-                  value={newHat.prompt || ''}
-                  onChange={e => setNewHat({ ...newHat, prompt: e.target.value })}
-                  placeholder="Enter your prompt in Markdown format"
-                  minH="200px"
-                  size="md"
-                  resize="vertical"
-                />
-                <FormHelperText color={textColorSecondary}>
-                  Write your prompt in Markdown format. You can use variables like {'{text}'} for the content to
-                  summarize
-                </FormHelperText>
-              </FormControl>
-              <FormControl>
-                <FormLabel>Temperature ({newHat.temperature})</FormLabel>
-                <Box pt={2} pb={6} display="flex" justifyContent="center">
-                  <Slider
-                    value={newHat.temperature}
-                    onChange={value => setNewHat({ ...newHat, temperature: value })}
-                    min={0}
-                    max={2.5}
-                    step={0.1}
-                    aria-label="temperature-slider"
-                    width="80%">
-                    <SliderMark value={0} mt={4} ml={-2.5} fontSize="xs">
-                      Precise
-                    </SliderMark>
-                    <SliderMark value={1.25} mt={4} ml={-4} fontSize="xs">
-                      Balanced
-                    </SliderMark>
-                    <SliderMark value={2.5} mt={4} ml={-3} fontSize="xs">
-                      Creative
-                    </SliderMark>
-                    <SliderTrack>
-                      <SliderFilledTrack />
-                    </SliderTrack>
-                    <Tooltip
-                      hasArrow
-                      bg={bg}
-                      color={textColor}
-                      placement="top"
-                      label={`Temperature: ${newHat.temperature}`}>
-                      <SliderThumb />
-                    </Tooltip>
-                  </Slider>
-                </Box>
-                <FormHelperText color={textColorSecondary} fontSize="xs">
-                  Lower values produce more focused and deterministic outputs, while higher values increase creativity
-                  and randomness
-                </FormHelperText>
-              </FormControl>
-              <FormControl>
-                <FormLabel>Language</FormLabel>
-                <Select
-                  value={SUPPORTED_LANGUAGES.find(lang => lang.code === newHat.language)}
-                  onChange={option => setNewHat({ ...newHat, language: option?.code || DEFAULT_LANGUAGE_CODE })}
-                  options={SUPPORTED_LANGUAGES}
-                  styles={selectStyles}
-                  theme={selectTheme}
-                />
-              </FormControl>
-              <FormControl>
-                <FormLabel>Model</FormLabel>
-                <Select
-                  value={SUPPORTED_MODELS.find(model => model.value === newHat.model)}
-                  onChange={option => setNewHat({ ...newHat, model: option?.value || DEFAULT_MODEL })}
-                  options={SUPPORTED_MODELS}
-                  styles={selectStyles}
-                  theme={selectTheme}
-                  placeholder="Select model..."
-                />
-                <FormHelperText color={textColorSecondary}>Choose the GROQ model for this hat</FormHelperText>
-              </FormControl>
-            </VStack>
+            <Grid templateColumns="350px 1fr" gap={8}>
+              {/* Left Column - Settings */}
+              <VStack spacing={4} align="stretch">
+                <FormControl>
+                  <FormLabel>Label</FormLabel>
+                  <Input value={newHat.label || ''} onChange={handleLabelChange} placeholder="Enter hat label" />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>ID</FormLabel>
+                  <Input
+                    value={newHat.id || ''}
+                    onChange={e => setNewHat({ ...newHat, id: e.target.value })}
+                    placeholder="Enter hat ID (English, numbers, dash, and underline only)"
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Temperature ({newHat.temperature})</FormLabel>
+                  <Box pt={2} pb={6} width="90%">
+                    <Slider
+                      value={newHat.temperature}
+                      onChange={value => setNewHat({ ...newHat, temperature: value })}
+                      min={0}
+                      max={2.5}
+                      step={0.1}
+                      aria-label="temperature-slider">
+                      <SliderMark value={0} mt={4} ml={-2.5} fontSize="xs">
+                        Precise
+                      </SliderMark>
+                      <SliderMark value={1.25} mt={4} ml={-4} fontSize="xs">
+                        Balanced
+                      </SliderMark>
+                      <SliderMark value={2.5} mt={4} ml={-3} fontSize="xs">
+                        Creative
+                      </SliderMark>
+                      <SliderTrack>
+                        <SliderFilledTrack />
+                      </SliderTrack>
+                      <Tooltip
+                        hasArrow
+                        bg={bg}
+                        color={textColor}
+                        placement="top"
+                        label={`Temperature: ${newHat.temperature}`}>
+                        <SliderThumb />
+                      </Tooltip>
+                    </Slider>
+                  </Box>
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Language</FormLabel>
+                  <Select
+                    value={SUPPORTED_LANGUAGES.find(lang => lang.code === newHat.language)}
+                    onChange={option => setNewHat({ ...newHat, language: option?.code || DEFAULT_LANGUAGE_CODE })}
+                    options={SUPPORTED_LANGUAGES}
+                    styles={selectStyles}
+                    theme={selectTheme}
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Model</FormLabel>
+                  <Select
+                    value={SUPPORTED_MODELS.find(model => model.value === newHat.model)}
+                    onChange={option => setNewHat({ ...newHat, model: option?.value || DEFAULT_MODEL })}
+                    options={SUPPORTED_MODELS}
+                    styles={selectStyles}
+                    theme={selectTheme}
+                    placeholder="Select model..."
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>URL Pattern (Optional)</FormLabel>
+                  <Input
+                    value={newHat.urlPattern || ''}
+                    onChange={e => setNewHat({ ...newHat, urlPattern: e.target.value })}
+                    placeholder="e.g., https://*.example.com/*/page"
+                  />
+                </FormControl>
+              </VStack>
+
+              {/* Right Column - Prompt Editor */}
+              <Box>
+                <FormControl height="100%">
+                  <FormLabel>Prompt</FormLabel>
+                  <Textarea
+                    value={newHat.prompt || ''}
+                    onChange={e => setNewHat({ ...newHat, prompt: e.target.value })}
+                    placeholder="Enter your prompt in Markdown format"
+                    minH="500px"
+                    size="md"
+                    resize="vertical"
+                    fontFamily="mono"
+                  />
+                </FormControl>
+              </Box>
+            </Grid>
           </ModalBody>
           <ModalFooter display="flex" width="100%" alignItems="center" gap={3}>
             {editingHat && (

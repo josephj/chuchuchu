@@ -14,6 +14,7 @@ export type Hat = {
   temperature: number;
   language: string;
   model: string;
+  urlPattern?: string;
 };
 
 export type Hats = Hat[];
@@ -27,6 +28,7 @@ export const hatSchema = z.object({
   temperature: z.number().min(0).max(2.5),
   language: z.string(),
   model: z.string(),
+  urlPattern: z.string().optional(),
 });
 
 export const optionsFormSchema = z.object({
