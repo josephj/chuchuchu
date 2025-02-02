@@ -1,4 +1,7 @@
 import ISO6391 from 'iso-639-1';
+import { createStorage } from '@extension/storage/lib/base/base';
+import { StorageEnum } from '@extension/storage/lib/base/enums';
+import type { Hat } from './types';
 
 // Get all ISO-639-1 languages and add custom regional variants
 const baseLanguages = ISO6391.getAllCodes().map(code => ({
@@ -27,12 +30,33 @@ export const DEFAULT_LANGUAGE_CODE = 'zh-TW';
 
 export const SUPPORTED_MODELS = [
   { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B (32K context)' },
-  { value: 'llama3-70b-8192', label: 'LLaMA3 70B' },
+  { value: 'llama3-70b-8192', label: 'LLaMA3 70B (8K context)' },
   { value: 'llama-3.3-70b-versatile', label: 'LLaMA 3.3 70B Versatile' },
-  { value: 'llama3-8b-8192', label: 'LLaMA3 8B' },
+  { value: 'llama3-8b-8192', label: 'LLaMA3 8B (8K context)' },
   { value: 'llama-3.1-8b-instant', label: 'LLaMA 3.1 8B Instant' },
   { value: 'gemma2-9b-it', label: 'Gemma2 9B Instruct' },
   { value: 'deepseek-r1-distill-llama-70b', label: 'DeepSeek R1 Distill LLaMA 70B' },
 ] as const;
 
 export const DEFAULT_MODEL = SUPPORTED_MODELS[0].value;
+
+// Shared storage instances
+export const languageStorage = createStorage<string>('selectedLanguage', DEFAULT_LANGUAGE_CODE, {
+  storageEnum: StorageEnum.Local,
+  liveUpdate: true,
+});
+
+export const openInWebStorage = createStorage<boolean>('openInWeb', true, {
+  storageEnum: StorageEnum.Local,
+  liveUpdate: true,
+});
+
+export const hatsStorage = createStorage<Hat[]>('hats', [], {
+  storageEnum: StorageEnum.Sync,
+  liveUpdate: true,
+});
+
+export const selectedHatStorage = createStorage<string>('selectedHat', '', {
+  storageEnum: StorageEnum.Sync,
+  liveUpdate: true,
+});

@@ -1,5 +1,6 @@
 import type { ThreadData } from './types';
 import { formatDistanceToNowStrict } from 'date-fns';
+import type { Hat } from '../../options/src/types';
 
 export const convertToWebUrl = (url: string): string => {
   return url.replace('/archives/', '/messages/').replace(/&cid=[^&]+/, '');
@@ -40,4 +41,66 @@ export const formatRelativeTime = (timestamp: number): string => {
 export const estimateTokens = (text: string): number => {
   // GPT models typically use ~4 characters per token on average for English text
   return Math.ceil(text.length / 4);
+};
+
+/**
+ * Calculate the specificity of a URL pattern.
+ * More specific patterns (with more static parts) get higher scores.
+ */
+export const calculatePatternSpecificity = (pattern: string): number => {
+  if (!pattern) return 0;
+
+  const parts = pattern.split('/');
+  let score = 0;
+
+  for (const part of parts) {
+    if (part === '*') {
+      score += 1; // Wildcard parts add less weight
+    } else if (part === '**') {
+      score += 0.5; // Double wildcards add even less weight
+    } else if (part) {
+      score += 2; // Static parts add more weight
+    }
+  }
+
+  return score;
+};
+
+/**
+ * Check if a URL matches a pattern.
+ * Supports * for single segment wildcards and ** for multiple segment wildcards.
+ */
+export const matchUrlPattern = (url: string, pattern: string): boolean => {
+  if (!pattern) return false;
+
+  // Convert pattern to regex
+  const regexPattern = pattern
+    .replace(/\./g, '\\.') // Escape dots
+    .replace(/\*\*/g, '.*') // ** matches any characters
+    .replace(/\*/g, '.*'); // * matches everything after this point
+
+  const regex = new RegExp(`^${regexPattern}$`);
+  return regex.test(url);
+};
+
+/**
+ * Find the best matching hat for a URL from a list of hats.
+ * Returns undefined if no hat matches.
+ */
+export const findBestMatchingHat = (url: string, hats: Hat[]): Hat | undefined => {
+  if (!url || !hats?.length) return undefined;
+
+  // Filter hats with matching URL patterns and sort by specificity
+  const matchingHats = hats
+    .filter(hat => {
+      if (!hat.urlPattern) return false;
+      return matchUrlPattern(url, hat.urlPattern);
+    })
+    .sort((a, b) => {
+      const specificityA = calculatePatternSpecificity(a.urlPattern || '');
+      const specificityB = calculatePatternSpecificity(b.urlPattern || '');
+      return specificityB - specificityA;
+    });
+
+  return matchingHats[0];
 };

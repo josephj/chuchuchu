@@ -1,8 +1,27 @@
+import type { Theme } from 'react-select';
 import Select from 'react-select';
-import { useColorModeValue, Box } from '@chakra-ui/react';
+import { useColorModeValue, Box, Flex, useColorMode } from '@chakra-ui/react';
 import type { Hat } from '../../options/src/types';
 import { FaHatCowboy } from 'react-icons/fa';
 import { useState, useEffect } from 'react';
+
+const getLanguageFlag = (code: string): string => {
+  // Handle special cases for multi-region languages
+  if (code === 'en-US') return '🇺🇸';
+  if (code === 'en-AU') return '🇦🇺';
+  if (code === 'zh-TW') return '🇹🇼';
+  if (code === 'zh-CN') return '🇨🇳';
+  if (code === 'zh-HK') return '🇭🇰';
+  if (code === 'ko') return '🇰🇷';
+  // For standard ISO codes, convert to regional indicator symbols
+  const baseCode = code.split('-')[0].toLowerCase();
+  if (baseCode.length !== 2) return '';
+
+  // Convert 2-letter code to regional indicator symbols (flag emoji)
+  const offset = 127397; // Regional Indicator Symbol "A" minus uppercase "A"
+  const flagEmoji = String.fromCodePoint(...[...baseCode].map(c => c.charCodeAt(0) + offset));
+  return flagEmoji;
+};
 
 type Props = {
   value?: string;
@@ -17,6 +36,8 @@ type HatOption = {
 
 export const HatSelector = ({ value, onChange, isDisabled }: Props) => {
   const [hats, setHats] = useState<Hat[]>([]);
+  const { colorMode } = useColorMode();
+  const isDarkMode = colorMode === 'dark';
   const isLight = useColorModeValue(true, false);
 
   useEffect(() => {
@@ -27,6 +48,28 @@ export const HatSelector = ({ value, onChange, isDisabled }: Props) => {
     });
   }, []);
 
+  const customTheme = (theme: Theme) => ({
+    ...theme,
+    colors: {
+      ...theme.colors,
+      neutral0: isDarkMode ? '#2D3748' : '#FFFFFF', // background
+      neutral5: isDarkMode ? '#4A5568' : '#E2E8F0',
+      neutral10: isDarkMode ? '#4A5568' : '#E2E8F0',
+      neutral20: isDarkMode ? '#4A5568' : '#E2E8F0', // borders
+      neutral30: isDarkMode ? '#718096' : '#A0AEC0',
+      neutral40: isDarkMode ? '#A0AEC0' : '#718096',
+      neutral50: isDarkMode ? '#A0AEC0' : '#718096', // placeholder text
+      neutral60: isDarkMode ? '#CBD5E0' : '#4A5568',
+      neutral70: isDarkMode ? '#E2E8F0' : '#2D3748',
+      neutral80: isDarkMode ? '#F7FAFC' : '#1A202C', // text
+      neutral90: isDarkMode ? '#FFFFFF' : '#000000',
+      primary: isDarkMode ? '#90CDF4' : '#3182CE', // selected option text
+      primary25: isDarkMode ? '#2A4365' : '#EBF8FF', // hovered option
+      primary50: isDarkMode ? '#2C5282' : '#4299E1', // active option
+      primary75: isDarkMode ? '#2A4365' : '#2B6CB0',
+    },
+  });
+
   const selectStyles = {
     container: (base: Record<string, unknown>) => ({
       ...base,
@@ -36,68 +79,38 @@ export const HatSelector = ({ value, onChange, isDisabled }: Props) => {
       ...base,
       minHeight: '32px',
       width: '200px',
-      backgroundColor: isLight
-        ? 'var(--chakra-colors-dracula-light-background)'
-        : 'var(--chakra-colors-dracula-background)',
-      borderColor: isLight
-        ? 'var(--chakra-colors-dracula-light-currentLine)'
-        : 'var(--chakra-colors-dracula-currentLine)',
-    }),
-    menu: (base: Record<string, unknown>) => ({
-      ...base,
-      backgroundColor: isLight ? 'white' : 'var(--chakra-colors-gray-700)',
-      zIndex: 11,
-    }),
-    option: (base: Record<string, unknown>, state: { isFocused: boolean; isSelected: boolean }) => ({
-      ...base,
-      backgroundColor: state.isSelected
-        ? isLight
-          ? 'var(--chakra-colors-blue-500)'
-          : 'var(--chakra-colors-blue-200)'
-        : state.isFocused
-          ? isLight
-            ? 'var(--chakra-colors-gray-100)'
-            : 'var(--chakra-colors-gray-600)'
-          : 'transparent',
-      color: state.isSelected ? (isLight ? 'white' : 'black') : isLight ? 'black' : 'white',
-      cursor: 'pointer',
     }),
   };
 
   const options: HatOption[] = hats.map((hat: Hat) => ({
     value: hat.id,
-    label: hat.label,
+    label: `${getLanguageFlag(hat.language)} ${hat.label} (${hat.language})`,
   }));
 
   return (
-    <Box position="relative" zIndex={10}>
+    <Flex gap={2} alignItems="center">
       <FaHatCowboy
         size={20}
         style={{
-          position: 'absolute',
-          left: '8px',
-          top: '50%',
-          transform: 'translateY(-50%)',
           color: isLight ? 'var(--chakra-colors-gray-600)' : 'var(--chakra-colors-gray-400)',
-          zIndex: 11,
         }}
       />
-      <Select<HatOption>
-        value={options.find(option => option.value === value)}
-        onChange={option => onChange(option?.value || '')}
-        options={options}
-        isDisabled={isDisabled}
-        styles={{
-          ...selectStyles,
-          control: (base: Record<string, unknown>) => ({
-            ...selectStyles.control(base),
-            paddingLeft: '32px', // Make room for the icon
-          }),
-        }}
-        placeholder="Select a hat..."
-        noOptionsMessage={() => 'No hats available - create one in Options'}
-        isSearchable
-      />
-    </Box>
+      <Box position="relative" zIndex={10}>
+        <Select<HatOption>
+          value={options.find(option => option.value === value)}
+          onChange={option => onChange(option?.value || '')}
+          options={options}
+          isDisabled={isDisabled}
+          styles={selectStyles}
+          theme={customTheme}
+          placeholder="Select a hat..."
+          noOptionsMessage={() => 'No hats available - create one in Options'}
+          isSearchable
+          components={{
+            IndicatorSeparator: () => null,
+          }}
+        />
+      </Box>
+    </Flex>
   );
 };

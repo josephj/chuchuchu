@@ -1,8 +1,8 @@
 import '@src/SidePanel.css';
-import { withErrorBoundary, withSuspense } from '@extension/shared';
+import { withErrorBoundary, withSuspense, useStorage } from '@extension/shared';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { askAssistant } from './ask-assistant';
-import { formatThreadForLLM, convertToWebUrl, formatRelativeTime, estimateTokens } from './utils';
+import { formatThreadForLLM, convertToWebUrl, formatRelativeTime, estimateTokens, findBestMatchingHat } from './utils';
 import type { ThreadData, ThreadDataMessage, ArticleDataResultMessage, ArticleData, Message } from './types';
 import { useForm } from 'react-hook-form';
 import {
@@ -27,9 +27,8 @@ import { Header } from './Header';
 import { usePageType } from './lib/use-page-type';
 import { theme } from './theme';
 import { HatSelector } from './HatSelector';
-import type { Hat } from '../../options/src/types';
 import { replaceTokens } from './prompts/utils';
-import { SUPPORTED_LANGUAGES } from './vars';
+import { SUPPORTED_LANGUAGES, hatsStorage, selectedHatStorage } from '../../options/src/vars';
 
 type FormData = {
   question: string;
@@ -41,8 +40,8 @@ const handleOpenOptions = () => {
 
 const SidePanel = () => {
   const { colorMode, toggleColorMode } = useColorMode();
-  const [selectedHat, setSelectedHat] = useState('');
-  const [hats, setHats] = useState<Hat[]>([]);
+  const hats = useStorage(hatsStorage);
+  const selectedHat = useStorage(selectedHatStorage);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [threadData, setThreadData] = useState<ThreadData | null>(null);
@@ -50,6 +49,7 @@ const SidePanel = () => {
   const [isOnOriginalPage, setIsOnOriginalPage] = useState(true);
   const [originalContent, setOriginalContent] = useState<string>('');
   const isInitialLoad = useRef(true);
+  const [isManuallySelected, setIsManuallySelected] = useState(false);
   const {
     register,
     handleSubmit: handleFormSubmit,
@@ -77,21 +77,9 @@ const SidePanel = () => {
   const textColorSecondary = useColorModeValue('dracula.light.comment', 'dracula.comment');
   const buttonBg = useColorModeValue('dracula.light.currentLine', 'dracula.currentLine');
 
-  // Load hats on mount
-  useEffect(() => {
-    chrome.storage.sync.get(['hats', 'selectedHat'], result => {
-      if (result.hats) {
-        setHats(result.hats);
-      }
-      if (result.selectedHat) {
-        setSelectedHat(result.selectedHat);
-      }
-    });
-  }, []);
-
   const handleHatChange = useCallback((hatId: string) => {
-    setSelectedHat(hatId);
-    chrome.storage.sync.set({ selectedHat: hatId });
+    setIsManuallySelected(true);
+    selectedHatStorage.set(hatId);
   }, []);
 
   const handleAskAssistant = useCallback(
@@ -122,42 +110,49 @@ const SidePanel = () => {
           ? []
           : [{ role: 'user' as const, content: originalContent }, ...previousMessages];
 
-        await askAssistant(systemPrompt, prompt, messagesWithContext, {
-          onAbort: () => {
-            setIsTyping(false);
-            setIsGenerating(false);
-          },
-          onError: () => {
-            setMessages(prev => [
-              ...prev,
-              {
-                role: 'assistant',
-                content: (
-                  <Alert status="error" variant="left-accent">
-                    <AlertIcon />
-                    Failed to generate response. Please try again.
-                  </Alert>
-                ),
-                timestamp: Date.now(),
-              },
-            ]);
-            setIsTyping(false);
-            setIsGenerating(false);
-          },
-          onUpdate: response => {
-            setMessages(prev => {
-              const newMessages = [...prev];
-              if (newMessages.length && newMessages[newMessages.length - 1].role === 'assistant') {
-                newMessages[newMessages.length - 1].content = response;
-              } else {
-                newMessages.push({ role: 'assistant', content: response, timestamp: Date.now() });
-              }
-              return newMessages;
-            });
-          },
-          onComplete: () => {
-            setIsTyping(false);
-            setIsGenerating(false);
+        await askAssistant({
+          systemPrompt,
+          userPrompt: prompt,
+          previousMessages: messagesWithContext,
+          ...(selectedHatData.model && { model: selectedHatData.model }),
+          ...(selectedHatData.temperature && { temperature: selectedHatData.temperature }),
+          options: {
+            onAbort: () => {
+              setIsTyping(false);
+              setIsGenerating(false);
+            },
+            onError: () => {
+              setMessages(prev => [
+                ...prev,
+                {
+                  role: 'assistant',
+                  content: (
+                    <Alert status="error" variant="left-accent">
+                      <AlertIcon />
+                      Failed to generate response. Please try again.
+                    </Alert>
+                  ),
+                  timestamp: Date.now(),
+                },
+              ]);
+              setIsTyping(false);
+              setIsGenerating(false);
+            },
+            onUpdate: response => {
+              setMessages(prev => {
+                const newMessages = [...prev];
+                if (newMessages.length && newMessages[newMessages.length - 1].role === 'assistant') {
+                  newMessages[newMessages.length - 1].content = response;
+                } else {
+                  newMessages.push({ role: 'assistant', content: response, timestamp: Date.now() });
+                }
+                return newMessages;
+              });
+            },
+            onComplete: () => {
+              setIsTyping(false);
+              setIsGenerating(false);
+            },
           },
         });
       } catch (error) {
@@ -166,7 +161,7 @@ const SidePanel = () => {
         setIsGenerating(false);
       }
     },
-    [hats, selectedHat, messages, pageType, originalContent],
+    [hats, selectedHat, messages, originalContent],
   );
 
   const handleClose = useCallback(() => {
@@ -468,6 +463,56 @@ ${articleContent.content || ''}`.trim();
       });
     }
   }, [pageType.type]);
+
+  // Add effect for URL-based hat selection
+  useEffect(() => {
+    if (hasContent) return; // Don't auto-change hat if content exists
+
+    const updateHatFromUrl = (url?: string) => {
+      if (!url || !hats?.length) return;
+
+      const bestMatch = findBestMatchingHat(url, hats);
+      if (bestMatch?.id && bestMatch.id !== selectedHat) {
+        setIsManuallySelected(false); // Reset manual selection when URL changes
+        selectedHatStorage.set(bestMatch.id);
+      }
+    };
+
+    // Initial check
+    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+      const currentTab = tabs[0];
+      if (!isManuallySelected) {
+        // Only update if not manually selected
+        updateHatFromUrl(currentTab?.url);
+      }
+    });
+
+    // Listen for tab changes
+    const handleTabActivated = (activeInfo: chrome.tabs.TabActiveInfo) => {
+      setIsManuallySelected(false); // Reset manual selection when switching tabs
+      chrome.tabs.get(activeInfo.tabId, tab => {
+        updateHatFromUrl(tab.url);
+      });
+    };
+
+    // Listen for URL changes in the current tab
+    const handleTabUpdated = (tabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
+      if (changeInfo.url) {
+        setIsManuallySelected(false); // Reset manual selection when URL changes
+        updateHatFromUrl(changeInfo.url);
+      }
+    };
+
+    chrome.tabs.onActivated.addListener(handleTabActivated);
+    chrome.tabs.onUpdated.addListener(handleTabUpdated);
+
+    return () => {
+      chrome.tabs.onActivated.removeListener(handleTabActivated);
+      chrome.tabs.onUpdated.removeListener(handleTabUpdated);
+    };
+  }, [hats, selectedHat, hasContent, isManuallySelected]);
+
+  console.log('[DEBUG] selectedHat :', selectedHat);
 
   return (
     <Flex direction="column" h="100vh" bg={bg} color={textColor}>

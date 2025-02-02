@@ -6,18 +6,36 @@ type Message = {
   content: string;
 };
 
-export const askAssistant = async (
-  systemPrompt: string,
-  userPrompt: string,
-  previousMessages: Message[] = [],
-  options: AskAssistantOptions,
-) => {
+type AskAssistantParams = {
+  systemPrompt: string;
+  userPrompt: string;
+  previousMessages?: Message[];
+  options: AskAssistantOptions;
+  model?: string;
+  temperature?: number;
+};
+
+export const askAssistant = async ({
+  systemPrompt,
+  userPrompt,
+  previousMessages = [],
+  options,
+  model,
+  temperature,
+}: AskAssistantParams) => {
   const abortController = new AbortController();
 
   try {
     const messages: Message[] = [...previousMessages, { role: 'user', content: userPrompt }];
 
-    const fullResponse = await handleGroqStream(systemPrompt, messages, options, abortController);
+    const fullResponse = await handleGroqStream({
+      systemPrompt,
+      messages,
+      options,
+      abortController,
+      model,
+      temperature,
+    });
     options.onComplete?.(fullResponse);
   } catch (error) {
     if (error instanceof Error) {

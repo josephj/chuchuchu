@@ -5,14 +5,30 @@ type Message = {
   content: string;
 };
 
-export const handleGroqStream = async (
-  systemPrompt: string,
-  messages: Message[],
-  options: AskAssistantOptions,
-  abortController: AbortController,
-) => {
-  let fullResponse = '';
+const DEFAULT_MODEL = 'llama-3.1-8b-instant';
+const DEFAULT_TEMPERATURE = 0;
 
+type HandleGroqStreamParams = {
+  systemPrompt: string;
+  messages: Message[];
+  options: AskAssistantOptions;
+  abortController: AbortController;
+  model?: string;
+  temperature?: number;
+};
+
+export const handleGroqStream = async ({
+  systemPrompt,
+  messages,
+  options,
+  abortController,
+  model = DEFAULT_MODEL,
+  temperature = DEFAULT_TEMPERATURE,
+}: HandleGroqStreamParams) => {
+  let fullResponse = '';
+  console.log('[DEBUG] systemPrompt :', systemPrompt);
+  console.log('[DEBUG] model :', model);
+  console.log('[DEBUG] temperature :', temperature);
   const response = await fetch(
     'https://australia-southeast1-automatic-stand-up-report.cloudfunctions.net/chatCompletions',
     {
@@ -21,9 +37,9 @@ export const handleGroqStream = async (
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
+        model,
         messages: [{ role: 'system', content: systemPrompt }, ...messages],
-        temperature: 0,
+        temperature,
         stream: true,
       }),
       signal: abortController.signal,
@@ -38,6 +54,7 @@ export const handleGroqStream = async (
   if (!reader) throw new Error('Response body is null');
 
   const decoder = new TextDecoder();
+  let buffer = ''; // Add buffer for incomplete chunks
 
   let isReading = true;
   while (isReading) {
@@ -48,11 +65,19 @@ export const handleGroqStream = async (
     }
 
     const chunk = decoder.decode(value);
-    const lines = chunk.split('\n').filter(line => line.trim() !== '');
+    buffer += chunk;
+
+    // Split by newlines and process complete lines
+    const lines = buffer.split('\n');
+    // Keep the last potentially incomplete line in the buffer
+    buffer = lines.pop() || '';
 
     for (const line of lines) {
-      if (line.startsWith('data: ')) {
-        const data = line.slice(6);
+      const trimmedLine = line.trim();
+      if (!trimmedLine) continue;
+
+      if (trimmedLine.startsWith('data: ')) {
+        const data = trimmedLine.slice(6);
         if (data === '[DONE]') break;
 
         try {
@@ -61,7 +86,7 @@ export const handleGroqStream = async (
           fullResponse += content;
           options.onUpdate?.(fullResponse);
         } catch (e) {
-          console.error('Error parsing JSON:', e, 'Line:', line);
+          console.error('Error parsing JSON:', e, 'Line:', trimmedLine);
         }
       }
     }

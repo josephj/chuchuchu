@@ -1,7 +1,5 @@
 import { withErrorBoundary, withSuspense, useStorage } from '@extension/shared';
 import { exampleThemeStorage } from '@extension/storage';
-import { createStorage } from '@extension/storage/lib/base/base';
-import { StorageEnum } from '@extension/storage/lib/base/enums';
 import { theme } from '../../side-panel/src/theme';
 import {
   Center,
@@ -47,7 +45,7 @@ import {
   AlertDialogContent,
   AlertDialogOverlay,
 } from '@chakra-ui/react';
-import { CheckIcon, AddIcon, DeleteIcon, EditIcon } from '@chakra-ui/icons';
+import { CheckIcon, AddIcon, DeleteIcon, EditIcon, CopyIcon } from '@chakra-ui/icons';
 import { useEffect, useState, useRef } from 'react';
 import Select from 'react-select';
 import { useForm, Controller } from 'react-hook-form';
@@ -55,7 +53,33 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import type { Theme as ReactSelectTheme } from 'react-select';
 import type { OptionsFormData, Hat } from './types';
 import { optionsFormSchema, hatSchema } from './types';
-import { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE_CODE, SUPPORTED_MODELS, DEFAULT_MODEL } from './vars';
+import {
+  SUPPORTED_LANGUAGES,
+  DEFAULT_LANGUAGE_CODE,
+  SUPPORTED_MODELS,
+  DEFAULT_MODEL,
+  languageStorage,
+  openInWebStorage,
+  hatsStorage,
+} from './vars';
+
+const getLanguageFlag = (code: string): string => {
+  // Handle special cases for multi-region languages
+  if (code === 'en-US') return '🇺🇸';
+  if (code === 'en-AU') return '🇦🇺';
+  if (code === 'zh-TW') return '🇹🇼';
+  if (code === 'zh-CN') return '🇨🇳';
+  if (code === 'zh-HK') return '🇭🇰';
+  if (code === 'ko') return '🇰🇷';
+  // For standard ISO codes, convert to regional indicator symbols
+  const baseCode = code.split('-')[0].toLowerCase();
+  if (baseCode.length !== 2) return '';
+
+  // Convert 2-letter code to regional indicator symbols (flag emoji)
+  const offset = 127397; // Regional Indicator Symbol "A" minus uppercase "A"
+  const flagEmoji = String.fromCodePoint(...[...baseCode].map(c => c.charCodeAt(0) + offset));
+  return flagEmoji;
+};
 
 type LanguageOption = {
   value: string;
@@ -63,21 +87,6 @@ type LanguageOption = {
   code: string;
   name: string;
 };
-
-const languageStorage = createStorage<string>('selectedLanguage', DEFAULT_LANGUAGE_CODE, {
-  storageEnum: StorageEnum.Local,
-  liveUpdate: true,
-});
-
-const openInWebStorage = createStorage<boolean>('openInWeb', true, {
-  storageEnum: StorageEnum.Local,
-  liveUpdate: true,
-});
-
-const hatsStorage = createStorage<Hat[]>('hats', [], {
-  storageEnum: StorageEnum.Sync,
-  liveUpdate: true,
-});
 
 const Options = () => {
   const theme = useStorage(exampleThemeStorage);
@@ -152,7 +161,24 @@ const Options = () => {
     }
   };
 
-  const selectStyles = {
+  const languageSelectStyles = {
+    control: (base: Record<string, unknown>) => ({
+      ...base,
+      minHeight: '32px',
+      width: '200px',
+    }),
+    container: (base: Record<string, unknown>) => ({
+      ...base,
+      zIndex: 3,
+    }),
+    option: (base: Record<string, unknown>) => ({
+      ...base,
+      cursor: 'pointer',
+      padding: '8px 12px',
+    }),
+  };
+
+  const modelSelectStyles = {
     control: (base: Record<string, unknown>) => ({
       ...base,
       minHeight: '32px',
@@ -271,6 +297,17 @@ const Options = () => {
     }));
   };
 
+  const handleCloneHat = (hat: Hat) => {
+    const clonedHat = {
+      ...hat,
+      id: `${hat.id}-copy`,
+      label: `${hat.label} (Copy)`,
+    };
+    setEditingHat(null);
+    setNewHat(clonedHat);
+    setIsModalOpen(true);
+  };
+
   return (
     <Center p={6} bg={bg} minH="100vh" color={textColor}>
       <form onChange={handleSubmit(onSubmit)} style={{ width: '100%', maxWidth: '800px' }}>
@@ -304,7 +341,7 @@ const Options = () => {
                           onChange={option => onChange(option?.code || DEFAULT_LANGUAGE_CODE)}
                           options={SUPPORTED_LANGUAGES}
                           styles={{
-                            ...selectStyles,
+                            ...languageSelectStyles,
                             control: (base: Record<string, unknown>) => ({
                               ...base,
                               minHeight: '32px',
@@ -316,9 +353,6 @@ const Options = () => {
                           theme={selectTheme}
                           placeholder="Select language..."
                           isSearchable
-                          components={{
-                            IndicatorSeparator: () => null,
-                          }}
                         />
                       )}
                     />
@@ -416,7 +450,10 @@ const Options = () => {
                       }}
                       transition="all 0.2s">
                       <HStack>
-                        <Text fontWeight="bold">{hat.label} </Text>
+                        <Text color={textColorSecondary} fontSize="md">
+                          {getLanguageFlag(hat.language)}
+                        </Text>
+                        <Text fontWeight="bold">{hat.label}</Text>
                         <Text as="span" color={textColorSecondary} fontWeight="normal">
                           ({hat.id})
                         </Text>
@@ -436,6 +473,18 @@ const Options = () => {
                         position="absolute"
                         right={4}
                         onClick={e => e.stopPropagation()}>
+                        <IconButton
+                          aria-label="Clone hat"
+                          icon={<CopyIcon />}
+                          size="sm"
+                          variant="ghost"
+                          colorScheme="green"
+                          mr={2}
+                          onClick={e => {
+                            e.stopPropagation();
+                            handleCloneHat(hat);
+                          }}
+                        />
                         <IconButton
                           aria-label="Edit hat"
                           icon={<EditIcon />}
@@ -545,7 +594,7 @@ const Options = () => {
                     value={SUPPORTED_LANGUAGES.find(lang => lang.code === newHat.language)}
                     onChange={option => setNewHat({ ...newHat, language: option?.code || DEFAULT_LANGUAGE_CODE })}
                     options={SUPPORTED_LANGUAGES}
-                    styles={selectStyles}
+                    styles={languageSelectStyles}
                     theme={selectTheme}
                   />
                 </FormControl>
@@ -555,7 +604,7 @@ const Options = () => {
                     value={SUPPORTED_MODELS.find(model => model.value === newHat.model)}
                     onChange={option => setNewHat({ ...newHat, model: option?.value || DEFAULT_MODEL })}
                     options={SUPPORTED_MODELS}
-                    styles={selectStyles}
+                    styles={modelSelectStyles}
                     theme={selectTheme}
                     placeholder="Select model..."
                   />
