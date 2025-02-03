@@ -1,4 +1,4 @@
-import { Box, Flex, Text, VStack, useColorModeValue, IconButton, Tooltip } from '@chakra-ui/react';
+import { Box, Flex, Text, VStack, useColorModeValue, Button, Tooltip } from '@chakra-ui/react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useEffect, useRef, useState } from 'react';
@@ -20,6 +20,13 @@ export const Messages = ({ messages, isTyping }: Props) => {
   const codeBg = useColorModeValue('dracula.light.currentLine', 'dracula.background');
   const blockquoteBorderColor = useColorModeValue('dracula.light.purple', 'dracula.purple');
   const codeFg = useColorModeValue('dracula.light.pink', 'dracula.pink');
+
+  const hasThinkBlock = messages.some(
+    message =>
+      message.role === 'assistant' &&
+      typeof message.content === 'string' &&
+      /<think>[\s\S]*?<\/think>/.test(message.content),
+  );
 
   const scrollToLatestMessage = (smooth = true) => {
     if (messagesEndRef.current?.parentElement) {
@@ -60,22 +67,43 @@ export const Messages = ({ messages, isTyping }: Props) => {
 
   return (
     <VStack spacing={4} align="stretch" px={4}>
-      <Flex justifyContent="flex-end" mb={2}>
-        <Tooltip label={showThinkBlocks ? 'Hide think blocks' : 'Show think blocks'}>
-          <IconButton
-            aria-label={showThinkBlocks ? 'Hide think blocks' : 'Show think blocks'}
-            icon={showThinkBlocks ? <ViewOffIcon /> : <ViewIcon />}
-            size="sm"
-            variant="ghost"
-            onClick={() => setShowThinkBlocks(!showThinkBlocks)}
-          />
-        </Tooltip>
-      </Flex>
+      {hasThinkBlock && (
+        <Flex justifyContent="flex-start" alignItems="center">
+          <Tooltip label={showThinkBlocks ? 'Hide Thought Process' : 'Show Thought Process'}>
+            <Button
+              aria-label={showThinkBlocks ? 'Hide Thought Process' : 'Show Thought Process'}
+              colorScheme="gray"
+              leftIcon={showThinkBlocks ? <ViewOffIcon /> : <ViewIcon />}
+              size="xs"
+              onClick={() => setShowThinkBlocks(!showThinkBlocks)}>
+              {showThinkBlocks ? 'Hide Thought Process' : 'Show Thought Process'}
+            </Button>
+          </Tooltip>
+        </Flex>
+      )}
+      {showThinkBlocks && hasThinkBlock && (
+        <Box
+          pl={4}
+          borderLeftWidth="4px"
+          borderLeftColor={blockquoteBorderColor}
+          color={textColorSecondary}
+          fontSize="sm">
+          {messages
+            .filter(
+              message =>
+                message.role === 'assistant' &&
+                typeof message.content === 'string' &&
+                /<think>([\s\S]*?)<\/think>/.test(message.content),
+            )
+            .map(message =>
+              typeof message.content === 'string' ? message.content.match(/<think>([\s\S]*?)<\/think>/)?.[1] || '' : '',
+            )
+            .join(' ')}
+        </Box>
+      )}
       {messages.map((message, index) => {
         if (message.role === 'assistant' && typeof message.content === 'string') {
-          const processedContent = showThinkBlocks
-            ? message.content
-            : message.content.replace(/<think>[\s\S]*?<\/think>/g, '');
+          const processedContent = message.content.replace(/<think>[\s\S]*?<\/think>/g, '');
 
           return (
             <Flex
