@@ -84,7 +84,7 @@ export const HatSelector = ({ value, onChange, isDisabled }: Props) => {
 
   const options: HatOption[] = hats.map((hat: Hat) => ({
     value: hat.id,
-    label: `${getLanguageFlag(hat.language)} ${hat.label} (${hat.language})`,
+    label: `${getLanguageFlag(hat.language)} ${hat.label}`,
   }));
 
   return (

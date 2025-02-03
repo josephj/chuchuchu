@@ -83,11 +83,6 @@ const SidePanel = () => {
   const textColorSecondary = useColorModeValue('dracula.light.comment', 'dracula.comment');
   const buttonBg = useColorModeValue('dracula.light.currentLine', 'dracula.currentLine');
 
-  const handleHatChange = useCallback((hatId: string) => {
-    setIsManuallySelected(true);
-    selectedHatStorage.set(hatId);
-  }, []);
-
   const handleAskAssistant = useCallback(
     async (prompt: string, isInitialAnalysis = false) => {
       setIsTyping(true);
@@ -168,6 +163,153 @@ const SidePanel = () => {
       }
     },
     [hats, selectedHat, messages, originalContent],
+  );
+
+  const handleHatChange = useCallback(
+    (hatId: string) => {
+      setIsManuallySelected(true);
+      selectedHatStorage.set(hatId);
+
+      // Trigger regeneration if there is existing content
+      if (hasContent) {
+        setIsGenerating(true);
+
+        const selectedHatData = hats.find(hat => hat.id === hatId);
+        if (!selectedHatData) return;
+
+        const selectedLanguage = SUPPORTED_LANGUAGES.find(lang => lang.code === selectedHatData.language);
+        if (!selectedLanguage) return;
+
+        const systemPrompt = replaceTokens(selectedHatData.prompt, {
+          language: {
+            code: selectedLanguage.code,
+            name: selectedLanguage.name,
+          },
+        });
+
+        if (threadData) {
+          const formattedData = formatThreadForLLM(threadData);
+          askAssistant({
+            systemPrompt,
+            userPrompt: formattedData,
+            previousMessages: [],
+            ...(selectedHatData.model && { model: selectedHatData.model }),
+            ...(selectedHatData.temperature && { temperature: selectedHatData.temperature }),
+            options: {
+              onAbort: () => {
+                setIsTyping(false);
+                setIsGenerating(false);
+              },
+              onError: () => {
+                setMessages(prev => [
+                  ...prev,
+                  {
+                    role: 'assistant',
+                    content: (
+                      <Alert status="error" variant="left-accent">
+                        <AlertIcon />
+                        Failed to generate response. Please try again.
+                      </Alert>
+                    ),
+                    timestamp: Date.now(),
+                  },
+                ]);
+                setIsTyping(false);
+                setIsGenerating(false);
+              },
+              onUpdate: response => {
+                setMessages(prev => {
+                  const newMessages = [...prev];
+                  if (newMessages.length && newMessages[newMessages.length - 1].role === 'assistant') {
+                    newMessages[newMessages.length - 1].content = response;
+                  } else {
+                    newMessages.push({ role: 'assistant', content: response, timestamp: Date.now() });
+                  }
+                  return newMessages;
+                });
+              },
+              onComplete: () => {
+                setIsTyping(false);
+                setIsGenerating(false);
+              },
+            },
+          });
+        } else if (articleContent) {
+          const formattedContent =
+            typeof articleContent === 'string'
+              ? articleContent
+              : pageType.type === 'youtube'
+                ? `---
+title: ${articleTitle}
+${articleContent.channel ? `channel: ${articleContent.channel}` : ''}
+${articleContent.publishDate ? `published: ${articleContent.publishDate}` : ''}
+type: youtube
+---
+
+${articleContent.description ? `## Description\n${articleContent.description}` : 'No description available'}
+
+${articleContent.transcript ? `## Transcript\n${articleContent.transcript}` : ''}`
+                : `---
+title: ${articleTitle}
+${articleContent.siteName ? `source: ${articleContent.siteName}` : ''}
+${articleContent.byline ? `author: ${articleContent.byline}` : ''}
+type: article
+---
+
+${articleContent.excerpt ? `## Summary\n${articleContent.excerpt}\n` : ''}
+
+## Content
+${articleContent.content || ''}`.trim();
+
+          askAssistant({
+            systemPrompt,
+            userPrompt: formattedContent,
+            previousMessages: [],
+            ...(selectedHatData.model && { model: selectedHatData.model }),
+            ...(selectedHatData.temperature && { temperature: selectedHatData.temperature }),
+            options: {
+              onAbort: () => {
+                setIsTyping(false);
+                setIsGenerating(false);
+              },
+              onError: () => {
+                setMessages(prev => [
+                  ...prev,
+                  {
+                    role: 'assistant',
+                    content: (
+                      <Alert status="error" variant="left-accent">
+                        <AlertIcon />
+                        Failed to generate response. Please try again.
+                      </Alert>
+                    ),
+                    timestamp: Date.now(),
+                  },
+                ]);
+                setIsTyping(false);
+                setIsGenerating(false);
+              },
+              onUpdate: response => {
+                setMessages(prev => {
+                  const newMessages = [...prev];
+                  if (newMessages.length && newMessages[newMessages.length - 1].role === 'assistant') {
+                    newMessages[newMessages.length - 1].content = response;
+                  } else {
+                    newMessages.push({ role: 'assistant', content: response, timestamp: Date.now() });
+                  }
+                  return newMessages;
+                });
+              },
+              onComplete: () => {
+                setIsTyping(false);
+                setIsGenerating(false);
+              },
+            },
+          });
+        }
+      }
+    },
+    [articleContent, articleTitle, hasContent, hats, pageType.type, threadData],
   );
 
   const handleClose = useCallback(() => {
