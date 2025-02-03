@@ -64,6 +64,18 @@ import {
 } from './vars';
 import { HashRouter, Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 
+type LanguageOption = {
+  value: string;
+  label: string;
+  code: string;
+  name: string;
+};
+
+type ModelOption = {
+  value: string;
+  label: string;
+};
+
 const getLanguageFlag = (code: string): string => {
   // Handle special cases for multi-region languages
   if (code === 'en-US') return '🇺🇸';
@@ -80,13 +92,6 @@ const getLanguageFlag = (code: string): string => {
   const offset = 127397; // Regional Indicator Symbol "A" minus uppercase "A"
   const flagEmoji = String.fromCodePoint(...[...baseCode].map(c => c.charCodeAt(0) + offset));
   return flagEmoji;
-};
-
-type LanguageOption = {
-  value: string;
-  label: string;
-  code: string;
-  name: string;
 };
 
 const HatModal = ({
@@ -108,6 +113,7 @@ const HatModal = ({
   });
   const bg = useColorModeValue('dracula.light.background', 'dracula.background');
   const textColor = useColorModeValue('dracula.light.foreground', 'dracula.foreground');
+  const isLight = useColorModeValue(true, false);
 
   useEffect(() => {
     if (editingHat) {
@@ -143,7 +149,7 @@ const HatModal = ({
     control: (base: Record<string, unknown>) => ({
       ...base,
       minHeight: '32px',
-      width: '200px',
+      width: '100%',
     }),
     container: (base: Record<string, unknown>) => ({
       ...base,
@@ -160,7 +166,7 @@ const HatModal = ({
     control: (base: Record<string, unknown>) => ({
       ...base,
       minHeight: '32px',
-      width: '200px',
+      width: '100%',
     }),
     container: (base: Record<string, unknown>) => ({
       ...base,
@@ -177,21 +183,21 @@ const HatModal = ({
     ...theme,
     colors: {
       ...theme.colors,
-      neutral0: isOpen ? '#FFFFFF' : '#2D3748',
-      neutral5: isOpen ? '#E2E8F0' : '#4A5568',
-      neutral10: isOpen ? '#E2E8F0' : '#4A5568',
-      neutral20: isOpen ? '#E2E8F0' : '#4A5568',
-      neutral30: isOpen ? '#A0AEC0' : '#718096',
-      neutral40: isOpen ? '#718096' : '#A0AEC0',
-      neutral50: isOpen ? '#718096' : '#A0AEC0',
-      neutral60: isOpen ? '#4A5568' : '#CBD5E0',
-      neutral70: isOpen ? '#2D3748' : '#E2E8F0',
-      neutral80: isOpen ? '#1A202C' : '#F7FAFC',
-      neutral90: isOpen ? '#000000' : '#FFFFFF',
-      primary: isOpen ? '#3182CE' : '#90CDF4',
-      primary25: isOpen ? '#EBF8FF' : '#2A4365',
-      primary50: isOpen ? '#4299E1' : '#2C5282',
-      primary75: isOpen ? '#2B6CB0' : '#2A4365',
+      neutral0: isLight ? '#FFFFFF' : '#2D3748',
+      neutral5: isLight ? '#E2E8F0' : '#4A5568',
+      neutral10: isLight ? '#E2E8F0' : '#4A5568',
+      neutral20: isLight ? '#E2E8F0' : '#4A5568',
+      neutral30: isLight ? '#A0AEC0' : '#718096',
+      neutral40: isLight ? '#718096' : '#A0AEC0',
+      neutral50: isLight ? '#718096' : '#A0AEC0',
+      neutral60: isLight ? '#4A5568' : '#CBD5E0',
+      neutral70: isLight ? '#2D3748' : '#E2E8F0',
+      neutral80: isLight ? '#1A202C' : '#F7FAFC',
+      neutral90: isLight ? '#000000' : '#FFFFFF',
+      primary: isLight ? '#3182CE' : '#90CDF4',
+      primary25: isLight ? '#EBF8FF' : '#2A4365',
+      primary50: isLight ? '#4299E1' : '#2C5282',
+      primary75: isLight ? '#2B6CB0' : '#2A4365',
     },
   });
 
@@ -262,23 +268,92 @@ const HatModal = ({
               </FormControl>
               <FormControl>
                 <FormLabel>Language</FormLabel>
-                <Select
+                <Select<LanguageOption>
                   value={SUPPORTED_LANGUAGES.find(lang => lang.code === newHat.language)}
                   onChange={option => setNewHat({ ...newHat, language: option?.code || DEFAULT_LANGUAGE_CODE })}
                   options={SUPPORTED_LANGUAGES}
-                  styles={languageSelectStyles}
-                  theme={selectTheme}
+                  styles={{
+                    container: (base: Record<string, unknown>) => ({
+                      ...base,
+                      zIndex: 10,
+                    }),
+                    control: (base: Record<string, unknown>) => ({
+                      ...base,
+                      minHeight: '32px',
+                      width: '100%',
+                    }),
+                  }}
+                  theme={theme => ({
+                    ...theme,
+                    colors: {
+                      ...theme.colors,
+                      neutral0: isLight ? '#FFFFFF' : '#2D3748',
+                      neutral5: isLight ? '#E2E8F0' : '#4A5568',
+                      neutral10: isLight ? '#E2E8F0' : '#4A5568',
+                      neutral20: isLight ? '#E2E8F0' : '#4A5568',
+                      neutral30: isLight ? '#A0AEC0' : '#718096',
+                      neutral40: isLight ? '#718096' : '#A0AEC0',
+                      neutral50: isLight ? '#718096' : '#A0AEC0',
+                      neutral60: isLight ? '#4A5568' : '#CBD5E0',
+                      neutral70: isLight ? '#2D3748' : '#E2E8F0',
+                      neutral80: isLight ? '#1A202C' : '#F7FAFC',
+                      neutral90: isLight ? '#000000' : '#FFFFFF',
+                      primary: isLight ? '#3182CE' : '#90CDF4',
+                      primary25: isLight ? '#EBF8FF' : '#2A4365',
+                      primary50: isLight ? '#4299E1' : '#2C5282',
+                      primary75: isLight ? '#2B6CB0' : '#2A4365',
+                    },
+                  })}
+                  placeholder="Select language..."
+                  isSearchable
+                  components={{
+                    IndicatorSeparator: () => null,
+                  }}
                 />
               </FormControl>
               <FormControl>
                 <FormLabel>Model</FormLabel>
-                <Select
+                <Select<ModelOption>
                   value={SUPPORTED_MODELS.find(model => model.value === newHat.model)}
                   onChange={option => setNewHat({ ...newHat, model: option?.value || DEFAULT_MODEL })}
                   options={SUPPORTED_MODELS}
-                  styles={modelSelectStyles}
-                  theme={selectTheme}
+                  styles={{
+                    container: (base: Record<string, unknown>) => ({
+                      ...base,
+                      zIndex: 9,
+                    }),
+                    control: (base: Record<string, unknown>) => ({
+                      ...base,
+                      minHeight: '32px',
+                      width: '100%',
+                    }),
+                  }}
+                  theme={theme => ({
+                    ...theme,
+                    colors: {
+                      ...theme.colors,
+                      neutral0: isLight ? '#FFFFFF' : '#2D3748',
+                      neutral5: isLight ? '#E2E8F0' : '#4A5568',
+                      neutral10: isLight ? '#E2E8F0' : '#4A5568',
+                      neutral20: isLight ? '#E2E8F0' : '#4A5568',
+                      neutral30: isLight ? '#A0AEC0' : '#718096',
+                      neutral40: isLight ? '#718096' : '#A0AEC0',
+                      neutral50: isLight ? '#718096' : '#A0AEC0',
+                      neutral60: isLight ? '#4A5568' : '#CBD5E0',
+                      neutral70: isLight ? '#2D3748' : '#E2E8F0',
+                      neutral80: isLight ? '#1A202C' : '#F7FAFC',
+                      neutral90: isLight ? '#000000' : '#FFFFFF',
+                      primary: isLight ? '#3182CE' : '#90CDF4',
+                      primary25: isLight ? '#EBF8FF' : '#2A4365',
+                      primary50: isLight ? '#4299E1' : '#2C5282',
+                      primary75: isLight ? '#2B6CB0' : '#2A4365',
+                    },
+                  })}
                   placeholder="Select model..."
+                  isSearchable
+                  components={{
+                    IndicatorSeparator: () => null,
+                  }}
                 />
               </FormControl>
               <FormControl>
@@ -412,7 +487,7 @@ const Options = () => {
     control: (base: Record<string, unknown>) => ({
       ...base,
       minHeight: '32px',
-      width: '200px',
+      width: '100%',
     }),
     container: (base: Record<string, unknown>) => ({
       ...base,
@@ -429,7 +504,7 @@ const Options = () => {
     control: (base: Record<string, unknown>) => ({
       ...base,
       minHeight: '32px',
-      width: '200px',
+      width: '100%',
     }),
     container: (base: Record<string, unknown>) => ({
       ...base,
@@ -542,18 +617,42 @@ const Options = () => {
                           onChange={option => onChange(option?.code || DEFAULT_LANGUAGE_CODE)}
                           options={SUPPORTED_LANGUAGES}
                           styles={{
-                            ...languageSelectStyles,
+                            container: (base: Record<string, unknown>) => ({
+                              ...base,
+                              zIndex: 10,
+                            }),
                             control: (base: Record<string, unknown>) => ({
                               ...base,
                               minHeight: '32px',
-                              width: '200px',
-                              backgroundColor: theme === 'light' ? 'dracula.light.background' : 'dracula.background',
-                              borderColor: theme === 'light' ? 'dracula.light.currentLine' : 'dracula.currentLine',
+                              width: '100%',
                             }),
                           }}
-                          theme={selectTheme}
+                          theme={theme => ({
+                            ...theme,
+                            colors: {
+                              ...theme.colors,
+                              neutral0: isLight ? '#FFFFFF' : '#2D3748',
+                              neutral5: isLight ? '#E2E8F0' : '#4A5568',
+                              neutral10: isLight ? '#E2E8F0' : '#4A5568',
+                              neutral20: isLight ? '#E2E8F0' : '#4A5568',
+                              neutral30: isLight ? '#A0AEC0' : '#718096',
+                              neutral40: isLight ? '#718096' : '#A0AEC0',
+                              neutral50: isLight ? '#718096' : '#A0AEC0',
+                              neutral60: isLight ? '#4A5568' : '#CBD5E0',
+                              neutral70: isLight ? '#2D3748' : '#E2E8F0',
+                              neutral80: isLight ? '#1A202C' : '#F7FAFC',
+                              neutral90: isLight ? '#000000' : '#FFFFFF',
+                              primary: isLight ? '#3182CE' : '#90CDF4',
+                              primary25: isLight ? '#EBF8FF' : '#2A4365',
+                              primary50: isLight ? '#4299E1' : '#2C5282',
+                              primary75: isLight ? '#2B6CB0' : '#2A4365',
+                            },
+                          })}
                           placeholder="Select language..."
                           isSearchable
+                          components={{
+                            IndicatorSeparator: () => null,
+                          }}
                         />
                       )}
                     />
