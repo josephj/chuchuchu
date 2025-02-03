@@ -100,6 +100,7 @@ const HatModal = ({
   editingHat: Hat | null;
   onSave: (hat: Hat) => void;
 }) => {
+  const location = useLocation();
   const [newHat, setNewHat] = useState<Partial<Hat>>({
     temperature: 0,
     language: DEFAULT_LANGUAGE_CODE,
@@ -110,7 +111,15 @@ const HatModal = ({
 
   useEffect(() => {
     if (editingHat) {
-      setNewHat(editingHat);
+      if (location.pathname.includes('/hats/clone/')) {
+        setNewHat({
+          ...editingHat,
+          id: `${editingHat.id}-copy`,
+          label: `${editingHat.label} (Copy)`,
+        });
+      } else {
+        setNewHat(editingHat);
+      }
     } else {
       setNewHat({
         temperature: 0,
@@ -118,7 +127,7 @@ const HatModal = ({
         model: DEFAULT_MODEL,
       });
     }
-  }, [editingHat]);
+  }, [editingHat, location.pathname]);
 
   const handleSave = async () => {
     try {
@@ -191,26 +200,16 @@ const HatModal = ({
     setNewHat(prev => ({
       ...prev,
       label: newLabel,
-      // Only update ID if it hasn't been manually edited or is empty
-      id: prev.id === generateIdFromLabel(prev.label || '') || !prev.id ? generateIdFromLabel(newLabel) : prev.id,
     }));
-  };
-
-  const generateIdFromLabel = (label: string): string => {
-    return label
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9-\s]/g, '') // Remove special characters except hyphen
-      .replace(/\s+/g, '-') // Replace spaces with hyphens
-      .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
-      .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
   };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="6xl">
       <ModalOverlay />
       <ModalContent bg={bg} color={textColor}>
-        <ModalHeader>{editingHat ? 'Edit Hat' : 'Add New Hat'}</ModalHeader>
+        <ModalHeader>
+          {location.pathname.includes('/hats/clone/') ? 'Clone Hat' : editingHat ? 'Edit Hat' : 'Add New Hat'}
+        </ModalHeader>
         <ModalCloseButton />
         <ModalBody>
           <Grid templateColumns="350px 1fr" gap={8}>

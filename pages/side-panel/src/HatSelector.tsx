@@ -41,11 +41,25 @@ export const HatSelector = ({ value, onChange, isDisabled }: Props) => {
   const isLight = useColorModeValue(true, false);
 
   useEffect(() => {
+    // Initial load
     chrome.storage.sync.get(['hats'], result => {
       if (result.hats) {
         setHats(result.hats);
       }
     });
+
+    // Listen for changes
+    const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }) => {
+      if (changes.hats?.newValue) {
+        setHats(changes.hats.newValue);
+      }
+    };
+
+    chrome.storage.onChanged.addListener(handleStorageChange);
+
+    return () => {
+      chrome.storage.onChanged.removeListener(handleStorageChange);
+    };
   }, []);
 
   const customTheme = (theme: Theme) => ({
