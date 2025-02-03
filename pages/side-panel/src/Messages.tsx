@@ -1,7 +1,8 @@
-import { Box, Flex, Text, VStack, useColorModeValue } from '@chakra-ui/react';
+import { Box, Flex, Text, VStack, useColorModeValue, IconButton, Tooltip } from '@chakra-ui/react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons';
 import type { Message } from './types';
 
 type Props = {
@@ -10,6 +11,7 @@ type Props = {
 };
 
 export const Messages = ({ messages, isTyping }: Props) => {
+  const [showThinkBlocks, setShowThinkBlocks] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageAssistantBg = useColorModeValue('transparent', 'dracula.background');
   const messageUserBg = useColorModeValue('dracula.light.currentLine', 'dracula.currentLine');
@@ -58,117 +60,149 @@ export const Messages = ({ messages, isTyping }: Props) => {
 
   return (
     <VStack spacing={4} align="stretch" px={4}>
-      {messages.map((message, index) => (
-        <Flex
-          key={index}
-          data-message
-          direction="column"
-          bg={message.role === 'assistant' ? messageAssistantBg : 'transparent'}
-          borderRadius="lg"
-          color={textColor}>
-          {message.role === 'user' ? (
-            <Box borderRadius="lg" bg={messageUserBg} display="inline-block" alignSelf="flex-end" p={2}>
-              <Text fontSize="14px">{message.content}</Text>
-            </Box>
-          ) : typeof message.content === 'string' ? (
-            <Box
-              sx={{
-                fontSize: '14px',
-                'h1, h2, h3, h4, h5, h6': {
-                  fontWeight: 'bold',
-                  my: 2,
-                  color: 'dracula.purple',
-                },
-                h1: { fontSize: '2xl' },
-                h2: { fontSize: 'xl' },
-                h3: { fontSize: 'lg' },
-                p: {
-                  my: 2,
-                },
-                'ul, ol': {
-                  pl: 4,
-                  my: 2,
-                  listStylePosition: 'inside',
-                },
-                ul: {
-                  listStyleType: 'disc',
-                },
-                ol: {
-                  listStyleType: 'decimal',
-                },
-                li: {
-                  my: 1,
-                  pl: 1,
-                },
-                code: {
-                  bg: codeBg,
-                  px: 1,
-                  borderRadius: 'sm',
-                  color: 'dracula.pink',
-                },
-                pre: {
-                  bg: codeBg,
-                  p: 2,
-                  borderRadius: 'md',
-                  overflowX: 'auto',
-                },
-                'pre code': {
-                  color: codeFg,
-                },
-                blockquote: {
-                  borderLeftWidth: '4px',
-                  borderLeftColor: blockquoteBorderColor,
-                  pl: 4,
-                  my: 2,
-                  color: 'dracula.yellow',
-                },
-                a: {
-                  color: 'dracula.purple',
-                  _hover: {
+      <Flex justifyContent="flex-end" mb={2}>
+        <Tooltip label={showThinkBlocks ? 'Hide think blocks' : 'Show think blocks'}>
+          <IconButton
+            aria-label={showThinkBlocks ? 'Hide think blocks' : 'Show think blocks'}
+            icon={showThinkBlocks ? <ViewOffIcon /> : <ViewIcon />}
+            size="sm"
+            variant="ghost"
+            onClick={() => setShowThinkBlocks(!showThinkBlocks)}
+          />
+        </Tooltip>
+      </Flex>
+      {messages.map((message, index) => {
+        if (message.role === 'assistant' && typeof message.content === 'string') {
+          const processedContent = showThinkBlocks
+            ? message.content
+            : message.content.replace(/<think>[\s\S]*?<\/think>/g, '');
+
+          return (
+            <Flex
+              key={index}
+              data-message
+              direction="column"
+              bg={messageAssistantBg}
+              borderRadius="lg"
+              color={textColor}>
+              <Box
+                sx={{
+                  fontSize: '14px',
+                  'h1, h2, h3, h4, h5, h6': {
+                    fontWeight: 'bold',
+                    my: 2,
+                    color: 'dracula.purple',
+                  },
+                  h1: { fontSize: '2xl' },
+                  h2: { fontSize: 'xl' },
+                  h3: { fontSize: 'lg' },
+                  p: {
+                    my: 2,
+                  },
+                  'ul, ol': {
+                    pl: 4,
+                    my: 2,
+                    listStylePosition: 'inside',
+                  },
+                  ul: {
+                    listStyleType: 'disc',
+                  },
+                  ol: {
+                    listStyleType: 'decimal',
+                  },
+                  li: {
+                    my: 1,
+                    pl: 1,
+                  },
+                  code: {
+                    bg: codeBg,
+                    px: 1,
+                    borderRadius: 'sm',
                     color: 'dracula.pink',
                   },
-                },
-              }}>
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  table: props => (
-                    <Box overflowX="auto" my={4}>
-                      <Box
-                        as="table"
-                        width="full"
-                        sx={{
-                          borderCollapse: 'collapse',
-                          'th, td': {
-                            border: '1px solid',
-                            borderColor: 'dracula.currentLine',
-                            px: 4,
-                            py: 2,
-                          },
-                          th: {
-                            bg: codeBg,
-                            fontWeight: 'bold',
-                          },
-                          'tr:nth-of-type(even)': {
-                            bg: messageAssistantBg,
-                          },
-                        }}
-                        {...props}
-                      />
-                    </Box>
-                  ),
+                  pre: {
+                    bg: codeBg,
+                    p: 2,
+                    borderRadius: 'md',
+                    overflowX: 'auto',
+                  },
+                  'pre code': {
+                    color: codeFg,
+                  },
+                  blockquote: {
+                    borderLeftWidth: '4px',
+                    borderLeftColor: blockquoteBorderColor,
+                    pl: 4,
+                    my: 2,
+                    color: 'dracula.yellow',
+                  },
+                  a: {
+                    color: 'dracula.purple',
+                    _hover: {
+                      color: 'dracula.pink',
+                    },
+                  },
                 }}>
-                {message.content}
-              </ReactMarkdown>
-            </Box>
-          ) : (
-            message.content
-          )}
-          <Text fontSize="xs" color={textColorSecondary} mt={2} textAlign="right">
-            {new Date(message.timestamp).toLocaleTimeString()}
-          </Text>
-        </Flex>
-      ))}
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    table: props => (
+                      <Box overflowX="auto" my={4}>
+                        <Box
+                          as="table"
+                          width="full"
+                          sx={{
+                            borderCollapse: 'collapse',
+                            'th, td': {
+                              border: '1px solid',
+                              borderColor: 'dracula.currentLine',
+                              px: 4,
+                              py: 2,
+                            },
+                            th: {
+                              bg: codeBg,
+                              fontWeight: 'bold',
+                            },
+                            'tr:nth-of-type(even)': {
+                              bg: messageAssistantBg,
+                            },
+                          }}
+                          {...props}
+                        />
+                      </Box>
+                    ),
+                  }}>
+                  {processedContent}
+                </ReactMarkdown>
+              </Box>
+              <Text fontSize="xs" color={textColorSecondary} mt={2} textAlign="right">
+                {new Date(message.timestamp).toLocaleTimeString()}
+              </Text>
+            </Flex>
+          );
+        }
+
+        return (
+          <Flex
+            key={index}
+            data-message
+            direction="column"
+            bg={message.role === 'assistant' ? messageAssistantBg : 'transparent'}
+            borderRadius="lg"
+            color={textColor}>
+            {message.role === 'user' ? (
+              <Box borderRadius="lg" bg={messageUserBg} display="inline-block" alignSelf="flex-end" p={2}>
+                <Text fontSize="14px">{message.content}</Text>
+              </Box>
+            ) : (
+              message.content
+            )}
+            <Text fontSize="xs" color={textColorSecondary} mt={2} textAlign="right">
+              {new Date(message.timestamp).toLocaleTimeString()}
+            </Text>
+          </Flex>
+        );
+      })}
       {isTyping && (
         <Text fontSize="14px" color={textColorSecondary} animation="pulse 2s infinite">
           Assistant is typing...
