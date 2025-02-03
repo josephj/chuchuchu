@@ -62,6 +62,7 @@ import {
   openInWebStorage,
   hatsStorage,
 } from './vars';
+import { HashRouter, Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 
 const getLanguageFlag = (code: string): string => {
   // Handle special cases for multi-region languages
@@ -88,39 +89,272 @@ type LanguageOption = {
   name: string;
 };
 
+const HatModal = ({
+  isOpen,
+  onClose,
+  editingHat,
+  onSave,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  editingHat: Hat | null;
+  onSave: (hat: Hat) => void;
+}) => {
+  const [newHat, setNewHat] = useState<Partial<Hat>>({
+    temperature: 0,
+    language: DEFAULT_LANGUAGE_CODE,
+    model: DEFAULT_MODEL,
+  });
+  const bg = useColorModeValue('dracula.light.background', 'dracula.background');
+  const textColor = useColorModeValue('dracula.light.foreground', 'dracula.foreground');
+
+  useEffect(() => {
+    if (editingHat) {
+      setNewHat(editingHat);
+    } else {
+      setNewHat({
+        temperature: 0,
+        language: DEFAULT_LANGUAGE_CODE,
+        model: DEFAULT_MODEL,
+      });
+    }
+  }, [editingHat]);
+
+  const handleSave = async () => {
+    try {
+      const validatedHat = hatSchema.parse(newHat);
+      onSave(validatedHat);
+      onClose();
+    } catch (error) {
+      console.error('Invalid hat data:', error);
+    }
+  };
+
+  const languageSelectStyles = {
+    control: (base: Record<string, unknown>) => ({
+      ...base,
+      minHeight: '32px',
+      width: '200px',
+    }),
+    container: (base: Record<string, unknown>) => ({
+      ...base,
+      zIndex: 3,
+    }),
+    option: (base: Record<string, unknown>) => ({
+      ...base,
+      cursor: 'pointer',
+      padding: '8px 12px',
+    }),
+  };
+
+  const modelSelectStyles = {
+    control: (base: Record<string, unknown>) => ({
+      ...base,
+      minHeight: '32px',
+      width: '200px',
+    }),
+    container: (base: Record<string, unknown>) => ({
+      ...base,
+      zIndex: 2,
+    }),
+    option: (base: Record<string, unknown>) => ({
+      ...base,
+      cursor: 'pointer',
+      padding: '8px 12px',
+    }),
+  };
+
+  const selectTheme = (theme: ReactSelectTheme) => ({
+    ...theme,
+    colors: {
+      ...theme.colors,
+      neutral0: isOpen ? '#FFFFFF' : '#2D3748',
+      neutral5: isOpen ? '#E2E8F0' : '#4A5568',
+      neutral10: isOpen ? '#E2E8F0' : '#4A5568',
+      neutral20: isOpen ? '#E2E8F0' : '#4A5568',
+      neutral30: isOpen ? '#A0AEC0' : '#718096',
+      neutral40: isOpen ? '#718096' : '#A0AEC0',
+      neutral50: isOpen ? '#718096' : '#A0AEC0',
+      neutral60: isOpen ? '#4A5568' : '#CBD5E0',
+      neutral70: isOpen ? '#2D3748' : '#E2E8F0',
+      neutral80: isOpen ? '#1A202C' : '#F7FAFC',
+      neutral90: isOpen ? '#000000' : '#FFFFFF',
+      primary: isOpen ? '#3182CE' : '#90CDF4',
+      primary25: isOpen ? '#EBF8FF' : '#2A4365',
+      primary50: isOpen ? '#4299E1' : '#2C5282',
+      primary75: isOpen ? '#2B6CB0' : '#2A4365',
+    },
+  });
+
+  const handleLabelChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newLabel = e.target.value;
+    setNewHat(prev => ({
+      ...prev,
+      label: newLabel,
+      // Only update ID if it hasn't been manually edited or is empty
+      id: prev.id === generateIdFromLabel(prev.label || '') || !prev.id ? generateIdFromLabel(newLabel) : prev.id,
+    }));
+  };
+
+  const generateIdFromLabel = (label: string): string => {
+    return label
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9-\s]/g, '') // Remove special characters except hyphen
+      .replace(/\s+/g, '-') // Replace spaces with hyphens
+      .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+      .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} size="6xl">
+      <ModalOverlay />
+      <ModalContent bg={bg} color={textColor}>
+        <ModalHeader>{editingHat ? 'Edit Hat' : 'Add New Hat'}</ModalHeader>
+        <ModalCloseButton />
+        <ModalBody>
+          <Grid templateColumns="350px 1fr" gap={8}>
+            {/* Left Column - Settings */}
+            <VStack spacing={4} align="stretch">
+              <FormControl>
+                <FormLabel>Label</FormLabel>
+                <Input value={newHat.label || ''} onChange={handleLabelChange} placeholder="Enter hat label" />
+              </FormControl>
+              <FormControl>
+                <FormLabel>ID</FormLabel>
+                <Input
+                  value={newHat.id || ''}
+                  onChange={e => setNewHat({ ...newHat, id: e.target.value })}
+                  placeholder="Enter hat ID (English, numbers, dash, and underline only)"
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Temperature ({newHat.temperature})</FormLabel>
+                <Box pt={2} pb={6} width="90%">
+                  <Slider
+                    value={newHat.temperature}
+                    onChange={value => setNewHat({ ...newHat, temperature: value })}
+                    min={0}
+                    max={2.5}
+                    step={0.1}
+                    aria-label="temperature-slider">
+                    <SliderMark value={0} mt={4} ml={-2.5} fontSize="xs">
+                      Precise
+                    </SliderMark>
+                    <SliderMark value={1.25} mt={4} ml={-4} fontSize="xs">
+                      Balanced
+                    </SliderMark>
+                    <SliderMark value={2.5} mt={4} ml={-3} fontSize="xs">
+                      Creative
+                    </SliderMark>
+                    <SliderTrack>
+                      <SliderFilledTrack />
+                    </SliderTrack>
+                    <Tooltip
+                      hasArrow
+                      bg={bg}
+                      color={textColor}
+                      placement="top"
+                      label={`Temperature: ${newHat.temperature}`}>
+                      <SliderThumb />
+                    </Tooltip>
+                  </Slider>
+                </Box>
+              </FormControl>
+              <FormControl>
+                <FormLabel>Language</FormLabel>
+                <Select
+                  value={SUPPORTED_LANGUAGES.find(lang => lang.code === newHat.language)}
+                  onChange={option => setNewHat({ ...newHat, language: option?.code || DEFAULT_LANGUAGE_CODE })}
+                  options={SUPPORTED_LANGUAGES}
+                  styles={languageSelectStyles}
+                  theme={selectTheme}
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Model</FormLabel>
+                <Select
+                  value={SUPPORTED_MODELS.find(model => model.value === newHat.model)}
+                  onChange={option => setNewHat({ ...newHat, model: option?.value || DEFAULT_MODEL })}
+                  options={SUPPORTED_MODELS}
+                  styles={modelSelectStyles}
+                  theme={selectTheme}
+                  placeholder="Select model..."
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel>URL Pattern (Optional)</FormLabel>
+                <Input
+                  value={newHat.urlPattern || ''}
+                  onChange={e => setNewHat({ ...newHat, urlPattern: e.target.value })}
+                  placeholder="e.g., https://*.example.com/*/page"
+                />
+              </FormControl>
+            </VStack>
+
+            {/* Right Column - Prompt Editor */}
+            <Box>
+              <FormControl height="100%">
+                <FormLabel>Prompt</FormLabel>
+                <Textarea
+                  value={newHat.prompt || ''}
+                  onChange={e => setNewHat({ ...newHat, prompt: e.target.value })}
+                  placeholder="Enter your prompt in Markdown format"
+                  minH="500px"
+                  size="md"
+                  resize="vertical"
+                  fontFamily="mono"
+                />
+              </FormControl>
+            </Box>
+          </Grid>
+        </ModalBody>
+        <ModalFooter display="flex" width="100%" alignItems="center" gap={3}>
+          {editingHat && (
+            <Button
+              colorScheme="red"
+              variant="ghost"
+              onClick={() => {
+                onSave(editingHat);
+                onClose();
+              }}
+              leftIcon={<DeleteIcon />}>
+              Delete
+            </Button>
+          )}
+          <Box flex={1} />
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button colorScheme="blue" onClick={handleSave}>
+            {editingHat ? 'Update Hat' : 'Add Hat'}
+          </Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
+  );
+};
+
 const Options = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { hatId } = useParams();
   const theme = useStorage(exampleThemeStorage);
   const selectedLanguage = useStorage(languageStorage);
   const openInWeb = useStorage(openInWebStorage);
   const hats = useStorage(hatsStorage);
   const isLight = theme === 'light';
   const [savedSettings, setSavedSettings] = useState<{ [K in keyof OptionsFormData]?: boolean }>({});
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newHat, setNewHat] = useState<Partial<Hat>>({
-    temperature: 0,
-    language: selectedLanguage,
-    model: DEFAULT_MODEL,
-  });
-  const [editingHat, setEditingHat] = useState<Hat | null>(null);
   const [hatToDelete, setHatToDelete] = useState<Hat | null>(null);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const cancelDeleteRef = useRef<HTMLButtonElement>(null);
   const textColorSecondary = useColorModeValue('dracula.light.comment', 'dracula.comment');
 
-  // Add Dracula theme colors
   const bg = useColorModeValue('dracula.light.background', 'dracula.background');
   const borderColor = useColorModeValue('dracula.light.currentLine', 'dracula.currentLine');
   const textColor = useColorModeValue('dracula.light.foreground', 'dracula.foreground');
   const buttonBg = useColorModeValue('dracula.light.currentLine', 'dracula.currentLine');
   const hoverBg = useColorModeValue('gray.50', 'whiteAlpha.50');
-
-  useEffect(() => {
-    // Clear saved indicators after 2 seconds
-    const timer = setTimeout(() => {
-      setSavedSettings({});
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, [savedSettings]);
 
   const { control, setValue, handleSubmit } = useForm<OptionsFormData>({
     resolver: zodResolver(optionsFormSchema),
@@ -130,6 +364,20 @@ const Options = () => {
       openInWeb: true,
     },
   });
+
+  const editingHat = hatId ? hats?.find(hat => hat.id === hatId) || null : null;
+  const isModalOpen =
+    location.pathname.includes('/hats/add') ||
+    location.pathname.includes('/hats/edit/') ||
+    location.pathname.includes('/hats/clone/');
+
+  useEffect(() => {
+    // Clear saved indicators after 2 seconds
+    const timer = setTimeout(() => {
+      setSavedSettings({});
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [savedSettings]);
 
   useEffect(() => {
     setValue('language', selectedLanguage);
@@ -232,80 +480,34 @@ const Options = () => {
       const updatedHats = (hats || []).filter(hat => hat.id !== hatToDelete.id);
       await hatsStorage.set(updatedHats);
       closeDeleteAlert();
+      navigate('/');
     }
   };
 
-  const handleEditHat = (hat: Hat) => {
-    setEditingHat(hat);
-    setNewHat(hat);
-    setIsModalOpen(true);
-  };
-
-  const handleAddOrUpdateHat = async () => {
+  const handleAddOrUpdateHat = async (hat: Hat) => {
     try {
-      const validatedHat = hatSchema.parse(newHat);
       let updatedHats: Hat[];
 
-      if (editingHat) {
+      if (location.pathname.includes('/hats/edit/')) {
         // Update existing hat
-        updatedHats = (hats || []).map(hat => (hat.id === editingHat.id ? validatedHat : hat));
+        updatedHats = (hats || []).map(h => (h.id === hat.id ? hat : h));
+      } else if (location.pathname.includes('/hats/clone/')) {
+        // Clone hat with new ID
+        updatedHats = [...(hats || []), { ...hat, id: `${hat.id}-copy`, label: `${hat.label} (Copy)` }];
       } else {
         // Add new hat
-        updatedHats = [...(hats || []), validatedHat];
+        updatedHats = [...(hats || []), hat];
       }
 
       await hatsStorage.set(updatedHats);
-      setIsModalOpen(false);
-      setEditingHat(null);
-      setNewHat({
-        temperature: 0,
-        language: selectedLanguage,
-        model: DEFAULT_MODEL,
-      });
+      navigate('/');
     } catch (error) {
       console.error('Invalid hat data:', error);
     }
   };
 
   const handleModalClose = () => {
-    setIsModalOpen(false);
-    setEditingHat(null);
-    setNewHat({
-      temperature: 0,
-      language: selectedLanguage,
-      model: DEFAULT_MODEL,
-    });
-  };
-
-  const generateIdFromLabel = (label: string): string => {
-    return label
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9-\s]/g, '') // Remove special characters except hyphen
-      .replace(/\s+/g, '-') // Replace spaces with hyphens
-      .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
-      .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
-  };
-
-  const handleLabelChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newLabel = e.target.value;
-    setNewHat(prev => ({
-      ...prev,
-      label: newLabel,
-      // Only update ID if it hasn't been manually edited or is empty
-      id: prev.id === generateIdFromLabel(prev.label || '') || !prev.id ? generateIdFromLabel(newLabel) : prev.id,
-    }));
-  };
-
-  const handleCloneHat = (hat: Hat) => {
-    const clonedHat = {
-      ...hat,
-      id: `${hat.id}-copy`,
-      label: `${hat.label} (Copy)`,
-    };
-    setEditingHat(null);
-    setNewHat(clonedHat);
-    setIsModalOpen(true);
+    navigate('/');
   };
 
   return (
@@ -442,7 +644,7 @@ const Options = () => {
                       alignItems="center"
                       position="relative"
                       role="group"
-                      onClick={() => handleEditHat(hat)}
+                      onClick={() => navigate(`hats/edit/${hat.id}`)}
                       _hover={{
                         borderColor: 'blue.500',
                         cursor: 'pointer',
@@ -482,7 +684,7 @@ const Options = () => {
                           mr={2}
                           onClick={e => {
                             e.stopPropagation();
-                            handleCloneHat(hat);
+                            navigate(`hats/clone/${hat.id}`);
                           }}
                         />
                         <IconButton
@@ -494,7 +696,7 @@ const Options = () => {
                           mr={2}
                           onClick={e => {
                             e.stopPropagation();
-                            handleEditHat(hat);
+                            navigate(`hats/edit/${hat.id}`);
                           }}
                         />
                         <IconButton
@@ -514,15 +716,7 @@ const Options = () => {
                 )}
                 <Button
                   leftIcon={<AddIcon />}
-                  onClick={() => {
-                    setEditingHat(null);
-                    setNewHat({
-                      temperature: 0,
-                      language: selectedLanguage,
-                      model: DEFAULT_MODEL,
-                    });
-                    setIsModalOpen(true);
-                  }}
+                  onClick={() => navigate('hats/add')}
                   colorScheme="blue"
                   variant="outline">
                   Add new hat
@@ -533,132 +727,8 @@ const Options = () => {
         </Accordion>
       </form>
 
-      {/* Add/Edit Hat Modal */}
-      <Modal isOpen={isModalOpen} onClose={handleModalClose} size="6xl">
-        <ModalOverlay />
-        <ModalContent bg={bg} color={textColor}>
-          <ModalHeader>{editingHat ? 'Edit Hat' : 'Add New Hat'}</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <Grid templateColumns="350px 1fr" gap={8}>
-              {/* Left Column - Settings */}
-              <VStack spacing={4} align="stretch">
-                <FormControl>
-                  <FormLabel>Label</FormLabel>
-                  <Input value={newHat.label || ''} onChange={handleLabelChange} placeholder="Enter hat label" />
-                </FormControl>
-                <FormControl>
-                  <FormLabel>ID</FormLabel>
-                  <Input
-                    value={newHat.id || ''}
-                    onChange={e => setNewHat({ ...newHat, id: e.target.value })}
-                    placeholder="Enter hat ID (English, numbers, dash, and underline only)"
-                  />
-                </FormControl>
-                <FormControl>
-                  <FormLabel>Temperature ({newHat.temperature})</FormLabel>
-                  <Box pt={2} pb={6} width="90%">
-                    <Slider
-                      value={newHat.temperature}
-                      onChange={value => setNewHat({ ...newHat, temperature: value })}
-                      min={0}
-                      max={2.5}
-                      step={0.1}
-                      aria-label="temperature-slider">
-                      <SliderMark value={0} mt={4} ml={-2.5} fontSize="xs">
-                        Precise
-                      </SliderMark>
-                      <SliderMark value={1.25} mt={4} ml={-4} fontSize="xs">
-                        Balanced
-                      </SliderMark>
-                      <SliderMark value={2.5} mt={4} ml={-3} fontSize="xs">
-                        Creative
-                      </SliderMark>
-                      <SliderTrack>
-                        <SliderFilledTrack />
-                      </SliderTrack>
-                      <Tooltip
-                        hasArrow
-                        bg={bg}
-                        color={textColor}
-                        placement="top"
-                        label={`Temperature: ${newHat.temperature}`}>
-                        <SliderThumb />
-                      </Tooltip>
-                    </Slider>
-                  </Box>
-                </FormControl>
-                <FormControl>
-                  <FormLabel>Language</FormLabel>
-                  <Select
-                    value={SUPPORTED_LANGUAGES.find(lang => lang.code === newHat.language)}
-                    onChange={option => setNewHat({ ...newHat, language: option?.code || DEFAULT_LANGUAGE_CODE })}
-                    options={SUPPORTED_LANGUAGES}
-                    styles={languageSelectStyles}
-                    theme={selectTheme}
-                  />
-                </FormControl>
-                <FormControl>
-                  <FormLabel>Model</FormLabel>
-                  <Select
-                    value={SUPPORTED_MODELS.find(model => model.value === newHat.model)}
-                    onChange={option => setNewHat({ ...newHat, model: option?.value || DEFAULT_MODEL })}
-                    options={SUPPORTED_MODELS}
-                    styles={modelSelectStyles}
-                    theme={selectTheme}
-                    placeholder="Select model..."
-                  />
-                </FormControl>
-                <FormControl>
-                  <FormLabel>URL Pattern (Optional)</FormLabel>
-                  <Input
-                    value={newHat.urlPattern || ''}
-                    onChange={e => setNewHat({ ...newHat, urlPattern: e.target.value })}
-                    placeholder="e.g., https://*.example.com/*/page"
-                  />
-                </FormControl>
-              </VStack>
-
-              {/* Right Column - Prompt Editor */}
-              <Box>
-                <FormControl height="100%">
-                  <FormLabel>Prompt</FormLabel>
-                  <Textarea
-                    value={newHat.prompt || ''}
-                    onChange={e => setNewHat({ ...newHat, prompt: e.target.value })}
-                    placeholder="Enter your prompt in Markdown format"
-                    minH="500px"
-                    size="md"
-                    resize="vertical"
-                    fontFamily="mono"
-                  />
-                </FormControl>
-              </Box>
-            </Grid>
-          </ModalBody>
-          <ModalFooter display="flex" width="100%" alignItems="center" gap={3}>
-            {editingHat && (
-              <Button
-                colorScheme="red"
-                variant="ghost"
-                onClick={() => {
-                  handleDeleteClick(editingHat);
-                  handleModalClose();
-                }}
-                leftIcon={<DeleteIcon />}>
-                Delete
-              </Button>
-            )}
-            <Box flex={1} />
-            <Button variant="ghost" onClick={handleModalClose}>
-              Cancel
-            </Button>
-            <Button colorScheme="blue" onClick={handleAddOrUpdateHat}>
-              {editingHat ? 'Update Hat' : 'Add Hat'}
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      {/* Hat Modal */}
+      <HatModal isOpen={isModalOpen} onClose={handleModalClose} editingHat={editingHat} onSave={handleAddOrUpdateHat} />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog isOpen={isDeleteAlertOpen} leastDestructiveRef={cancelDeleteRef} onClose={closeDeleteAlert}>
@@ -687,11 +757,23 @@ const Options = () => {
   );
 };
 
+const OptionsWithRouter = () => (
+  <HashRouter>
+    <Routes>
+      <Route path="/" element={<Options />}>
+        <Route path="hats/add" element={<Options />} />
+        <Route path="hats/edit/:hatId" element={<Options />} />
+        <Route path="hats/clone/:hatId" element={<Options />} />
+      </Route>
+    </Routes>
+  </HashRouter>
+);
+
 export default withErrorBoundary(
   withSuspense(
     () => (
       <ChakraProvider theme={theme}>
-        <Options />
+        <OptionsWithRouter />
       </ChakraProvider>
     ),
     <div> Loading ... </div>,

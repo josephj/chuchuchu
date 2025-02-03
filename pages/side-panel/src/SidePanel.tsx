@@ -20,8 +20,10 @@ import {
   ChakraProvider,
   Alert,
   AlertIcon,
+  Tooltip,
+  ButtonGroup,
 } from '@chakra-ui/react';
-import { MoonIcon, SunIcon, ChevronUpIcon, ChevronDownIcon, SettingsIcon } from '@chakra-ui/icons';
+import { MoonIcon, SunIcon, ChevronUpIcon, ChevronDownIcon, SettingsIcon, EditIcon, AddIcon } from '@chakra-ui/icons';
 import { Messages } from './Messages';
 import { Header } from './Header';
 import { usePageType } from './lib/use-page-type';
@@ -36,6 +38,10 @@ type FormData = {
 
 const handleOpenOptions = () => {
   chrome.runtime.openOptionsPage();
+};
+
+const handleOpenOptionsWithRoute = (route: string) => {
+  chrome.tabs.create({ url: `/options/index.html#${route}` });
 };
 
 const SidePanel = () => {
@@ -519,7 +525,33 @@ ${articleContent.content || ''}`.trim();
       {/* Settings Section */}
       <Box p={4} borderBottom="1px" borderColor={borderColor}>
         <Flex justify="space-between" align="center">
-          <HatSelector value={selectedHat} onChange={handleHatChange} isDisabled={isGenerating} />
+          <ButtonGroup size="sm" variant="ghost" spacing={0} bg={buttonBg} borderRadius="md" p={1}>
+            <Box px={1}>
+              <HatSelector value={selectedHat} onChange={handleHatChange} isDisabled={isGenerating} />
+            </Box>
+            {selectedHat && (
+              <Tooltip label="Edit current hat" placement="top">
+                <IconButton
+                  aria-label="Edit current hat"
+                  icon={<EditIcon />}
+                  onClick={() => handleOpenOptionsWithRoute(`/hats/edit/${selectedHat}`)}
+                  size="sm"
+                  variant="ghost"
+                  color={textColor}
+                />
+              </Tooltip>
+            )}
+            <Tooltip label="Create new hat" placement="top">
+              <IconButton
+                aria-label="Create new hat"
+                icon={<AddIcon />}
+                onClick={() => handleOpenOptionsWithRoute('/hats/add')}
+                size="sm"
+                variant="ghost"
+                color={textColor}
+              />
+            </Tooltip>
+          </ButtonGroup>
 
           <Flex gap={2}>
             <IconButton

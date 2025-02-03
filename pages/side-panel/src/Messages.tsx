@@ -1,5 +1,6 @@
 import { Box, Flex, Text, VStack, useColorModeValue } from '@chakra-ui/react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useEffect, useRef } from 'react';
 import type { Message } from './types';
 
@@ -128,7 +129,37 @@ export const Messages = ({ messages, isTyping }: Props) => {
                   },
                 },
               }}>
-              <ReactMarkdown>{message.content}</ReactMarkdown>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  table: props => (
+                    <Box overflowX="auto" my={4}>
+                      <Box
+                        as="table"
+                        width="full"
+                        sx={{
+                          borderCollapse: 'collapse',
+                          'th, td': {
+                            border: '1px solid',
+                            borderColor: 'dracula.currentLine',
+                            px: 4,
+                            py: 2,
+                          },
+                          th: {
+                            bg: codeBg,
+                            fontWeight: 'bold',
+                          },
+                          'tr:nth-of-type(even)': {
+                            bg: messageAssistantBg,
+                          },
+                        }}
+                        {...props}
+                      />
+                    </Box>
+                  ),
+                }}>
+                {message.content}
+              </ReactMarkdown>
             </Box>
           ) : (
             message.content
