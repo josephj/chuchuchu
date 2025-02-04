@@ -1,3 +1,6 @@
+import '@mdxeditor/editor/style.css';
+
+import { useRef, useEffect, useState } from 'react';
 import { withErrorBoundary, withSuspense, useStorage } from '@extension/shared';
 import { exampleThemeStorage } from '@extension/storage';
 import { theme } from '../../side-panel/src/theme';
@@ -28,7 +31,6 @@ import {
   ModalBody,
   ModalCloseButton,
   Input,
-  Textarea,
   Slider,
   SliderTrack,
   SliderFilledTrack,
@@ -46,7 +48,6 @@ import {
   AlertDialogOverlay,
 } from '@chakra-ui/react';
 import { CheckIcon, AddIcon, DeleteIcon, EditIcon, CopyIcon } from '@chakra-ui/icons';
-import { useEffect, useState, useRef } from 'react';
 import Select from 'react-select';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -63,6 +64,9 @@ import {
   hatsStorage,
 } from './vars';
 import { HashRouter, Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
+import type { MDXEditorMethods } from '@mdxeditor/editor';
+import { MDXEditor, headingsPlugin } from '@mdxeditor/editor';
+import { PromptEditor } from './prompt-editor';
 
 type LanguageOption = {
   value: string;
@@ -106,6 +110,7 @@ const HatModal = ({
   onSave: (hat: Hat) => void;
 }) => {
   const location = useLocation();
+  const ref = useRef<MDXEditorMethods>(null);
   const [newHat, setNewHat] = useState<Partial<Hat>>({
     temperature: 0,
     language: DEFAULT_LANGUAGE_CODE,
@@ -210,9 +215,9 @@ const HatModal = ({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="6xl">
+    <Modal isOpen={isOpen} onClose={onClose} size="6xl" portalProps={{ containerRef: null }}>
       <ModalOverlay />
-      <ModalContent bg={bg} color={textColor}>
+      <ModalContent bg={bg} color={textColor} position="relative">
         <ModalHeader>
           {location.pathname.includes('/hats/clone/') ? 'Clone Hat' : editingHat ? 'Edit Hat' : 'Add New Hat'}
         </ModalHeader>
@@ -367,20 +372,7 @@ const HatModal = ({
             </VStack>
 
             {/* Right Column - Prompt Editor */}
-            <Box>
-              <FormControl height="100%">
-                <FormLabel>Prompt</FormLabel>
-                <Textarea
-                  value={newHat.prompt || ''}
-                  onChange={e => setNewHat({ ...newHat, prompt: e.target.value })}
-                  placeholder="Enter your prompt in Markdown format"
-                  minH="500px"
-                  size="md"
-                  resize="vertical"
-                  fontFamily="mono"
-                />
-              </FormControl>
-            </Box>
+            <PromptEditor value={newHat.prompt || ''} onChange={prompt => setNewHat(prev => ({ ...prev, prompt }))} />
           </Grid>
         </ModalBody>
         <ModalFooter display="flex" width="100%" alignItems="center" gap={3}>

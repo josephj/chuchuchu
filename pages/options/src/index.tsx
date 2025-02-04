@@ -1,6 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import '@src/index.css';
-import '@extension/ui/dist/global.css';
+// import '@extension/ui/dist/global.css';
 import Options from '@src/Options';
 import { ChakraProvider } from '@chakra-ui/react';
 
