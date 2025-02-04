@@ -23,20 +23,6 @@ import {
   useColorModeValue,
   ChakraProvider,
   Button,
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalFooter,
-  ModalBody,
-  ModalCloseButton,
-  Input,
-  Slider,
-  SliderTrack,
-  SliderFilledTrack,
-  SliderThumb,
-  SliderMark,
-  Tooltip,
   VStack,
   Text,
   IconButton,
@@ -51,33 +37,18 @@ import { CheckIcon, AddIcon, DeleteIcon, EditIcon, CopyIcon } from '@chakra-ui/i
 import Select from 'react-select';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import type { Theme as ReactSelectTheme } from 'react-select';
 import type { OptionsFormData, Hat } from './types';
-import { optionsFormSchema, hatSchema } from './types';
-import {
-  SUPPORTED_LANGUAGES,
-  DEFAULT_LANGUAGE_CODE,
-  SUPPORTED_MODELS,
-  DEFAULT_MODEL,
-  languageStorage,
-  openInWebStorage,
-  hatsStorage,
-} from './vars';
+import { optionsFormSchema } from './types';
+import { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE_CODE, languageStorage, openInWebStorage, hatsStorage } from './vars';
 import { HashRouter, Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
-import type { MDXEditorMethods } from '@mdxeditor/editor';
-import { MDXEditor, headingsPlugin } from '@mdxeditor/editor';
-import { PromptEditor } from './prompt-editor';
+import type { Theme as ReactSelectTheme } from 'react-select';
+import { HatEditor } from './HatEditor';
 
 type LanguageOption = {
   value: string;
   label: string;
   code: string;
   name: string;
-};
-
-type ModelOption = {
-  value: string;
-  label: string;
 };
 
 const getLanguageFlag = (code: string): string => {
@@ -98,308 +69,27 @@ const getLanguageFlag = (code: string): string => {
   return flagEmoji;
 };
 
-const HatModal = ({
-  isOpen,
-  onClose,
-  editingHat,
-  onSave,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  editingHat: Hat | null;
-  onSave: (hat: Hat) => void;
-}) => {
-  const location = useLocation();
-  const ref = useRef<MDXEditorMethods>(null);
-  const [newHat, setNewHat] = useState<Partial<Hat>>({
-    temperature: 0,
-    language: DEFAULT_LANGUAGE_CODE,
-    model: DEFAULT_MODEL,
-  });
-  const bg = useColorModeValue('dracula.light.background', 'dracula.background');
-  const textColor = useColorModeValue('dracula.light.foreground', 'dracula.foreground');
-  const isLight = useColorModeValue(true, false);
-
-  useEffect(() => {
-    if (editingHat) {
-      if (location.pathname.includes('/hats/clone/')) {
-        setNewHat({
-          ...editingHat,
-          id: `${editingHat.id}-copy`,
-          label: `${editingHat.label} (Copy)`,
-        });
-      } else {
-        setNewHat(editingHat);
-      }
-    } else {
-      setNewHat({
-        temperature: 0,
-        language: DEFAULT_LANGUAGE_CODE,
-        model: DEFAULT_MODEL,
-      });
-    }
-  }, [editingHat, location.pathname]);
-
-  const handleSave = async () => {
-    try {
-      const validatedHat = hatSchema.parse(newHat);
-      onSave(validatedHat);
-      onClose();
-    } catch (error) {
-      console.error('Invalid hat data:', error);
-    }
-  };
-
-  const languageSelectStyles = {
-    control: (base: Record<string, unknown>) => ({
-      ...base,
-      minHeight: '32px',
-      width: '100%',
-    }),
-    container: (base: Record<string, unknown>) => ({
-      ...base,
-      zIndex: 3,
-    }),
-    option: (base: Record<string, unknown>) => ({
-      ...base,
-      cursor: 'pointer',
-      padding: '8px 12px',
-    }),
-  };
-
-  const modelSelectStyles = {
-    control: (base: Record<string, unknown>) => ({
-      ...base,
-      minHeight: '32px',
-      width: '100%',
-    }),
-    container: (base: Record<string, unknown>) => ({
-      ...base,
-      zIndex: 2,
-    }),
-    option: (base: Record<string, unknown>) => ({
-      ...base,
-      cursor: 'pointer',
-      padding: '8px 12px',
-    }),
-  };
-
-  const selectTheme = (theme: ReactSelectTheme) => ({
-    ...theme,
-    colors: {
-      ...theme.colors,
-      neutral0: isLight ? '#FFFFFF' : '#2D3748',
-      neutral5: isLight ? '#E2E8F0' : '#4A5568',
-      neutral10: isLight ? '#E2E8F0' : '#4A5568',
-      neutral20: isLight ? '#E2E8F0' : '#4A5568',
-      neutral30: isLight ? '#A0AEC0' : '#718096',
-      neutral40: isLight ? '#718096' : '#A0AEC0',
-      neutral50: isLight ? '#718096' : '#A0AEC0',
-      neutral60: isLight ? '#4A5568' : '#CBD5E0',
-      neutral70: isLight ? '#2D3748' : '#E2E8F0',
-      neutral80: isLight ? '#1A202C' : '#F7FAFC',
-      neutral90: isLight ? '#000000' : '#FFFFFF',
-      primary: isLight ? '#3182CE' : '#90CDF4',
-      primary25: isLight ? '#EBF8FF' : '#2A4365',
-      primary50: isLight ? '#4299E1' : '#2C5282',
-      primary75: isLight ? '#2B6CB0' : '#2A4365',
-    },
-  });
-
-  const handleLabelChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newLabel = e.target.value;
-    setNewHat(prev => ({
-      ...prev,
-      label: newLabel,
-    }));
-  };
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} size="6xl" portalProps={{ containerRef: null }}>
-      <ModalOverlay />
-      <ModalContent bg={bg} color={textColor} position="relative">
-        <ModalHeader>
-          {location.pathname.includes('/hats/clone/') ? 'Clone Hat' : editingHat ? 'Edit Hat' : 'Add New Hat'}
-        </ModalHeader>
-        <ModalCloseButton />
-        <ModalBody>
-          <Grid templateColumns="350px 1fr" gap={8}>
-            {/* Left Column - Settings */}
-            <VStack spacing={4} align="stretch">
-              <FormControl>
-                <FormLabel>Label</FormLabel>
-                <Input value={newHat.label || ''} onChange={handleLabelChange} placeholder="Enter hat label" />
-              </FormControl>
-              <FormControl>
-                <FormLabel>ID</FormLabel>
-                <Input
-                  value={newHat.id || ''}
-                  onChange={e => setNewHat({ ...newHat, id: e.target.value })}
-                  placeholder="Enter hat ID (English, numbers, dash, and underline only)"
-                />
-              </FormControl>
-              <FormControl>
-                <FormLabel>Temperature ({newHat.temperature})</FormLabel>
-                <Box pt={2} pb={6} width="90%">
-                  <Slider
-                    value={newHat.temperature}
-                    onChange={value => setNewHat({ ...newHat, temperature: value })}
-                    min={0}
-                    max={2.5}
-                    step={0.1}
-                    aria-label="temperature-slider">
-                    <SliderMark value={0} mt={4} ml={-2.5} fontSize="xs">
-                      Precise
-                    </SliderMark>
-                    <SliderMark value={1.25} mt={4} ml={-4} fontSize="xs">
-                      Balanced
-                    </SliderMark>
-                    <SliderMark value={2.5} mt={4} ml={-3} fontSize="xs">
-                      Creative
-                    </SliderMark>
-                    <SliderTrack>
-                      <SliderFilledTrack />
-                    </SliderTrack>
-                    <Tooltip
-                      hasArrow
-                      bg={bg}
-                      color={textColor}
-                      placement="top"
-                      label={`Temperature: ${newHat.temperature}`}>
-                      <SliderThumb />
-                    </Tooltip>
-                  </Slider>
-                </Box>
-              </FormControl>
-              <FormControl>
-                <FormLabel>Language</FormLabel>
-                <Select<LanguageOption>
-                  value={SUPPORTED_LANGUAGES.find(lang => lang.code === newHat.language)}
-                  onChange={option => setNewHat({ ...newHat, language: option?.code || DEFAULT_LANGUAGE_CODE })}
-                  options={SUPPORTED_LANGUAGES}
-                  styles={{
-                    container: (base: Record<string, unknown>) => ({
-                      ...base,
-                      zIndex: 10,
-                    }),
-                    control: (base: Record<string, unknown>) => ({
-                      ...base,
-                      minHeight: '32px',
-                      width: '100%',
-                    }),
-                  }}
-                  theme={theme => ({
-                    ...theme,
-                    colors: {
-                      ...theme.colors,
-                      neutral0: isLight ? '#FFFFFF' : '#2D3748',
-                      neutral5: isLight ? '#E2E8F0' : '#4A5568',
-                      neutral10: isLight ? '#E2E8F0' : '#4A5568',
-                      neutral20: isLight ? '#E2E8F0' : '#4A5568',
-                      neutral30: isLight ? '#A0AEC0' : '#718096',
-                      neutral40: isLight ? '#718096' : '#A0AEC0',
-                      neutral50: isLight ? '#718096' : '#A0AEC0',
-                      neutral60: isLight ? '#4A5568' : '#CBD5E0',
-                      neutral70: isLight ? '#2D3748' : '#E2E8F0',
-                      neutral80: isLight ? '#1A202C' : '#F7FAFC',
-                      neutral90: isLight ? '#000000' : '#FFFFFF',
-                      primary: isLight ? '#3182CE' : '#90CDF4',
-                      primary25: isLight ? '#EBF8FF' : '#2A4365',
-                      primary50: isLight ? '#4299E1' : '#2C5282',
-                      primary75: isLight ? '#2B6CB0' : '#2A4365',
-                    },
-                  })}
-                  placeholder="Select language..."
-                  isSearchable
-                  components={{
-                    IndicatorSeparator: () => null,
-                  }}
-                />
-              </FormControl>
-              <FormControl>
-                <FormLabel>Model</FormLabel>
-                <Select<ModelOption>
-                  value={SUPPORTED_MODELS.find(model => model.value === newHat.model)}
-                  onChange={option => setNewHat({ ...newHat, model: option?.value || DEFAULT_MODEL })}
-                  options={SUPPORTED_MODELS}
-                  styles={{
-                    container: (base: Record<string, unknown>) => ({
-                      ...base,
-                      zIndex: 9,
-                    }),
-                    control: (base: Record<string, unknown>) => ({
-                      ...base,
-                      minHeight: '32px',
-                      width: '100%',
-                    }),
-                  }}
-                  theme={theme => ({
-                    ...theme,
-                    colors: {
-                      ...theme.colors,
-                      neutral0: isLight ? '#FFFFFF' : '#2D3748',
-                      neutral5: isLight ? '#E2E8F0' : '#4A5568',
-                      neutral10: isLight ? '#E2E8F0' : '#4A5568',
-                      neutral20: isLight ? '#E2E8F0' : '#4A5568',
-                      neutral30: isLight ? '#A0AEC0' : '#718096',
-                      neutral40: isLight ? '#718096' : '#A0AEC0',
-                      neutral50: isLight ? '#718096' : '#A0AEC0',
-                      neutral60: isLight ? '#4A5568' : '#CBD5E0',
-                      neutral70: isLight ? '#2D3748' : '#E2E8F0',
-                      neutral80: isLight ? '#1A202C' : '#F7FAFC',
-                      neutral90: isLight ? '#000000' : '#FFFFFF',
-                      primary: isLight ? '#3182CE' : '#90CDF4',
-                      primary25: isLight ? '#EBF8FF' : '#2A4365',
-                      primary50: isLight ? '#4299E1' : '#2C5282',
-                      primary75: isLight ? '#2B6CB0' : '#2A4365',
-                    },
-                  })}
-                  placeholder="Select model..."
-                  isSearchable
-                  components={{
-                    IndicatorSeparator: () => null,
-                  }}
-                />
-              </FormControl>
-              <FormControl>
-                <FormLabel>URL Pattern (Optional)</FormLabel>
-                <Input
-                  value={newHat.urlPattern || ''}
-                  onChange={e => setNewHat({ ...newHat, urlPattern: e.target.value })}
-                  placeholder="e.g., https://*.example.com/*/page"
-                />
-              </FormControl>
-            </VStack>
-
-            {/* Right Column - Prompt Editor */}
-            <PromptEditor value={newHat.prompt || ''} onChange={prompt => setNewHat(prev => ({ ...prev, prompt }))} />
-          </Grid>
-        </ModalBody>
-        <ModalFooter display="flex" width="100%" alignItems="center" gap={3}>
-          {editingHat && (
-            <Button
-              colorScheme="red"
-              variant="ghost"
-              onClick={() => {
-                onSave(editingHat);
-                onClose();
-              }}
-              leftIcon={<DeleteIcon />}>
-              Delete
-            </Button>
-          )}
-          <Box flex={1} />
-          <Button variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button colorScheme="blue" onClick={handleSave}>
-            {editingHat ? 'Update Hat' : 'Add Hat'}
-          </Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
-  );
-};
+const createSelectTheme = (isLight: boolean) => (theme: ReactSelectTheme) => ({
+  ...theme,
+  colors: {
+    ...theme.colors,
+    neutral0: isLight ? '#FFFFFF' : '#2D3748',
+    neutral5: isLight ? '#E2E8F0' : '#4A5568',
+    neutral10: isLight ? '#E2E8F0' : '#4A5568',
+    neutral20: isLight ? '#E2E8F0' : '#4A5568',
+    neutral30: isLight ? '#A0AEC0' : '#718096',
+    neutral40: isLight ? '#718096' : '#A0AEC0',
+    neutral50: isLight ? '#718096' : '#A0AEC0',
+    neutral60: isLight ? '#4A5568' : '#CBD5E0',
+    neutral70: isLight ? '#2D3748' : '#E2E8F0',
+    neutral80: isLight ? '#1A202C' : '#F7FAFC',
+    neutral90: isLight ? '#000000' : '#FFFFFF',
+    primary: isLight ? '#3182CE' : '#90CDF4',
+    primary25: isLight ? '#EBF8FF' : '#2A4365',
+    primary50: isLight ? '#4299E1' : '#2C5282',
+    primary75: isLight ? '#2B6CB0' : '#2A4365',
+  },
+});
 
 const Options = () => {
   const navigate = useNavigate();
@@ -437,6 +127,8 @@ const Options = () => {
     location.pathname.includes('/hats/edit/') ||
     location.pathname.includes('/hats/clone/');
 
+  const selectTheme = createSelectTheme(isLight);
+
   useEffect(() => {
     // Clear saved indicators after 2 seconds
     const timer = setTimeout(() => {
@@ -451,12 +143,6 @@ const Options = () => {
   }, [setValue, selectedLanguage, openInWeb]);
 
   const onSubmit = async (data: OptionsFormData) => {
-    // Handle theme change
-    if (data.theme !== !isLight) {
-      exampleThemeStorage.toggle();
-      setSavedSettings(prev => ({ ...prev, theme: true }));
-    }
-
     // Handle language change
     if (data.language !== selectedLanguage) {
       await languageStorage.set(data.language);
@@ -491,45 +177,6 @@ const Options = () => {
       padding: '8px 12px',
     }),
   };
-
-  const modelSelectStyles = {
-    control: (base: Record<string, unknown>) => ({
-      ...base,
-      minHeight: '32px',
-      width: '100%',
-    }),
-    container: (base: Record<string, unknown>) => ({
-      ...base,
-      zIndex: 2,
-    }),
-    option: (base: Record<string, unknown>) => ({
-      ...base,
-      cursor: 'pointer',
-      padding: '8px 12px',
-    }),
-  };
-
-  const selectTheme = (theme: ReactSelectTheme) => ({
-    ...theme,
-    colors: {
-      ...theme.colors,
-      neutral0: isLight ? '#FFFFFF' : '#2D3748',
-      neutral5: isLight ? '#E2E8F0' : '#4A5568',
-      neutral10: isLight ? '#E2E8F0' : '#4A5568',
-      neutral20: isLight ? '#E2E8F0' : '#4A5568',
-      neutral30: isLight ? '#A0AEC0' : '#718096',
-      neutral40: isLight ? '#718096' : '#A0AEC0',
-      neutral50: isLight ? '#718096' : '#A0AEC0',
-      neutral60: isLight ? '#4A5568' : '#CBD5E0',
-      neutral70: isLight ? '#2D3748' : '#E2E8F0',
-      neutral80: isLight ? '#1A202C' : '#F7FAFC',
-      neutral90: isLight ? '#000000' : '#FFFFFF',
-      primary: isLight ? '#3182CE' : '#90CDF4',
-      primary25: isLight ? '#EBF8FF' : '#2A4365',
-      primary50: isLight ? '#4299E1' : '#2C5282',
-      primary75: isLight ? '#2B6CB0' : '#2A4365',
-    },
-  });
 
   const handleDeleteClick = (hat: Hat) => {
     setHatToDelete(hat);
@@ -598,7 +245,7 @@ const Options = () => {
                     Language
                   </FormLabel>
                 </GridItem>
-                <GridItem display="flex" alignItems="center" gap={2}>
+                <GridItem display="flex" alignItems="center" gap={2} position="relative" zIndex={2}>
                   <FormControl id="language-select">
                     <Controller
                       control={control}
@@ -611,35 +258,21 @@ const Options = () => {
                           styles={{
                             container: (base: Record<string, unknown>) => ({
                               ...base,
-                              zIndex: 10,
+                              zIndex: 20,
                             }),
                             control: (base: Record<string, unknown>) => ({
                               ...base,
                               minHeight: '32px',
                               width: '100%',
                             }),
+                            menuPortal: (base: Record<string, unknown>) => ({
+                              ...base,
+                              zIndex: 9999,
+                            }),
                           }}
-                          theme={theme => ({
-                            ...theme,
-                            colors: {
-                              ...theme.colors,
-                              neutral0: isLight ? '#FFFFFF' : '#2D3748',
-                              neutral5: isLight ? '#E2E8F0' : '#4A5568',
-                              neutral10: isLight ? '#E2E8F0' : '#4A5568',
-                              neutral20: isLight ? '#E2E8F0' : '#4A5568',
-                              neutral30: isLight ? '#A0AEC0' : '#718096',
-                              neutral40: isLight ? '#718096' : '#A0AEC0',
-                              neutral50: isLight ? '#718096' : '#A0AEC0',
-                              neutral60: isLight ? '#4A5568' : '#CBD5E0',
-                              neutral70: isLight ? '#2D3748' : '#E2E8F0',
-                              neutral80: isLight ? '#1A202C' : '#F7FAFC',
-                              neutral90: isLight ? '#000000' : '#FFFFFF',
-                              primary: isLight ? '#3182CE' : '#90CDF4',
-                              primary25: isLight ? '#EBF8FF' : '#2A4365',
-                              primary50: isLight ? '#4299E1' : '#2C5282',
-                              primary75: isLight ? '#2B6CB0' : '#2A4365',
-                            },
-                          })}
+                          menuPortalTarget={document.body}
+                          menuPosition="fixed"
+                          theme={selectTheme}
                           placeholder="Select language..."
                           isSearchable
                           components={{
@@ -650,25 +283,6 @@ const Options = () => {
                     />
                   </FormControl>
                   {savedSettings.language && <Icon as={CheckIcon} color="green.500" />}
-                </GridItem>
-
-                {/* Theme Setting */}
-                <GridItem display="flex" justifyContent="flex-end" alignItems="center" pr={4}>
-                  <FormLabel fontWeight="medium" m={0} htmlFor="theme-toggle" color={textColor}>
-                    Theme
-                  </FormLabel>
-                </GridItem>
-                <GridItem display="flex" alignItems="center" gap={2}>
-                  <FormControl id="theme-toggle">
-                    <Controller
-                      control={control}
-                      name="theme"
-                      render={({ field: { onChange, value } }) => (
-                        <Switch isChecked={value} onChange={onChange} size="lg" />
-                      )}
-                    />
-                  </FormControl>
-                  {savedSettings.theme && <Icon as={CheckIcon} color="green.500" />}
                 </GridItem>
               </Grid>
             </AccordionPanel>
@@ -817,8 +431,12 @@ const Options = () => {
         </Accordion>
       </form>
 
-      {/* Hat Modal */}
-      <HatModal isOpen={isModalOpen} onClose={handleModalClose} editingHat={editingHat} onSave={handleAddOrUpdateHat} />
+      <HatEditor
+        isOpen={isModalOpen}
+        onClose={handleModalClose}
+        editingHat={editingHat}
+        onSave={handleAddOrUpdateHat}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog isOpen={isDeleteAlertOpen} leastDestructiveRef={cancelDeleteRef} onClose={closeDeleteAlert}>
