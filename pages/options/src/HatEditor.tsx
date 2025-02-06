@@ -24,13 +24,14 @@ import {
   SliderThumb,
   Tooltip,
 } from '@chakra-ui/react';
-import { DeleteIcon } from '@chakra-ui/icons';
+import { DeleteIcon, AddIcon } from '@chakra-ui/icons';
 import Select from 'react-select';
 import type { Theme as ReactSelectTheme } from 'react-select';
 import { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE_CODE, SUPPORTED_MODELS, DEFAULT_MODEL } from './vars';
 import type { Hat } from './types';
 import { hatSchema } from './types';
 import { PromptEditor } from './prompt-editor';
+import { ModelSelector } from './ModelSelector';
 
 type Props = {
   isOpen: boolean;
@@ -63,12 +64,12 @@ const createSelectTheme = (isLight: boolean) => (theme: ReactSelectTheme) => ({
 
 export const HatEditor = ({ isOpen, onClose, editingHat, onSave }: Props) => {
   const location = useLocation();
-  const ref = useRef<MDXEditorMethods>(null);
   const [newHat, setNewHat] = useState<Partial<Hat>>({
     temperature: 0,
     language: DEFAULT_LANGUAGE_CODE,
     model: DEFAULT_MODEL,
   });
+  const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false);
 
   const bg = useColorModeValue('dracula.light.background', 'dracula.background');
   const textColor = useColorModeValue('dracula.light.foreground', 'dracula.foreground');
@@ -110,6 +111,22 @@ export const HatEditor = ({ isOpen, onClose, editingHat, onSave }: Props) => {
     setNewHat(prev => ({
       ...prev,
       label: newLabel,
+    }));
+  };
+
+  const handleAddModel = (modelName: string) => {
+    const newModel = {
+      value: `ollama/${modelName}`,
+      label: `Ollama: ${modelName}`,
+    };
+
+    // Add the new model to SUPPORTED_MODELS
+    SUPPORTED_MODELS.push(newModel);
+
+    // Update the current hat's model
+    setNewHat(prev => ({
+      ...prev,
+      model: newModel.value,
     }));
   };
 
@@ -203,28 +220,33 @@ export const HatEditor = ({ isOpen, onClose, editingHat, onSave }: Props) => {
               </FormControl>
               <FormControl>
                 <FormLabel>Model</FormLabel>
-                <Select<ModelOption>
-                  value={SUPPORTED_MODELS.find(model => model.value === newHat.model)}
-                  onChange={option => setNewHat({ ...newHat, model: option?.value || DEFAULT_MODEL })}
-                  options={SUPPORTED_MODELS}
-                  styles={{
-                    container: (base: Record<string, unknown>) => ({
-                      ...base,
-                      zIndex: 9,
-                    }),
-                    control: (base: Record<string, unknown>) => ({
-                      ...base,
-                      minHeight: '32px',
-                      width: '100%',
-                    }),
-                  }}
-                  theme={selectTheme}
-                  placeholder="Select model..."
-                  isSearchable
-                  components={{
-                    IndicatorSeparator: () => null,
-                  }}
-                />
+                <VStack align="stretch" spacing={2}>
+                  <Select<ModelOption>
+                    value={SUPPORTED_MODELS.find(model => model.value === newHat.model)}
+                    onChange={option => setNewHat({ ...newHat, model: option?.value || DEFAULT_MODEL })}
+                    options={SUPPORTED_MODELS}
+                    styles={{
+                      container: (base: Record<string, unknown>) => ({
+                        ...base,
+                        zIndex: 9,
+                      }),
+                      control: (base: Record<string, unknown>) => ({
+                        ...base,
+                        minHeight: '32px',
+                        width: '100%',
+                      }),
+                    }}
+                    theme={selectTheme}
+                    placeholder="Select model..."
+                    isSearchable
+                    components={{
+                      IndicatorSeparator: () => null,
+                    }}
+                  />
+                  <Button size="sm" onClick={() => setIsModelSelectorOpen(true)} leftIcon={<AddIcon />}>
+                    Add Ollama Model
+                  </Button>
+                </VStack>
               </FormControl>
               <FormControl>
                 <FormLabel>URL Pattern (Optional)</FormLabel>
@@ -262,6 +284,13 @@ export const HatEditor = ({ isOpen, onClose, editingHat, onSave }: Props) => {
           </Button>
         </ModalFooter>
       </ModalContent>
+
+      {/* Add ModelSelector */}
+      <ModelSelector
+        isOpen={isModelSelectorOpen}
+        onClose={() => setIsModelSelectorOpen(false)}
+        onSelect={handleAddModel}
+      />
     </Modal>
   );
 };

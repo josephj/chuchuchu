@@ -1,0 +1,5 @@
+{
+  "manifest_version": 3,
+  "permissions": ["storage", "sidePanel", "tabs", "webNavigation", "declarativeNetRequest"],
+  "host_permissions": ["http://localhost:11434/*", "https://*.slack.com/*"]
+}
