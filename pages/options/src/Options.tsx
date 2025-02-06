@@ -21,7 +21,6 @@ import {
   AccordionPanel,
   AccordionIcon,
   useColorModeValue,
-  ChakraProvider,
   Button,
   VStack,
   Text,
@@ -223,6 +222,10 @@ const Options = () => {
     navigate('/');
   };
 
+  const findHatByIdOrAlias = (hats: Hat[], identifier: string) => {
+    return hats.find(hat => hat.id === identifier || hat.alias === identifier);
+  };
+
   return (
     <Center p={6} bg={bg} minH="100vh" color={textColor}>
       <form onChange={handleSubmit(onSubmit)} style={{ width: '100%', maxWidth: '800px' }}>
@@ -360,9 +363,6 @@ const Options = () => {
                           {getLanguageFlag(hat.language)}
                         </Text>
                         <Text fontWeight="bold">{hat.label}</Text>
-                        <Text as="span" color={textColorSecondary} fontWeight="normal">
-                          ({hat.id})
-                        </Text>
                         {hat.urlPattern && (
                           <Text fontSize="xs" color={textColorSecondary}>
                             {hat.urlPattern}
@@ -478,13 +478,6 @@ const OptionsWithRouter = () => (
 );
 
 export default withErrorBoundary(
-  withSuspense(
-    () => (
-      <ChakraProvider theme={theme}>
-        <OptionsWithRouter />
-      </ChakraProvider>
-    ),
-    <div> Loading ... </div>,
-  ),
+  withSuspense(() => <OptionsWithRouter />, <div> Loading ... </div>),
   <div> Error Occur </div>,
 );

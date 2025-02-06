@@ -28,6 +28,20 @@ export const SUPPORTED_LANGUAGES = [...regionalVariants, ...baseLanguages].map(l
 
 export const DEFAULT_LANGUAGE_CODE = 'zh-TW';
 
+export type CustomModel = {
+  value: string;
+  label: string;
+  type: 'ollama';
+  baseUrl?: string;
+};
+
+// Add storage for custom models
+export const customModelsStorage = createStorage<CustomModel[]>('customModels', [], {
+  storageEnum: StorageEnum.Sync,
+  liveUpdate: true,
+});
+
+// Update SUPPORTED_MODELS to be mutable
 export const SUPPORTED_MODELS = [
   { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B (32K context)' },
   { value: 'llama3-70b-8192', label: 'LLaMA3 70B (8K context)' },

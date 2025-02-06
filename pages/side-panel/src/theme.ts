@@ -115,5 +115,28 @@ export const theme = extendTheme({
         }),
       },
     },
+    Input: {
+      baseStyle: {
+        field: {
+          fontSize: '14px',
+        },
+      },
+      variants: {
+        outline: (props: { colorMode: 'light' | 'dark' }) => ({
+          field: {
+            bg: props.colorMode === 'dark' ? 'dracula.currentLine' : 'dracula.light.background',
+            borderColor: props.colorMode === 'dark' ? 'dracula.comment' : 'dracula.light.comment',
+            height: '38px',
+            _hover: {
+              borderColor: props.colorMode === 'dark' ? 'dracula.purple' : 'dracula.light.purple',
+            },
+            _focus: {
+              borderColor: props.colorMode === 'dark' ? 'dracula.purple' : 'dracula.light.purple',
+              boxShadow: `0 0 0 1px ${props.colorMode === 'dark' ? colors.dracula.purple : colors.dracula.light.purple}`,
+            },
+          },
+        }),
+      },
+    },
   },
 });

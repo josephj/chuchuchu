@@ -663,207 +663,202 @@ ${articleContent.content || ''}`.trim();
   console.log('[DEBUG] selectedHat :', selectedHat);
 
   return (
-    <Flex direction="column" h="100vh" bg={bg} color={textColor}>
-      {/* Settings Section */}
-      <Box p={4} borderBottom="1px" borderColor={borderColor}>
-        <Flex justify="space-between" align="center">
-          <ButtonGroup size="sm" variant="ghost" spacing={0} bg={buttonBg} borderRadius="md" p={1}>
-            <Box px={1}>
-              <HatSelector value={selectedHat} onChange={handleHatChange} isDisabled={isGenerating} />
-            </Box>
-            {selectedHat && (
-              <Tooltip label="Edit current hat" placement="top">
+    <ChakraProvider theme={theme}>
+      <Flex direction="column" h="100vh" bg={bg} color={textColor}>
+        {/* Settings Section */}
+        <Box p={4} borderBottom="1px" borderColor={borderColor}>
+          <Flex justify="space-between" align="center">
+            <ButtonGroup size="sm" variant="ghost" spacing={0} bg={buttonBg} borderRadius="md" p={1}>
+              <Box px={1}>
+                <HatSelector value={selectedHat} onChange={handleHatChange} isDisabled={isGenerating} />
+              </Box>
+              {selectedHat && (
+                <Tooltip label="Edit current hat" placement="top">
+                  <IconButton
+                    aria-label="Edit current hat"
+                    icon={<EditIcon />}
+                    onClick={() => handleOpenOptionsWithRoute(`/hats/edit/${selectedHat}`)}
+                    size="sm"
+                    variant="ghost"
+                    color={textColor}
+                  />
+                </Tooltip>
+              )}
+              <Tooltip label="Create new hat" placement="top">
                 <IconButton
-                  aria-label="Edit current hat"
-                  icon={<EditIcon />}
-                  onClick={() => handleOpenOptionsWithRoute(`/hats/edit/${selectedHat}`)}
+                  aria-label="Create new hat"
+                  icon={<AddIcon />}
+                  onClick={() => handleOpenOptionsWithRoute('/hats/add')}
                   size="sm"
                   variant="ghost"
                   color={textColor}
                 />
               </Tooltip>
-            )}
-            <Tooltip label="Create new hat" placement="top">
+            </ButtonGroup>
+
+            <Flex gap={2}>
               <IconButton
-                aria-label="Create new hat"
-                icon={<AddIcon />}
-                onClick={() => handleOpenOptionsWithRoute('/hats/add')}
+                aria-label="Open settings"
+                icon={<SettingsIcon />}
+                onClick={handleOpenOptions}
                 size="sm"
                 variant="ghost"
                 color={textColor}
               />
-            </Tooltip>
-          </ButtonGroup>
-
-          <Flex gap={2}>
-            <IconButton
-              aria-label="Open settings"
-              icon={<SettingsIcon />}
-              onClick={handleOpenOptions}
-              size="sm"
-              variant="ghost"
-              color={textColor}
-            />
-            <IconButton
-              aria-label="Toggle color mode"
-              icon={colorMode === 'light' ? <MoonIcon /> : <SunIcon />}
-              onClick={toggleColorMode}
-              size="sm"
-              variant="ghost"
-              color={textColor}
-            />
+              <IconButton
+                aria-label="Toggle color mode"
+                icon={colorMode === 'light' ? <MoonIcon /> : <SunIcon />}
+                onClick={toggleColorMode}
+                size="sm"
+                variant="ghost"
+                color={textColor}
+              />
+            </Flex>
           </Flex>
-        </Flex>
-      </Box>
+        </Box>
 
-      {/* Main Content Section */}
-      <Box flex="1" overflowY="auto" position="relative">
-        {!hasContent ? (
-          <Flex height="100%" direction="column" justify="center" align="center" p={4} gap={1}>
-            {pageType.type === 'slack' ? (
-              <VStack spacing={4} width="100%" align="center">
-                <Button
-                  isDisabled={!isThreadPaneAvailable}
-                  colorScheme="blue"
-                  leftIcon={<Text>⭐️</Text>}
-                  onClick={handleSummarizeSlack}
-                  isLoading={isCapturing}
-                  loadingText="Capturing thread">
-                  Summarize current page
-                </Button>
-                <HStack spacing={1}>
-                  <Text fontSize="xs" color={textColorSecondary}>
-                    Click
-                  </Text>
-                  <Flex h="24px" align="center" gap={2} bg={buttonBg} px={3} borderRadius="md" boxShadow="lg">
-                    <Text fontSize="xs">⭐️</Text>
-                    <Text fontSize="xs" color={textColor}>
-                      Summarize
+        {/* Main Content Section */}
+        <Box flex="1" overflowY="auto" position="relative">
+          {!hasContent ? (
+            <Flex height="100%" direction="column" justify="center" align="center" p={4} gap={1}>
+              {pageType.type === 'slack' ? (
+                <VStack spacing={4} width="100%" align="center">
+                  <Button
+                    isDisabled={!isThreadPaneAvailable}
+                    colorScheme="blue"
+                    leftIcon={<Text>⭐️</Text>}
+                    onClick={handleSummarizeSlack}
+                    isLoading={isCapturing}
+                    loadingText="Capturing thread">
+                    Summarize current page
+                  </Button>
+                  <HStack spacing={1}>
+                    <Text fontSize="xs" color={textColorSecondary}>
+                      Click
                     </Text>
-                  </Flex>
-                  <Text fontSize="xs" color={textColorSecondary}>
-                    in any conversation
-                  </Text>
-                </HStack>
-              </VStack>
-            ) : (
-              <VStack spacing={3}>
-                <Button
-                  onClick={handleCapturePage}
-                  colorScheme="blue"
-                  leftIcon={<Text>⭐️</Text>}
-                  isLoading={isCapturing}
-                  loadingText="Capturing page">
-                  Summarize current page
-                </Button>
-                {pageType.url && (
-                  <Text
-                    maxW="300px"
-                    fontSize="xs"
-                    color={textColorSecondary}
-                    textAlign="center"
-                    title={pageType.url}
-                    isTruncated>
-                    {pageType.url}
-                  </Text>
-                )}
-              </VStack>
-            )}
-          </Flex>
-        ) : (
-          <VStack spacing={4} align="stretch">
-            <Header
-              threadUrl={formattedUrl}
-              articleTitle={articleTitle}
-              isSlack={contentType === 'slack'}
-              threadInfo={
-                contentType === 'slack' && threadData
-                  ? {
-                      channelName: threadData.channel,
-                      userName: threadData.messages[0]?.user || '',
-                      timestamp: formatRelativeTime(parseFloat(threadData.messages[0]?.ts || '0') * 1000),
-                    }
-                  : undefined
-              }
-              onClose={handleClose}
-              onRegenerate={handleRegenerate}
-              isOnOriginalPage={isOnOriginalPage}
-              hasContent={hasContent}
-              onCapturePage={handleCapturePage}
-              pageType={pageType}
-            />
-            <Messages messages={messages} isTyping={isTyping} />
-          </VStack>
+                    <Flex h="24px" align="center" gap={2} bg={buttonBg} px={3} borderRadius="md" boxShadow="lg">
+                      <Text fontSize="xs">⭐️</Text>
+                      <Text fontSize="xs" color={textColor}>
+                        Summarize
+                      </Text>
+                    </Flex>
+                    <Text fontSize="xs" color={textColorSecondary}>
+                      in any conversation
+                    </Text>
+                  </HStack>
+                </VStack>
+              ) : (
+                <VStack spacing={3}>
+                  <Button
+                    onClick={handleCapturePage}
+                    colorScheme="blue"
+                    leftIcon={<Text>⭐️</Text>}
+                    isLoading={isCapturing}
+                    loadingText="Capturing page">
+                    Summarize current page
+                  </Button>
+                  {pageType.url && (
+                    <Text
+                      maxW="300px"
+                      fontSize="xs"
+                      color={textColorSecondary}
+                      textAlign="center"
+                      title={pageType.url}
+                      isTruncated>
+                      {pageType.url}
+                    </Text>
+                  )}
+                </VStack>
+              )}
+            </Flex>
+          ) : (
+            <VStack spacing={4} align="stretch">
+              <Header
+                threadUrl={formattedUrl}
+                articleTitle={articleTitle}
+                isSlack={contentType === 'slack'}
+                threadInfo={
+                  contentType === 'slack' && threadData
+                    ? {
+                        channelName: threadData.channel,
+                        userName: threadData.messages[0]?.user || '',
+                        timestamp: formatRelativeTime(parseFloat(threadData.messages[0]?.ts || '0') * 1000),
+                      }
+                    : undefined
+                }
+                onClose={handleClose}
+                onRegenerate={handleRegenerate}
+                isOnOriginalPage={isOnOriginalPage}
+                hasContent={hasContent}
+                onCapturePage={handleCapturePage}
+                pageType={pageType}
+              />
+              <Messages messages={messages} isTyping={isTyping} />
+            </VStack>
+          )}
+        </Box>
+
+        {/* Input Section */}
+        {hasContent && (
+          <>
+            <Box p={4} borderTop="1px" borderColor={borderColor} fontSize="13px">
+              <form onSubmit={handleFormSubmit(onSubmit)}>
+                <Flex gap={2}>
+                  <Textarea
+                    {...register('question')}
+                    onKeyDown={handleKeyDown}
+                    isDisabled={isTyping}
+                    rows={3}
+                    fontSize="13px"
+                    placeholder="Ask a follow-up question... (Cmd/Ctrl + Enter to submit)"
+                    resize="none"
+                    color={textColor}
+                    _placeholder={{ color: textColorSecondary }}
+                  />
+                  <Button type="submit" isDisabled={isTyping || !watch('question').trim()} colorScheme="blue">
+                    Send
+                  </Button>
+                </Flex>
+              </form>
+            </Box>
+
+            {/* Original Content Section */}
+            <Box borderTop="1px" borderColor={borderColor}>
+              <Button
+                width="100%"
+                variant="ghost"
+                fontSize="xs"
+                onClick={handleToggleContent}
+                rightIcon={showOriginalContent ? <ChevronDownIcon /> : <ChevronUpIcon />}
+                size="sm"
+                color={textColorSecondary}>
+                Original content ({estimateTokens(originalContent)} tokens)
+              </Button>
+              <Collapse in={showOriginalContent}>
+                <Box p={4} maxH="300px" overflowY="auto" fontSize="sm" whiteSpace="pre-wrap">
+                  {contentType === 'slack' && threadData ? (
+                    <VStack align="stretch" spacing={4}>
+                      {threadData.messages.map((msg, index) => (
+                        <Box key={index}>
+                          <Text fontWeight="bold">{msg.user}</Text>
+                          <Text>{msg.text}</Text>
+                        </Box>
+                      ))}
+                    </VStack>
+                  ) : (
+                    <Text>{originalContent}</Text>
+                  )}
+                </Box>
+              </Collapse>
+            </Box>
+          </>
         )}
-      </Box>
-
-      {/* Input Section */}
-      {hasContent && (
-        <>
-          <Box p={4} borderTop="1px" borderColor={borderColor} fontSize="13px">
-            <form onSubmit={handleFormSubmit(onSubmit)}>
-              <Flex gap={2}>
-                <Textarea
-                  {...register('question')}
-                  onKeyDown={handleKeyDown}
-                  isDisabled={isTyping}
-                  rows={3}
-                  fontSize="13px"
-                  placeholder="Ask a follow-up question... (Cmd/Ctrl + Enter to submit)"
-                  resize="none"
-                  color={textColor}
-                  _placeholder={{ color: textColorSecondary }}
-                />
-                <Button type="submit" isDisabled={isTyping || !watch('question').trim()} colorScheme="blue">
-                  Send
-                </Button>
-              </Flex>
-            </form>
-          </Box>
-
-          {/* Original Content Section */}
-          <Box borderTop="1px" borderColor={borderColor}>
-            <Button
-              width="100%"
-              variant="ghost"
-              fontSize="xs"
-              onClick={handleToggleContent}
-              rightIcon={showOriginalContent ? <ChevronDownIcon /> : <ChevronUpIcon />}
-              size="sm"
-              color={textColorSecondary}>
-              Original content ({estimateTokens(originalContent)} tokens)
-            </Button>
-            <Collapse in={showOriginalContent}>
-              <Box p={4} maxH="300px" overflowY="auto" fontSize="sm" whiteSpace="pre-wrap">
-                {contentType === 'slack' && threadData ? (
-                  <VStack align="stretch" spacing={4}>
-                    {threadData.messages.map((msg, index) => (
-                      <Box key={index}>
-                        <Text fontWeight="bold">{msg.user}</Text>
-                        <Text>{msg.text}</Text>
-                      </Box>
-                    ))}
-                  </VStack>
-                ) : (
-                  <Text>{originalContent}</Text>
-                )}
-              </Box>
-            </Collapse>
-          </Box>
-        </>
-      )}
-    </Flex>
+      </Flex>
+    </ChakraProvider>
   );
 };
 
 export default withErrorBoundary(
-  withSuspense(
-    () => (
-      <ChakraProvider theme={theme}>
-        <SidePanel />
-      </ChakraProvider>
-    ),
-    <div> Loading ... </div>,
-  ),
+  withSuspense(() => <SidePanel />, <div> Loading ... </div>),
   <div> Error Occur </div>,
 );

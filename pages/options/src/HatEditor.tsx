@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import type { MDXEditorMethods } from '@mdxeditor/editor';
 import {
@@ -27,11 +27,20 @@ import {
 import { DeleteIcon, AddIcon } from '@chakra-ui/icons';
 import Select from 'react-select';
 import type { Theme as ReactSelectTheme } from 'react-select';
-import { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE_CODE, SUPPORTED_MODELS, DEFAULT_MODEL } from './vars';
+import {
+  SUPPORTED_LANGUAGES,
+  DEFAULT_LANGUAGE_CODE,
+  SUPPORTED_MODELS,
+  DEFAULT_MODEL,
+  customModelsStorage,
+  hatsStorage,
+  type CustomModel,
+} from './vars';
 import type { Hat } from './types';
 import { hatSchema } from './types';
 import { PromptEditor } from './prompt-editor';
 import { ModelSelector } from './ModelSelector';
+import { nanoid } from 'nanoid';
 
 type Props = {
   isOpen: boolean;
@@ -62,14 +71,28 @@ const createSelectTheme = (isLight: boolean) => (theme: ReactSelectTheme) => ({
   },
 });
 
+const generateHatId = (label: string) => {
+  // Create a base slug from the label
+  const baseSlug = label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_') // Replace non-alphanumeric chars with underscore
+    .replace(/^_+|_+$/g, ''); // Remove leading/trailing underscores
+
+  // Add a unique suffix
+  const uniqueSuffix = nanoid(8); // 8 characters should be enough for uniqueness
+  return `hat_${baseSlug}_${uniqueSuffix}`;
+};
+
 export const HatEditor = ({ isOpen, onClose, editingHat, onSave }: Props) => {
   const location = useLocation();
   const [newHat, setNewHat] = useState<Partial<Hat>>({
+    id: generateHatId('new-hat'),
     temperature: 0,
     language: DEFAULT_LANGUAGE_CODE,
     model: DEFAULT_MODEL,
   });
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false);
+  const [customModels, setCustomModels] = useState<CustomModel[]>([]);
 
   const bg = useColorModeValue('dracula.light.background', 'dracula.background');
   const textColor = useColorModeValue('dracula.light.foreground', 'dracula.foreground');
@@ -81,7 +104,8 @@ export const HatEditor = ({ isOpen, onClose, editingHat, onSave }: Props) => {
       if (location.pathname.includes('/hats/clone/')) {
         setNewHat({
           ...editingHat,
-          id: `${editingHat.id}-copy`,
+          id: generateHatId(editingHat.label),
+          alias: `${editingHat.alias || editingHat.label}-copy`,
           label: `${editingHat.label} (Copy)`,
         });
       } else {
@@ -89,12 +113,27 @@ export const HatEditor = ({ isOpen, onClose, editingHat, onSave }: Props) => {
       }
     } else {
       setNewHat({
+        id: generateHatId('new-hat'),
         temperature: 0,
         language: DEFAULT_LANGUAGE_CODE,
         model: DEFAULT_MODEL,
       });
     }
   }, [editingHat, location.pathname]);
+
+  // Load custom models on mount
+  useEffect(() => {
+    customModelsStorage.get().then(setCustomModels);
+  }, []);
+
+  // Subscribe to custom models changes
+  useEffect(() => {
+    const unsubscribe = customModelsStorage.subscribe(setCustomModels);
+    return () => unsubscribe();
+  }, []);
+
+  // Combine built-in and custom models for the select
+  const allModels = useMemo(() => [...SUPPORTED_MODELS, ...(customModels || [])], [customModels]);
 
   const handleSave = async () => {
     try {
@@ -111,6 +150,7 @@ export const HatEditor = ({ isOpen, onClose, editingHat, onSave }: Props) => {
     setNewHat(prev => ({
       ...prev,
       label: newLabel,
+      alias: prev.alias || newLabel.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
     }));
   };
 
@@ -147,11 +187,11 @@ export const HatEditor = ({ isOpen, onClose, editingHat, onSave }: Props) => {
                 <Input value={newHat.label || ''} onChange={handleLabelChange} placeholder="Enter hat label" />
               </FormControl>
               <FormControl>
-                <FormLabel>ID</FormLabel>
+                <FormLabel>Alias (Optional)</FormLabel>
                 <Input
-                  value={newHat.id || ''}
-                  onChange={e => setNewHat({ ...newHat, id: e.target.value })}
-                  placeholder="Enter hat ID (English, numbers, dash, and underline only)"
+                  value={newHat.alias || ''}
+                  onChange={e => setNewHat(prev => ({ ...prev, alias: e.target.value }))}
+                  placeholder="Enter URL-friendly identifier"
                 />
               </FormControl>
               <FormControl>
@@ -222,9 +262,9 @@ export const HatEditor = ({ isOpen, onClose, editingHat, onSave }: Props) => {
                 <FormLabel>Model</FormLabel>
                 <VStack align="stretch" spacing={2}>
                   <Select<ModelOption>
-                    value={SUPPORTED_MODELS.find(model => model.value === newHat.model)}
+                    value={allModels.find(model => model.value === newHat.model)}
                     onChange={option => setNewHat({ ...newHat, model: option?.value || DEFAULT_MODEL })}
-                    options={SUPPORTED_MODELS}
+                    options={allModels}
                     styles={{
                       container: (base: Record<string, unknown>) => ({
                         ...base,
@@ -244,7 +284,7 @@ export const HatEditor = ({ isOpen, onClose, editingHat, onSave }: Props) => {
                     }}
                   />
                   <Button size="sm" onClick={() => setIsModelSelectorOpen(true)} leftIcon={<AddIcon />}>
-                    Add Ollama Model
+                    Add new model
                   </Button>
                 </VStack>
               </FormControl>
