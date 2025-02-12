@@ -20,7 +20,10 @@ export type Hat = {
 
 export type Hats = Hat[];
 
-const hatIdRegex = /^[a-zA-Z0-9_-]+$/;
+// Add new types for the hat list
+export type HatListItem = Pick<Hat, 'id' | 'label' | 'alias' | 'urlPattern' | 'model' | 'language'>;
+
+export type HatList = HatListItem[];
 
 export const hatSchema = z.object({
   id: z.string(),

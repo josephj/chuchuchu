@@ -1,6 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
-import type { MDXEditorMethods } from '@mdxeditor/editor';
 import {
   Modal,
   ModalOverlay,
@@ -23,6 +22,9 @@ import {
   SliderFilledTrack,
   SliderThumb,
   Tooltip,
+  Alert,
+  AlertIcon,
+  AlertDescription,
 } from '@chakra-ui/react';
 import { DeleteIcon, AddIcon } from '@chakra-ui/icons';
 import Select from 'react-select';
@@ -33,7 +35,6 @@ import {
   SUPPORTED_MODELS,
   DEFAULT_MODEL,
   customModelsStorage,
-  hatsStorage,
   type CustomModel,
 } from './vars';
 import type { Hat } from './types';
@@ -93,6 +94,7 @@ export const HatEditor = ({ isOpen, onClose, editingHat, onSave }: Props) => {
   });
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false);
   const [customModels, setCustomModels] = useState<CustomModel[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const bg = useColorModeValue('dracula.light.background', 'dracula.background');
   const textColor = useColorModeValue('dracula.light.foreground', 'dracula.foreground');
@@ -128,7 +130,9 @@ export const HatEditor = ({ isOpen, onClose, editingHat, onSave }: Props) => {
 
   // Subscribe to custom models changes
   useEffect(() => {
-    const unsubscribe = customModelsStorage.subscribe(setCustomModels);
+    const unsubscribe = customModelsStorage.subscribe(() => {
+      customModelsStorage.get().then(setCustomModels);
+    });
     return () => unsubscribe();
   }, []);
 
@@ -137,11 +141,28 @@ export const HatEditor = ({ isOpen, onClose, editingHat, onSave }: Props) => {
 
   const handleSave = async () => {
     try {
+      setError(null);
       const validatedHat = hatSchema.parse(newHat);
+
+      // Check individual hat size
+      const hatSize = new Blob([JSON.stringify(validatedHat)]).size;
+      console.log('[HatEditor] Hat size:', hatSize);
+
+      if (hatSize > 8192) {
+        // Chrome's QUOTA_BYTES_PER_ITEM is 8192 bytes
+        setError('Hat data is too large. Please reduce the prompt size or remove some content.');
+        return;
+      }
+
       onSave(validatedHat);
       onClose();
     } catch (error) {
       console.error('Invalid hat data:', error);
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError('An unknown error occurred while saving the hat.');
+      }
     }
   };
 
@@ -179,6 +200,12 @@ export const HatEditor = ({ isOpen, onClose, editingHat, onSave }: Props) => {
         </ModalHeader>
         <ModalCloseButton />
         <ModalBody>
+          {error ? (
+            <Alert status="error" mb={4} borderRadius="md">
+              <AlertIcon />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
           <Grid templateColumns="350px 1fr" gap={8}>
             {/* Left Column - Settings */}
             <VStack spacing={4} align="stretch">

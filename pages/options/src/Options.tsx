@@ -36,12 +36,13 @@ import { CheckIcon, AddIcon, DeleteIcon, EditIcon, CopyIcon } from '@chakra-ui/i
 import Select from 'react-select';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import type { OptionsFormData, Hat } from './types';
+import type { OptionsFormData, Hat, HatList, HatListItem } from './types';
 import { optionsFormSchema } from './types';
 import { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE_CODE, languageStorage, openInWebStorage, hatsStorage } from './vars';
 import { HashRouter, Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import type { Theme as ReactSelectTheme } from 'react-select';
 import { HatEditor } from './HatEditor';
+import { storage } from './storage';
 
 type LanguageOption = {
   value: string;
@@ -97,13 +98,13 @@ const Options = () => {
   const theme = useStorage(exampleThemeStorage);
   const selectedLanguage = useStorage(languageStorage);
   const openInWeb = useStorage(openInWebStorage);
-  const hats = useStorage(hatsStorage);
-  const isLight = theme === 'light';
   const [savedSettings, setSavedSettings] = useState<{ [K in keyof OptionsFormData]?: boolean }>({});
   const [hatToDelete, setHatToDelete] = useState<Hat | null>(null);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const cancelDeleteRef = useRef<HTMLButtonElement>(null);
   const textColorSecondary = useColorModeValue('dracula.light.comment', 'dracula.comment');
+  const [hats, setHats] = useState<Hat[]>([]);
+  const isLight = theme === 'light';
 
   const bg = useColorModeValue('dracula.light.background', 'dracula.background');
   const borderColor = useColorModeValue('dracula.light.currentLine', 'dracula.currentLine');
@@ -196,34 +197,62 @@ const Options = () => {
     }
   };
 
-  const handleAddOrUpdateHat = async (hat: Hat) => {
+  const handleSaveHat = async (hat: Hat) => {
     try {
-      let updatedHats: Hat[];
+      // Save the full hat data
+      await storage.setHat(hat);
+
+      // Get and update the hat list
+      const currentList = await storage.getHatList();
+      let updatedList: HatList;
 
       if (location.pathname.includes('/hats/edit/')) {
-        // Update existing hat
-        updatedHats = (hats || []).map(h => (h.id === hat.id ? hat : h));
-      } else if (location.pathname.includes('/hats/clone/')) {
-        // Clone hat with new ID
-        updatedHats = [...(hats || []), { ...hat, id: `${hat.id}-copy`, label: `${hat.label} (Copy)` }];
+        updatedList = currentList.map(h =>
+          h.id === hat.id
+            ? {
+                id: hat.id,
+                label: hat.label,
+                alias: hat.alias,
+                urlPattern: hat.urlPattern,
+                model: hat.model,
+                language: hat.language,
+              }
+            : h,
+        );
       } else {
-        // Add new hat
-        updatedHats = [...(hats || []), hat];
+        const listItem: HatListItem = {
+          id: hat.id,
+          label: hat.label,
+          alias: hat.alias,
+          urlPattern: hat.urlPattern,
+          model: hat.model,
+          language: hat.language,
+        };
+        updatedList = [...currentList, listItem];
       }
 
-      await hatsStorage.set(updatedHats);
-      navigate('/');
+      await storage.setHatList(updatedList);
+
+      // Refresh the UI
+      loadHats();
     } catch (error) {
-      console.error('Invalid hat data:', error);
+      console.error('Failed to save hat:', error);
     }
   };
 
-  const handleModalClose = () => {
-    navigate('/');
+  const loadHats = async () => {
+    const list = await storage.getHatList();
+    const fullHats = await Promise.all(list.map(item => storage.getHat(item.id)));
+    setHats(fullHats.filter((hat): hat is Hat => hat !== null));
   };
 
-  const findHatByIdOrAlias = (hats: Hat[], identifier: string) => {
-    return hats.find(hat => hat.id === identifier || hat.alias === identifier);
+  // Load hats on mount and after migration
+  useEffect(() => {
+    storage.migrateFromOldStorage().then(loadHats);
+  }, []);
+
+  const handleModalClose = () => {
+    navigate('/');
   };
 
   return (
@@ -431,12 +460,7 @@ const Options = () => {
         </Accordion>
       </form>
 
-      <HatEditor
-        isOpen={isModalOpen}
-        onClose={handleModalClose}
-        editingHat={editingHat}
-        onSave={handleAddOrUpdateHat}
-      />
+      <HatEditor isOpen={isModalOpen} onClose={handleModalClose} editingHat={editingHat} onSave={handleSaveHat} />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog isOpen={isDeleteAlertOpen} leastDestructiveRef={cancelDeleteRef} onClose={closeDeleteAlert}>

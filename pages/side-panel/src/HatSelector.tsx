@@ -1,9 +1,9 @@
 import type { Theme } from 'react-select';
-import Select from 'react-select';
-import { useColorModeValue, Box, Flex, useColorMode } from '@chakra-ui/react';
+import { Select, useColorModeValue, Box, Flex, useColorMode } from '@chakra-ui/react';
 import type { Hat } from '../../options/src/types';
 import { FaHatCowboy } from 'react-icons/fa';
 import { useState, useEffect } from 'react';
+import { storage } from '../../options/src/storage';
 
 const getLanguageFlag = (code: string): string => {
   // Handle special cases for multi-region languages
@@ -24,8 +24,8 @@ const getLanguageFlag = (code: string): string => {
 };
 
 type Props = {
-  value?: string;
-  onChange: (hatId: string) => void;
+  value: string | undefined;
+  onChange: (value: string) => void;
   isDisabled?: boolean;
 };
 
@@ -40,26 +40,26 @@ export const HatSelector = ({ value, onChange, isDisabled }: Props) => {
   const isDarkMode = colorMode === 'dark';
   const isLight = useColorModeValue(true, false);
 
+  // Load hats on mount and listen for changes
   useEffect(() => {
-    // Initial load
-    chrome.storage.sync.get(['hats'], result => {
-      if (result.hats) {
-        setHats(result.hats);
-      }
-    });
+    const loadHats = async () => {
+      const list = await storage.getHatList();
+      const fullHats = await Promise.all(list.map(item => storage.getHat(item.id)));
+      setHats(fullHats.filter((hat): hat is Hat => hat !== null));
+    };
 
-    // Listen for changes
+    loadHats();
+
+    // Subscribe to storage changes
     const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }) => {
-      if (changes.hats?.newValue) {
-        setHats(changes.hats.newValue);
+      const hatListChange = changes[storage.HAT_LIST_KEY];
+      if (hatListChange) {
+        loadHats();
       }
     };
 
     chrome.storage.onChanged.addListener(handleStorageChange);
-
-    return () => {
-      chrome.storage.onChanged.removeListener(handleStorageChange);
-    };
+    return () => chrome.storage.onChanged.removeListener(handleStorageChange);
   }, []);
 
   const customTheme = (theme: Theme) => ({
@@ -110,20 +110,19 @@ export const HatSelector = ({ value, onChange, isDisabled }: Props) => {
         }}
       />
       <Box position="relative" zIndex={10}>
-        <Select<HatOption>
-          value={options.find(option => option.value === value)}
-          onChange={option => onChange(option?.value || '')}
-          options={options}
-          isDisabled={isDisabled}
-          styles={selectStyles}
-          theme={customTheme}
+        <Select
+          value={value}
+          onChange={e => onChange(e.target.value)}
           placeholder="Select a hat..."
-          noOptionsMessage={() => 'No hats available - create one in Options'}
-          isSearchable
-          components={{
-            IndicatorSeparator: () => null,
-          }}
-        />
+          size="sm"
+          isDisabled={isDisabled}
+          minW="150px">
+          {options.map(option => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </Select>
       </Box>
     </Flex>
   );
