@@ -1,5 +1,5 @@
 import '@src/SidePanel.css';
-import { withErrorBoundary, withSuspense, useStorage } from '@extension/shared';
+import { withErrorBoundary, withSuspense, useStorage, useHats } from '@extension/shared';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { askAssistant } from './ask-assistant';
 import { formatThreadForLLM, convertToWebUrl, formatRelativeTime, estimateTokens, findBestMatchingHat } from './utils';
@@ -30,7 +30,7 @@ import { usePageType } from './lib/use-page-type';
 import { theme } from './theme';
 import { HatSelector } from './HatSelector';
 import { replaceTokens } from './prompts/utils';
-import { SUPPORTED_LANGUAGES, hatsStorage, selectedHatStorage } from '../../options/src/vars';
+import { SUPPORTED_LANGUAGES, selectedHatStorage } from '../../options/src/vars';
 
 type FormData = {
   question: string;
@@ -46,7 +46,7 @@ const handleOpenOptionsWithRoute = (route: string) => {
 
 const SidePanel = () => {
   const { colorMode, toggleColorMode } = useColorMode();
-  const hats = useStorage(hatsStorage);
+  const hats = useHats();
   const selectedHat = useStorage(selectedHatStorage);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
@@ -369,7 +369,7 @@ ${articleContent.content || ''}`.trim();
   }, [articleContent, articleTitle, handleAskAssistant, hasContent, pageType.type, threadData]);
 
   useEffect(() => {
-    const handleMessage = (
+    const handleMessage = async (
       message:
         | ThreadDataMessage
         | ArticleDataResultMessage
@@ -396,6 +396,16 @@ ${articleContent.content || ''}`.trim();
           handleAskAssistant(formattedData, true);
         }, 100);
       } else if (message.type === 'ARTICLE_DATA_RESULT') {
+        console.log('[DEBUG] handleMessage - Processing article data');
+        console.log('[DEBUG] Current hat:', selectedHat);
+        console.log('[DEBUG] Available hats:', hats);
+
+        // Wait for hat to be selected if not available
+        if (!selectedHat || !hats?.length) {
+          console.log('[DEBUG] Waiting for hat to be selected...');
+          return;
+        }
+
         setIsCapturing(false);
         setThreadData(null);
         setMessages([]);
@@ -443,7 +453,7 @@ ${message.data.content || ''}`.trim();
 
     chrome.runtime.onMessage.addListener(handleMessage);
     return () => chrome.runtime.onMessage.removeListener(handleMessage);
-  }, [handleAskAssistant, pageType.type]);
+  }, [handleAskAssistant, pageType.type, selectedHat, hats]);
 
   useEffect(() => {
     const handleTabUpdate = (tabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
@@ -518,7 +528,6 @@ ${articleContent.content || ''}`.trim();
   };
 
   const handleCapturePage = useCallback(() => {
-    // Clear previous content first
     setHasContent(false);
     setThreadData(null);
     setMessages([]);
@@ -530,7 +539,6 @@ ${articleContent.content || ''}`.trim();
     setOriginalContent('');
     setIsCapturing(true);
 
-    // Set a timeout to reset the capturing state if no data is received
     const timeoutId = setTimeout(() => {
       setIsCapturing(false);
     }, 10000);
@@ -659,8 +667,6 @@ ${articleContent.content || ''}`.trim();
       chrome.tabs.onUpdated.removeListener(handleTabUpdated);
     };
   }, [hats, selectedHat, hasContent, isManuallySelected]);
-
-  console.log('[DEBUG] selectedHat :', selectedHat);
 
   return (
     <ChakraProvider theme={theme}>

@@ -43,3 +43,28 @@ export type StorageConfig<D = string> = {
     deserialize: (text: string) => D;
   };
 };
+
+export type HatListItem = {
+  id: string;
+  label: string;
+  language: string;
+};
+
+export type Hat = {
+  id: string;
+  label: string;
+  language: string;
+  prompt: string;
+  model?: string;
+  temperature?: number;
+  urlPatterns?: string[];
+};
+
+export type HatStorageType = BaseStorage<Hat | HatListItem[]> & {
+  getHatList: () => Promise<HatListItem[]>;
+  getHat: (id: string) => Promise<Hat | null>;
+  setHat: (hat: Hat) => Promise<void>;
+  setHatList: (list: HatListItem[]) => Promise<void>;
+  deleteHat: (id: string) => Promise<void>;
+  HAT_LIST_KEY: string;
+};

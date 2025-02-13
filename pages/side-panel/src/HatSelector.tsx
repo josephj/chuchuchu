@@ -1,9 +1,8 @@
 import type { Theme } from 'react-select';
 import { Select, useColorModeValue, Box, Flex, useColorMode } from '@chakra-ui/react';
-import type { Hat } from '../../options/src/types';
+import type { Hat } from '@extension/storage';
 import { FaHatCowboy } from 'react-icons/fa';
-import { useState, useEffect } from 'react';
-import { storage } from '../../options/src/storage';
+import { useHats } from '@extension/shared';
 
 const getLanguageFlag = (code: string): string => {
   // Handle special cases for multi-region languages
@@ -35,32 +34,10 @@ type HatOption = {
 };
 
 export const HatSelector = ({ value, onChange, isDisabled }: Props) => {
-  const [hats, setHats] = useState<Hat[]>([]);
+  const hats = useHats();
   const { colorMode } = useColorMode();
   const isDarkMode = colorMode === 'dark';
   const isLight = useColorModeValue(true, false);
-
-  // Load hats on mount and listen for changes
-  useEffect(() => {
-    const loadHats = async () => {
-      const list = await storage.getHatList();
-      const fullHats = await Promise.all(list.map(item => storage.getHat(item.id)));
-      setHats(fullHats.filter((hat): hat is Hat => hat !== null));
-    };
-
-    loadHats();
-
-    // Subscribe to storage changes
-    const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }) => {
-      const hatListChange = changes[storage.HAT_LIST_KEY];
-      if (hatListChange) {
-        loadHats();
-      }
-    };
-
-    chrome.storage.onChanged.addListener(handleStorageChange);
-    return () => chrome.storage.onChanged.removeListener(handleStorageChange);
-  }, []);
 
   const customTheme = (theme: Theme) => ({
     ...theme,
