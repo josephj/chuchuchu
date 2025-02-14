@@ -818,6 +818,7 @@ ${articleContent.content || ''}`.trim();
                   placeholder="Ask a follow-up question... (Cmd/Ctrl + Enter to submit)"
                   resize="none"
                   color={textColor}
+                  variant="outline"
                   _placeholder={{ color: textColorSecondary }}
                 />
                 <Button type="submit" isDisabled={isTyping || !watch('question').trim()} colorScheme="blue">

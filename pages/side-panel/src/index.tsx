@@ -2,8 +2,7 @@ import { createRoot } from 'react-dom/client';
 import '@src/index.css';
 import SidePanel from '@src/SidePanel';
 import { ChakraProvider, ColorModeScript } from '@chakra-ui/react';
-import { theme } from './theme';
-import { ColorModeManager } from './components/ColorModeManager';
+import { theme, ColorModeManager } from '@extension/shared';
 
 function init() {
   const appContainer = document.querySelector('#app-container');

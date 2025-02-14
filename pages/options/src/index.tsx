@@ -2,8 +2,8 @@ import { createRoot } from 'react-dom/client';
 import '@src/index.css';
 // import '@extension/ui/dist/global.css';
 import Options from '@src/Options';
-import { ChakraProvider } from '@chakra-ui/react';
-import { theme } from '../../side-panel/src/theme';
+import { ChakraProvider, ColorModeScript } from '@chakra-ui/react';
+import { theme, ColorModeManager } from '@extension/shared';
 
 function init() {
   const appContainer = document.querySelector('#app-container');
@@ -13,6 +13,8 @@ function init() {
   const root = createRoot(appContainer);
   root.render(
     <ChakraProvider theme={theme}>
+      <ColorModeScript initialColorMode={theme.config.initialColorMode} />
+      <ColorModeManager />
       <Options />
     </ChakraProvider>,
   );
