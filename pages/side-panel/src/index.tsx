@@ -1,7 +1,9 @@
 import { createRoot } from 'react-dom/client';
 import '@src/index.css';
 import SidePanel from '@src/SidePanel';
-import { ChakraProvider } from '@chakra-ui/react';
+import { ChakraProvider, ColorModeScript } from '@chakra-ui/react';
+import { theme } from './theme';
+import { ColorModeManager } from './components/ColorModeManager';
 
 function init() {
   const appContainer = document.querySelector('#app-container');
@@ -10,7 +12,9 @@ function init() {
   }
   const root = createRoot(appContainer);
   root.render(
-    <ChakraProvider>
+    <ChakraProvider theme={theme}>
+      <ColorModeScript initialColorMode={theme.config.initialColorMode} />
+      <ColorModeManager />
       <SidePanel />
     </ChakraProvider>,
   );
