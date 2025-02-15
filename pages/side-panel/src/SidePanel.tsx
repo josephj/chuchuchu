@@ -35,11 +35,33 @@ type FormData = {
 };
 
 const handleOpenOptions = () => {
-  chrome.runtime.openOptionsPage();
+  // First check if options page is already open
+  chrome.tabs.query({ url: chrome.runtime.getURL('/options/index.html*') }, tabs => {
+    if (tabs.length > 0) {
+      // If found, activate the existing tab
+      chrome.tabs.update(tabs[0].id!, { active: true });
+    } else {
+      // If not found, open a new options page
+      chrome.runtime.openOptionsPage();
+    }
+  });
 };
 
 const handleOpenOptionsWithRoute = (route: string) => {
-  chrome.tabs.create({ url: `/options/index.html#${route}` });
+  const optionsUrl = `/options/index.html#${route}`;
+  // Check for existing options page
+  chrome.tabs.query({ url: chrome.runtime.getURL('/options/index.html*') }, tabs => {
+    if (tabs.length > 0) {
+      // If found, update the existing tab with new route and activate it
+      chrome.tabs.update(tabs[0].id!, {
+        url: optionsUrl,
+        active: true,
+      });
+    } else {
+      // If not found, create new tab
+      chrome.tabs.create({ url: optionsUrl });
+    }
+  });
 };
 
 const SidePanel = () => {
@@ -82,6 +104,9 @@ const SidePanel = () => {
   const textColor = useColorModeValue('dracula.light.foreground', 'dracula.foreground');
   const textColorSecondary = useColorModeValue('dracula.light.comment', 'dracula.comment');
   const buttonBg = useColorModeValue('dracula.light.currentLine', 'dracula.currentLine');
+
+  // Add new state for tracking if we're on the options page
+  const [isOptionsPage, setIsOptionsPage] = useState(false);
 
   const handleAskAssistant = useCallback(
     async (prompt: string, isInitialAnalysis = false) => {
@@ -668,6 +693,31 @@ ${articleContent.content || ''}`.trim();
     };
   }, [hats, selectedHat, hasContent, isManuallySelected]);
 
+  useEffect(() => {
+    const checkIfOptionsPage = () => {
+      chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+        const currentTab = tabs[0];
+        if (!currentTab?.url) return;
+
+        const isOptions = currentTab.url.startsWith(chrome.runtime.getURL('/options/'));
+        setIsOptionsPage(isOptions);
+      });
+    };
+
+    checkIfOptionsPage();
+    chrome.tabs.onActivated.addListener(checkIfOptionsPage);
+    chrome.tabs.onUpdated.addListener((_, changeInfo) => {
+      if (changeInfo.url) {
+        checkIfOptionsPage();
+      }
+    });
+
+    return () => {
+      chrome.tabs.onActivated.removeListener(checkIfOptionsPage);
+      chrome.tabs.onUpdated.removeListener(checkIfOptionsPage);
+    };
+  }, []);
+
   return (
     <Flex direction="column" h="100vh" bg={bg} color={textColor}>
       {/* Settings Section */}
@@ -759,10 +809,11 @@ ${articleContent.content || ''}`.trim();
                   colorScheme="blue"
                   leftIcon={<Text>⭐️</Text>}
                   isLoading={isCapturing}
-                  loadingText="Capturing page">
+                  loadingText="Capturing page"
+                  isDisabled={isOptionsPage}>
                   Summarize current page
                 </Button>
-                {pageType.url && (
+                {pageType.url && !isOptionsPage && (
                   <Text
                     maxW="300px"
                     fontSize="xs"
