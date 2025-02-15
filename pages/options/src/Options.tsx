@@ -2,8 +2,6 @@ import '@mdxeditor/editor/style.css';
 
 import { useRef, useEffect, useState } from 'react';
 import { withErrorBoundary, withSuspense, useStorage } from '@extension/shared';
-import { exampleThemeStorage } from '@extension/storage';
-import { theme } from '../../side-panel/src/theme';
 import {
   Center,
   Switch,
@@ -31,6 +29,7 @@ import {
   AlertDialogHeader,
   AlertDialogContent,
   AlertDialogOverlay,
+  useColorMode,
 } from '@chakra-ui/react';
 import { CheckIcon, AddIcon, DeleteIcon, EditIcon, CopyIcon } from '@chakra-ui/icons';
 import Select from 'react-select';
@@ -95,7 +94,6 @@ const Options = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { hatId } = useParams();
-  const theme = useStorage(exampleThemeStorage);
   const selectedLanguage = useStorage(languageStorage);
   const openInWeb = useStorage(openInWebStorage);
   const [savedSettings, setSavedSettings] = useState<{ [K in keyof OptionsFormData]?: boolean }>({});
@@ -104,7 +102,8 @@ const Options = () => {
   const cancelDeleteRef = useRef<HTMLButtonElement>(null);
   const textColorSecondary = useColorModeValue('dracula.light.comment', 'dracula.comment');
   const [hats, setHats] = useState<Hat[]>([]);
-  const isLight = theme === 'light';
+  const { colorMode } = useColorMode();
+  const isLight = colorMode === 'light';
 
   const bg = useColorModeValue('dracula.light.background', 'dracula.background');
   const borderColor = useColorModeValue('dracula.light.currentLine', 'dracula.currentLine');
