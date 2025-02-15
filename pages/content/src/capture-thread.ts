@@ -117,4 +117,49 @@ export const captureThread = () => {
   };
 
   setTimeout(injectScript, 1000);
+
+  const clickThreadReplyBar = (threadTs: string) => {
+    const formattedTs = threadTs.replace('p', '').replace('/', '.');
+    const messageElement = document.querySelector(`[data-item-key="${formattedTs}"]`);
+    if (messageElement) {
+      const replyBar = messageElement.querySelector('[data-qa="reply_bar_count"]') as HTMLElement;
+      if (replyBar) {
+        replyBar.click();
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const hasThreadTimestamp = (url: string) => {
+    return /\/(\d{10})\.(\d{6})/.test(url);
+  };
+
+  const tryClickThreadFromUrl = () => {
+    const urlMatch = lastUrl.match(/\/(?:p?(\d{10})[./](\d{6}))/);
+    if (urlMatch) {
+      const threadTs = `${urlMatch[1]}.${urlMatch[2]}`;
+      if (!clickThreadReplyBar(threadTs)) {
+        setTimeout(() => {
+          clickThreadReplyBar(threadTs);
+        }, 2000);
+      }
+    }
+  };
+
+  let lastUrl = '';
+  const urlObserver = new MutationObserver(() => {
+    const currentUrl = window.location.href;
+    if (currentUrl !== lastUrl && hasThreadTimestamp(currentUrl)) {
+      lastUrl = currentUrl;
+      tryClickThreadFromUrl();
+    }
+  });
+
+  urlObserver.observe(document.querySelector('body')!, {
+    subtree: true,
+    childList: true,
+  });
+
+  tryClickThreadFromUrl();
 };
