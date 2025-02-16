@@ -457,7 +457,13 @@ const Options = () => {
         </Accordion>
       </form>
 
-      <HatEditor isOpen={isModalOpen} onClose={handleModalClose} editingHat={editingHat} onSave={handleSaveHat} />
+      <HatEditor
+        isOpen={isModalOpen}
+        onClose={handleModalClose}
+        editingHat={editingHat}
+        onSave={handleSaveHat}
+        allHats={hats}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog isOpen={isDeleteAlertOpen} leastDestructiveRef={cancelDeleteRef} onClose={closeDeleteAlert}>

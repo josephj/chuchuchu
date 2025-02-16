@@ -25,9 +25,10 @@ import {
   Alert,
   AlertIcon,
   AlertDescription,
+  IconButton,
 } from '@chakra-ui/react';
 import { DeleteIcon, AddIcon } from '@chakra-ui/icons';
-import Select from 'react-select';
+import Select, { components } from 'react-select';
 import type { Theme as ReactSelectTheme } from 'react-select';
 import {
   SUPPORTED_LANGUAGES,
@@ -48,6 +49,17 @@ type Props = {
   onClose: () => void;
   editingHat: Hat | null;
   onSave: (hat: Hat) => void;
+  allHats: Hat[];
+};
+
+type ModelOption = {
+  value: string;
+  label: string;
+};
+
+type LanguageOption = {
+  code: string;
+  name: string;
 };
 
 const createSelectTheme = (isLight: boolean) => (theme: ReactSelectTheme) => ({
@@ -84,7 +96,11 @@ const generateHatId = (label: string) => {
   return `hat_${baseSlug}_${uniqueSuffix}`;
 };
 
-export const HatEditor = ({ isOpen, onClose, editingHat, onSave }: Props) => {
+const isCustomModel = (modelValue: string) => {
+  return !SUPPORTED_MODELS.some(model => model.value === modelValue);
+};
+
+export const HatEditor = ({ isOpen, onClose, editingHat, onSave, allHats }: Props) => {
   const location = useLocation();
   const [newHat, setNewHat] = useState<Partial<Hat>>({
     id: generateHatId('new-hat'),
@@ -190,6 +206,27 @@ export const HatEditor = ({ isOpen, onClose, editingHat, onSave }: Props) => {
       model: newModel.value,
     }));
   };
+
+  const handleRemoveModel = async (modelValue: string) => {
+    // Only allow removing custom models
+    if (!isCustomModel(modelValue)) {
+      return;
+    }
+
+    // Remove from custom models storage
+    const updatedModels = customModels.filter(model => model.value !== modelValue);
+    await customModelsStorage.set(updatedModels);
+
+    // If the current hat uses this model, reset to default
+    if (newHat.model === modelValue) {
+      setNewHat(prev => ({
+        ...prev,
+        model: DEFAULT_MODEL,
+      }));
+    }
+  };
+
+  const isModelInUse = (modelValue: string) => allHats.some(hat => hat.model === modelValue);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="6xl" portalProps={{ containerRef: null }}>
@@ -308,6 +345,37 @@ export const HatEditor = ({ isOpen, onClose, editingHat, onSave }: Props) => {
                     isSearchable
                     components={{
                       IndicatorSeparator: () => null,
+                      Option: ({ children, ...props }) => (
+                        <Box position="relative">
+                          <components.Option {...props}>
+                            {children}
+                            {isCustomModel(props.value) && (
+                              <Tooltip
+                                hasArrow
+                                label={
+                                  isModelInUse(props.value) ? "Can't remove model while it's in use" : 'Remove model'
+                                }>
+                                <Box display="inline-block">
+                                  <IconButton
+                                    aria-label="Remove model"
+                                    icon={<DeleteIcon />}
+                                    size="xs"
+                                    position="absolute"
+                                    right={2}
+                                    top="50%"
+                                    transform="translateY(-50%)"
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      handleRemoveModel(props.value);
+                                    }}
+                                    isDisabled={isModelInUse(props.value)}
+                                  />
+                                </Box>
+                              </Tooltip>
+                            )}
+                          </components.Option>
+                        </Box>
+                      ),
                     }}
                   />
                   <Button size="sm" onClick={() => setIsModelSelectorOpen(true)} leftIcon={<AddIcon />}>
