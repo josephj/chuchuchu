@@ -19,7 +19,8 @@ import {
 import { useEffect, useState, useMemo } from 'react';
 import Select from 'react-select';
 import { OLLAMA_API_ENDPOINT } from '@extension/shared';
-import { customModelsStorage, type CustomModel } from './vars';
+import { customModelsStorage, type CustomModel, openAIKeyStorage, ollamaBaseUrlStorage } from './vars';
+import type { Theme } from 'react-select';
 
 type Model = {
   name: string;
@@ -38,10 +39,10 @@ type ModelType = 'ollama' | 'anthropic' | 'deepseek' | 'openai';
 
 const MODEL_TYPES = [
   { value: 'ollama', label: 'Ollama' },
+  { value: 'openai', label: 'OpenAI' },
   // To be added later:
   // { value: 'anthropic', label: 'Anthropic' },
   // { value: 'deepseek', label: 'DeepSeek' },
-  // { value: 'openai', label: 'OpenAI' },
 ] as const;
 
 type Props = {
@@ -51,7 +52,6 @@ type Props = {
 };
 
 export const ModelSelector = ({ isOpen, onClose, onSelect }: Props) => {
-  const [models, setModels] = useState<Model[]>([]);
   const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
   const [selectedModel, setSelectedModel] = useState<ModelOption | null>(null);
   const [selectedType, setSelectedType] = useState<ModelType>('ollama');
@@ -59,15 +59,19 @@ export const ModelSelector = ({ isOpen, onClose, onSelect }: Props) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [customModels, setCustomModels] = useState<CustomModel[]>([]);
+  const [apiKey, setApiKey] = useState('');
 
   // Create a list of already added model names
-  const addedModelNames = useMemo(() => customModels.map(model => model.value.replace('ollama/', '')), [customModels]);
+  const addedModelNames = useMemo(
+    () => customModels.filter(model => model.type === selectedType).map(model => model.value.split('/')[1]),
+    [customModels, selectedType],
+  );
 
   const bg = useColorModeValue('dracula.light.background', 'dracula.background');
   const textColor = useColorModeValue('dracula.light.foreground', 'dracula.foreground');
   const isLight = useColorModeValue(true, false);
 
-  const selectTheme = (theme: any) => ({
+  const selectTheme = (theme: Theme) => ({
     ...theme,
     colors: {
       ...theme.colors,
@@ -91,6 +95,65 @@ export const ModelSelector = ({ isOpen, onClose, onSelect }: Props) => {
 
   useEffect(() => {
     const fetchModels = async () => {
+      if (selectedType === 'openai') {
+        try {
+          setIsLoading(true);
+          setError(null);
+
+          if (!apiKey) {
+            setModelOptions([]);
+            setSelectedModel(null);
+            return;
+          }
+
+          const response = await fetch('https://api.openai.com/v1/models', {
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to fetch OpenAI models: ${response.status} ${response.statusText}`);
+          }
+
+          const data = await response.json();
+          const chatModels = data.data
+            .filter(
+              (model: { id: string; capabilities?: { completion?: boolean; chat?: boolean } }) =>
+                model.id.startsWith('gpt-') || model.id.startsWith('o1-') || model.id.startsWith('o3-'),
+            )
+            .sort((a: { id: string }, b: { id: string }) => {
+              // Sort GPT-4 models before GPT-3.5
+              if (a.id.startsWith('gpt-4') && !b.id.startsWith('gpt-4')) return -1;
+              if (!a.id.startsWith('gpt-4') && b.id.startsWith('gpt-4')) return 1;
+              // Sort newer versions (with higher numbers) first
+              return b.id.localeCompare(a.id);
+            })
+            .map((model: { id: string }) => ({
+              value: model.id,
+              label: model.id
+                .replace('gpt-', 'GPT-')
+                .replace('-turbo', ' Turbo')
+                .replace('-preview', ' Preview')
+                .replace(/-\d{4}/, '') // Remove date codes like -0125, -1106
+                .trim(),
+              isDisabled: addedModelNames.includes(model.id),
+            }));
+
+          setModelOptions(chatModels);
+          const firstAvailable = chatModels.find((option: ModelOption) => !option.isDisabled);
+          setSelectedModel(firstAvailable || null);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Failed to fetch OpenAI models');
+          setModelOptions([]);
+          setSelectedModel(null);
+        } finally {
+          setIsLoading(false);
+        }
+        return;
+      }
+
       if (selectedType !== 'ollama') {
         setIsLoading(false);
         return;
@@ -115,7 +178,7 @@ export const ModelSelector = ({ isOpen, onClose, onSelect }: Props) => {
         setModelOptions(options);
 
         // Auto-select the first available model
-        const firstAvailable = options.find(option => !option.isDisabled);
+        const firstAvailable = options.find((option: ModelOption) => !option.isDisabled);
         setSelectedModel(firstAvailable || null);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch models');
@@ -127,19 +190,45 @@ export const ModelSelector = ({ isOpen, onClose, onSelect }: Props) => {
     if (isOpen) {
       fetchModels();
     }
-  }, [isOpen, selectedType, baseUrl, addedModelNames]);
+  }, [isOpen, selectedType, baseUrl, addedModelNames, apiKey]);
 
   useEffect(() => {
-    customModelsStorage.get().then(setCustomModels);
+    Promise.all([openAIKeyStorage.get(), ollamaBaseUrlStorage.get(), customModelsStorage.get()]).then(
+      ([savedApiKey, savedBaseUrl, models]) => {
+        setApiKey(savedApiKey);
+        setBaseUrl(savedBaseUrl);
+        setCustomModels(models);
+      },
+    );
   }, []);
+
+  useEffect(() => {
+    if (baseUrl !== OLLAMA_API_ENDPOINT) {
+      ollamaBaseUrlStorage.set(baseUrl);
+    }
+  }, [baseUrl]);
+
+  useEffect(() => {
+    if (apiKey) {
+      openAIKeyStorage.set(apiKey);
+    }
+  }, [apiKey]);
 
   const handleSave = () => {
     if (selectedModel) {
+      const modelExists = customModels.some(model => model.value === `${selectedType}/${selectedModel.value}`);
+
+      if (modelExists) {
+        setError('This model has already been added');
+        return;
+      }
+
       const newCustomModel: CustomModel = {
-        value: `ollama/${selectedModel.value}`,
-        label: `Ollama: ${selectedModel.value}`,
-        type: 'ollama',
-        baseUrl,
+        value: `${selectedType}/${selectedModel.value}`,
+        label: `${selectedType === 'openai' ? 'OpenAI' : 'Ollama'}: ${selectedModel.label}`,
+        type: selectedType,
+        baseUrl: selectedType === 'ollama' ? baseUrl : undefined,
+        apiKey: selectedType === 'openai' ? apiKey : undefined,
       };
 
       customModelsStorage.get().then(models => {
@@ -178,6 +267,18 @@ export const ModelSelector = ({ isOpen, onClose, onSelect }: Props) => {
               </FormControl>
             )}
 
+            {selectedType === 'openai' && (
+              <FormControl isRequired>
+                <FormLabel>API Key</FormLabel>
+                <Input
+                  type="password"
+                  value={apiKey}
+                  onChange={e => setApiKey(e.target.value)}
+                  placeholder="Enter your OpenAI API key"
+                />
+              </FormControl>
+            )}
+
             <FormControl>
               <FormLabel>Model</FormLabel>
               {isLoading ? (
@@ -193,7 +294,7 @@ export const ModelSelector = ({ isOpen, onClose, onSelect }: Props) => {
                   options={modelOptions}
                   theme={selectTheme}
                   isSearchable
-                  isOptionDisabled={option => option.isDisabled}
+                  isOptionDisabled={option => option.isDisabled ?? false}
                   noOptionsMessage={() => 'No available models'}
                 />
               )}
@@ -204,7 +305,10 @@ export const ModelSelector = ({ isOpen, onClose, onSelect }: Props) => {
           <Button variant="ghost" onClick={onClose} mr={3}>
             Cancel
           </Button>
-          <Button colorScheme="blue" onClick={handleSave} isDisabled={!selectedModel}>
+          <Button
+            colorScheme="blue"
+            onClick={handleSave}
+            isDisabled={!selectedModel || (selectedType === 'openai' && !apiKey)}>
             Add Model
           </Button>
         </ModalFooter>

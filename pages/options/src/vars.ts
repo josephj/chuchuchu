@@ -2,6 +2,7 @@ import ISO6391 from 'iso-639-1';
 import { createStorage } from '@extension/storage/lib/base/base';
 import { StorageEnum } from '@extension/storage/lib/base/enums';
 import type { Hat } from './types';
+import { OLLAMA_API_ENDPOINT } from '@extension/shared';
 
 // Get all ISO-639-1 languages and add custom regional variants
 const baseLanguages = ISO6391.getAllCodes().map(code => ({
@@ -31,8 +32,9 @@ export const DEFAULT_LANGUAGE_CODE = 'zh-TW';
 export type CustomModel = {
   value: string;
   label: string;
-  type: 'ollama';
+  type: 'ollama' | 'openai' | 'anthropic' | 'deepseek';
   baseUrl?: string;
+  apiKey?: string;
 };
 
 // Add storage for custom models
@@ -71,6 +73,17 @@ export const hatsStorage = createStorage<Hat[]>('hats', [], {
 });
 
 export const selectedHatStorage = createStorage<string>('selectedHat', '', {
+  storageEnum: StorageEnum.Sync,
+  liveUpdate: true,
+});
+
+// Add storage for API credentials
+export const openAIKeyStorage = createStorage<string>('openAIKey', '', {
+  storageEnum: StorageEnum.Sync,
+  liveUpdate: true,
+});
+
+export const ollamaBaseUrlStorage = createStorage<string>('ollamaBaseUrl', OLLAMA_API_ENDPOINT, {
   storageEnum: StorageEnum.Sync,
   liveUpdate: true,
 });
