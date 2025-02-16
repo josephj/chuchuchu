@@ -1,5 +1,6 @@
 import { handleGroqStream } from './groq-handler';
 import { handleOllamaStream } from './ollama-handler';
+import { handleOpenAIStream } from './openai-handler';
 import { type AskAssistantOptions } from './types';
 
 type Message = {
@@ -30,13 +31,27 @@ export const askAssistant = async ({
     const messages: Message[] = [...previousMessages, { role: 'user', content: userPrompt }];
 
     const isOllamaModel = model?.toLowerCase().startsWith('ollama/');
+    const isOpenAIModel = model?.toLowerCase().startsWith('openai/');
 
-    const actualModel = isOllamaModel ? model.replace(/^ollama\//i, '') : model;
+    const actualModel = isOllamaModel
+      ? model.replace(/^ollama\//i, '')
+      : isOpenAIModel
+        ? model.replace(/^openai\//i, '')
+        : model;
 
     let fullResponse: string;
 
     if (isOllamaModel) {
       fullResponse = await handleOllamaStream({
+        systemPrompt,
+        messages,
+        options,
+        abortController,
+        model: actualModel,
+        temperature,
+      });
+    } else if (isOpenAIModel) {
+      fullResponse = await handleOpenAIStream({
         systemPrompt,
         messages,
         options,
