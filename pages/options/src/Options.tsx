@@ -1,5 +1,3 @@
-import '@mdxeditor/editor/style.css';
-
 import { useRef, useEffect, useState } from 'react';
 import { withErrorBoundary, withSuspense, useStorage } from '@extension/shared';
 import {

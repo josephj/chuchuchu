@@ -194,7 +194,7 @@ export const HatEditor = ({ isOpen, onClose, editingHat, onSave }: Props) => {
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="6xl" portalProps={{ containerRef: null }}>
       <ModalOverlay />
-      <ModalContent bg={bg} color={textColor} position="relative">
+      <ModalContent bg={bg} color={textColor} mx={10} position="relative">
         <ModalHeader>
           {location.pathname.includes('/hats/clone/') ? 'Clone Hat' : editingHat ? 'Edit Hat' : 'Add New Hat'}
         </ModalHeader>

@@ -13,17 +13,16 @@ import {
   diffSourcePlugin,
   toolbarPlugin,
   UndoRedo,
-  BoldItalicUnderlineToggles,
-  BlockTypeSelect,
   CreateLink,
   InsertTable,
   InsertThematicBreak,
   ListsToggle,
   DiffSourceToggleWrapper,
 } from '@mdxeditor/editor';
-import '@mdxeditor/editor/style.css';
 import type { MDXEditorMethods } from '@mdxeditor/editor';
 import { useRef, useEffect } from 'react';
+
+import '@mdxeditor/editor/style.css';
 
 type Props = {
   value: string;
@@ -31,7 +30,6 @@ type Props = {
 };
 
 export const PromptEditor = ({ value, onChange }: Props) => {
-  console.log('[DEBUG] value :', value);
   const ref = useRef<MDXEditorMethods>(null);
   const textColor = useColorModeValue('dracula.light.foreground', 'dracula.foreground');
   const bg = useColorModeValue('white', 'gray.800');
@@ -97,31 +95,31 @@ export const PromptEditor = ({ value, onChange }: Props) => {
                 paddingLeft: '2rem',
                 marginY: '0.5rem',
               },
-              'ul li': {
-                listStyle: 'disc',
-              },
-              'ol li': {
-                listStyle: 'decimal',
-              },
-              'li > ul, li > ol': {
-                marginY: '0.25rem',
-              },
-              p: {
-                marginY: '0.5rem',
-              },
+              // ul: {
+              //   listStyle: 'disc',
+              // },
+              // ol: {
+              //   listStyle: 'decimal',
+              // },
+              // 'li > ul, li > ol': {
+              //   marginY: '0.25rem',
+              // },
+              // p: {
+              //   marginY: '0.5rem',
+              // },
               'h1, h2, h3, h4, h5, h6': {
                 fontWeight: 'bold',
-                marginY: '1rem',
+                // marginY: '1rem',
                 color: textColor,
               },
               h1: { fontSize: '2xl' },
               h2: { fontSize: 'xl' },
               h3: { fontSize: 'lg' },
               blockquote: {
-                borderLeftWidth: '4px',
+                // borderLeftWidth: '4px',
                 borderLeftColor: borderColor,
-                paddingLeft: '1rem',
-                marginY: '1rem',
+                // paddingLeft: '1rem',
+                // marginY: '1rem',
                 color: quoteColor,
               },
               'code, code > span': {
