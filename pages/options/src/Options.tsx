@@ -36,7 +36,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import type { OptionsFormData, Hat, HatList, HatListItem } from './types';
 import { optionsFormSchema } from './types';
 import { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE_CODE, languageStorage, openInWebStorage, hatsStorage } from './vars';
-import { HashRouter, Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
+import { HashRouter, Routes, Route, useNavigate, useParams, useLocation, useSearchParams } from 'react-router-dom';
 import type { Theme as ReactSelectTheme } from 'react-select';
 import { HatEditor } from './HatEditor';
 import { storage } from './storage';
@@ -126,6 +126,9 @@ const Options = () => {
 
   const selectTheme = createSelectTheme(isLight);
 
+  const [searchParams] = useSearchParams();
+  const isFromSidePanel = searchParams.get('via') === 'side-panel';
+
   useEffect(() => {
     // Clear saved indicators after 2 seconds
     const timer = setTimeout(() => {
@@ -185,12 +188,27 @@ const Options = () => {
     setHatToDelete(null);
   };
 
+  const closeOptionsTab = () => {
+    if (isFromSidePanel) {
+      chrome.tabs.getCurrent(tab => {
+        if (tab?.id) {
+          chrome.tabs.remove(tab.id);
+        }
+      });
+    }
+  };
+
   const handleDeleteConfirm = async () => {
     if (hatToDelete) {
       const updatedHats = (hats || []).filter(hat => hat.id !== hatToDelete.id);
       await hatsStorage.set(updatedHats);
       closeDeleteAlert();
       navigate('/');
+
+      // Close the tab if coming from side panel
+      if (isFromSidePanel) {
+        closeOptionsTab();
+      }
     }
   };
 
@@ -232,6 +250,11 @@ const Options = () => {
 
       // Refresh the UI
       loadHats();
+
+      // Close the tab if coming from side panel
+      if (isFromSidePanel) {
+        closeOptionsTab();
+      }
     } catch (error) {
       console.error('Failed to save hat:', error);
     }
@@ -250,6 +273,9 @@ const Options = () => {
 
   const handleModalClose = () => {
     navigate('/');
+    if (isFromSidePanel) {
+      closeOptionsTab();
+    }
   };
 
   return (

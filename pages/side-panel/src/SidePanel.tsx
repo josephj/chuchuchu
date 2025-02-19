@@ -48,7 +48,9 @@ const handleOpenOptions = () => {
 };
 
 const handleOpenOptionsWithRoute = (route: string) => {
-  const optionsUrl = `/options/index.html#${route}`;
+  // Add via=side-panel to the URL
+  const optionsUrl = `/options/index.html#${route}?via=side-panel`;
+
   // Check for existing options page
   chrome.tabs.query({ url: chrome.runtime.getURL('/options/index.html*') }, tabs => {
     if (tabs.length > 0) {
