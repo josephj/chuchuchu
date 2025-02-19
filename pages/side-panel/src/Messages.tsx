@@ -130,7 +130,6 @@ export const Messages = ({ messages, isTyping }: Props) => {
                   'ul, ol': {
                     pl: 4,
                     my: 2,
-                    listStylePosition: 'inside',
                   },
                   ul: {
                     listStyleType: 'disc',
