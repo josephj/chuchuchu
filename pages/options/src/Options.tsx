@@ -28,8 +28,10 @@ import {
   AlertDialogContent,
   AlertDialogOverlay,
   useColorMode,
+  FormHelperText,
+  Tooltip,
 } from '@chakra-ui/react';
-import { CheckIcon, AddIcon, DeleteIcon, EditIcon, CopyIcon } from '@chakra-ui/icons';
+import { CheckIcon, AddIcon, DeleteIcon, EditIcon, CopyIcon, InfoIcon } from '@chakra-ui/icons';
 import Select from 'react-select';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -370,6 +372,10 @@ const Options = () => {
                         <Switch isChecked={value} onChange={onChange} size="lg" />
                       )}
                     />
+                    <FormHelperText color={textColorSecondary} fontSize="xs">
+                      When enabled, Slack links will open in your browser instead of the desktop app, allowing you to
+                      use Chu Chu Chu for thread summarization.
+                    </FormHelperText>
                   </FormControl>
                   {savedSettings.openInWeb && <Icon as={CheckIcon} color="green.500" />}
                 </GridItem>
@@ -382,7 +388,15 @@ const Options = () => {
             <h2>
               <AccordionButton _hover={{ bg: buttonBg }}>
                 <Box as="span" flex="1" textAlign="left">
-                  <Heading size="md">Hats</Heading>
+                  <HStack spacing={2}>
+                    <Heading size="md">Hats</Heading>
+                    <Tooltip
+                      label="Hats are like different personas for the AI. Each hat can have its own prompt, language, model, and URL pattern. Switch between hats to get different types of responses based on your needs."
+                      placement="top"
+                      hasArrow>
+                      <InfoIcon color="primary.500" boxSize={4} />
+                    </Tooltip>
+                  </HStack>
                 </Box>
                 <AccordionIcon />
               </AccordionButton>
