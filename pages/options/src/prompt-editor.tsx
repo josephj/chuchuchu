@@ -134,6 +134,11 @@ export const PromptEditor = ({ value, onChange }: Props) => {
                 borderRadius: 'sm',
                 color: codeColor,
               },
+              code: {
+                display: 'inline-block',
+                marginX: '0.2rem',
+                borderRadius: 'md',
+              },
               pre: {
                 backgroundColor: codeBg,
                 borderRadius: 'md',
