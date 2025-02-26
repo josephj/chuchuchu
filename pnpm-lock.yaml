@@ -218,6 +218,9 @@ importers:
       '@extension/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
+      glob:
+        specifier: ^10.3.10
+        version: 10.4.5
 
   packages/tailwind-config: {}
 

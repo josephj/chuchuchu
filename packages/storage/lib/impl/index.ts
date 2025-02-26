@@ -1,2 +1,2 @@
 export * from './exampleThemeStorage';
-export * from './hatStorage';
+export * from './hat-storage';

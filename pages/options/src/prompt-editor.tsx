@@ -95,6 +95,12 @@ export const PromptEditor = ({ value, onChange }: Props) => {
                 paddingLeft: '2rem',
                 marginY: '0.5rem',
               },
+              p: {
+                marginBottom: '0.5rem',
+              },
+              li: {
+                whiteSpace: 'normal',
+              },
               // ul: {
               //   listStyle: 'disc',
               // },
@@ -125,7 +131,6 @@ export const PromptEditor = ({ value, onChange }: Props) => {
               'code, code > span': {
                 fontFamily: 'mono',
                 backgroundColor: codeBg,
-                padding: '0.2rem 0.4rem',
                 borderRadius: 'sm',
                 color: codeColor,
               },

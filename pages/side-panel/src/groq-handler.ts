@@ -26,9 +26,6 @@ export const handleGroqStream = async ({
   temperature = DEFAULT_TEMPERATURE,
 }: HandleGroqStreamParams) => {
   let fullResponse = '';
-  console.log('[DEBUG] systemPrompt :', systemPrompt);
-  console.log('[DEBUG] model :', model);
-  console.log('[DEBUG] temperature :', temperature);
   const response = await fetch(
     'https://australia-southeast1-automatic-stand-up-report.cloudfunctions.net/chatCompletions',
     {

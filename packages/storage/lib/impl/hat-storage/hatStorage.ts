@@ -1,22 +1,7 @@
-import { StorageEnum } from '../base/enums';
-import { createStorage } from '../base/base';
-import type { BaseStorage } from '../base/types';
-
-export type HatListItem = {
-  id: string;
-  label: string;
-  language: string;
-};
-
-export type Hat = {
-  id: string;
-  label: string;
-  language: string;
-  prompt: string;
-  model?: string;
-  temperature?: number;
-  urlPatterns?: string[];
-};
+import { StorageEnum } from '../../base/enums';
+import { createStorage } from '../../base/base';
+import type { BaseStorage } from '../../base/types';
+import type { HatListItem, Hat } from './types';
 
 type HatStorageType = BaseStorage<HatListItem[]> & {
   getHatList: () => Promise<HatListItem[]>;

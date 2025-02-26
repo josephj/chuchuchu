@@ -30,6 +30,7 @@ import {
   useColorMode,
   FormHelperText,
   Tooltip,
+  ButtonGroup,
 } from '@chakra-ui/react';
 import { CheckIcon, AddIcon, DeleteIcon, EditIcon, CopyIcon, InfoIcon } from '@chakra-ui/icons';
 import Select from 'react-select';
@@ -37,7 +38,15 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { OptionsFormData, Hat, HatList, HatListItem } from './types';
 import { optionsFormSchema } from './types';
-import { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE_CODE, languageStorage, openInWebStorage, hatsStorage } from './vars';
+import {
+  SUPPORTED_LANGUAGES,
+  DEFAULT_LANGUAGE_CODE,
+  languageStorage,
+  openInWebStorage,
+  hatsStorage,
+  modeStorage,
+  DEFAULT_MODE,
+} from './vars';
 import { HashRouter, Routes, Route, useNavigate, useParams, useLocation, useSearchParams } from 'react-router-dom';
 import type { Theme as ReactSelectTheme } from 'react-select';
 import { HatEditor } from './HatEditor';
@@ -96,6 +105,7 @@ const Options = () => {
   const { hatId } = useParams();
   const selectedLanguage = useStorage(languageStorage);
   const openInWeb = useStorage(openInWebStorage);
+  const mode = useStorage(modeStorage);
   const [savedSettings, setSavedSettings] = useState<{ [K in keyof OptionsFormData]?: boolean }>({});
   const [hatToDelete, setHatToDelete] = useState<Hat | null>(null);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
@@ -117,6 +127,7 @@ const Options = () => {
       language: DEFAULT_LANGUAGE_CODE,
       theme: !isLight,
       openInWeb: true,
+      mode: DEFAULT_MODE,
     },
   });
 
@@ -142,7 +153,8 @@ const Options = () => {
   useEffect(() => {
     setValue('language', selectedLanguage);
     setValue('openInWeb', openInWeb);
-  }, [setValue, selectedLanguage, openInWeb]);
+    setValue('mode', mode);
+  }, [setValue, selectedLanguage, openInWeb, mode]);
 
   const onSubmit = async (data: OptionsFormData) => {
     // Handle language change
@@ -160,6 +172,12 @@ const Options = () => {
         }
       });
       setSavedSettings(prev => ({ ...prev, openInWeb: true }));
+    }
+
+    // Handle mode change
+    if (data.mode !== mode) {
+      await modeStorage.set(data.mode);
+      setSavedSettings(prev => ({ ...prev, mode: true }));
     }
   };
 
@@ -338,8 +356,53 @@ const Options = () => {
                         />
                       )}
                     />
+                    <FormHelperText color={textColorSecondary} fontSize="xs">
+                      Default output language for summarization. When a hat doesn&apos;t specify a language, it will use
+                      this setting.
+                    </FormHelperText>
                   </FormControl>
                   {savedSettings.language && <Icon as={CheckIcon} color="green.500" />}
+                </GridItem>
+
+                {/* Mode Setting */}
+                <GridItem display="flex" justifyContent="flex-end" alignItems="center" pr={4}>
+                  <FormLabel fontWeight="medium" m={0} htmlFor="mode-select" color={textColor}>
+                    Mode
+                  </FormLabel>
+                </GridItem>
+                <GridItem display="flex" alignItems="center" gap={2}>
+                  <FormControl id="mode-select">
+                    <Controller
+                      control={control}
+                      name="mode"
+                      render={({ field: { onChange, value } }) => (
+                        <ButtonGroup size="sm" isAttached variant="outline">
+                          <Button
+                            onClick={() => {
+                              onChange('simple');
+                              modeStorage.set('simple');
+                            }}
+                            colorScheme={value === 'simple' ? 'blue' : undefined}
+                            variant={value === 'simple' ? 'solid' : 'outline'}>
+                            Simple
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              onChange('advanced');
+                              modeStorage.set('advanced');
+                            }}
+                            colorScheme={value === 'advanced' ? 'blue' : undefined}
+                            variant={value === 'advanced' ? 'solid' : 'outline'}>
+                            Advanced
+                          </Button>
+                        </ButtonGroup>
+                      )}
+                    />
+                    <FormHelperText color={textColorSecondary} fontSize="xs">
+                      Simple mode shows language selection, Advanced mode shows hat selection
+                    </FormHelperText>
+                  </FormControl>
+                  {savedSettings.mode && <Icon as={CheckIcon} color="green.500" />}
                 </GridItem>
               </Grid>
             </AccordionPanel>

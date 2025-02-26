@@ -1,22 +1,32 @@
-import { Box, Flex, Text, Tooltip, useColorMode } from '@chakra-ui/react';
+import { useColorMode } from '@chakra-ui/react';
 import type { Theme } from 'react-select';
 import Select from 'react-select';
-
-import { styles } from './styles';
-import type { Language, Option } from './types';
-import { SUPPORTED_LANGUAGES } from './vars';
+import { SUPPORTED_LANGUAGES, languageStorage } from '../../../options/src/vars';
+import { useStorage } from '@extension/shared';
 
 type Props = {
-  value?: Language['code'];
-  onChange: (value: string) => void;
   isDisabled?: boolean;
+  onChange?: (languageCode: string) => void;
 };
 
-export const LanguageSelector = ({ value: selectedLanguageCode, onChange, isDisabled }: Props) => {
+type LanguageOption = {
+  value: string;
+  label: string;
+  code: string;
+  name: string;
+};
+
+export const LanguageSelector = ({ isDisabled, onChange }: Props) => {
+  const selectedLanguage = useStorage(languageStorage);
   const { colorMode } = useColorMode();
   const isDarkMode = colorMode === 'dark';
-  const options = SUPPORTED_LANGUAGES.map(lang => ({ value: lang.code, label: lang.name }));
-  const value = options.find(option => option.value === selectedLanguageCode);
+
+  const handleLanguageChange = (option: LanguageOption | null) => {
+    if (option?.code) {
+      languageStorage.set(option.code);
+      onChange?.(option?.code);
+    }
+  };
 
   const customTheme = (theme: Theme) => ({
     ...theme,
@@ -40,32 +50,36 @@ export const LanguageSelector = ({ value: selectedLanguageCode, onChange, isDisa
     },
   });
 
-  const handleChange = (option: Option | null) => {
-    if (option?.value) {
-      onChange(option?.value);
-    }
+  const styles = {
+    control: (base: Record<string, unknown>) => ({
+      ...base,
+      minHeight: '32px',
+      width: '200px',
+    }),
+    container: (base: Record<string, unknown>) => ({
+      ...base,
+      zIndex: 2,
+    }),
+    option: (base: Record<string, unknown>) => ({
+      ...base,
+      cursor: 'pointer',
+      padding: '8px 12px',
+    }),
   };
 
   return (
-    <Flex gap={2} alignItems="center">
-      <Tooltip label="Language" placement="top">
-        <Box>
-          <Text fontSize="lg">🌐</Text>
-        </Box>
-      </Tooltip>
-      <Select
-        value={value}
-        onChange={handleChange}
-        options={options}
-        isDisabled={isDisabled}
-        styles={styles}
-        theme={customTheme}
-        placeholder="Select language..."
-        isSearchable
-        components={{
-          IndicatorSeparator: () => null,
-        }}
-      />
-    </Flex>
+    <Select<LanguageOption>
+      value={SUPPORTED_LANGUAGES.find(lang => lang.code === selectedLanguage)}
+      onChange={handleLanguageChange}
+      options={SUPPORTED_LANGUAGES}
+      isDisabled={isDisabled}
+      styles={styles}
+      theme={customTheme}
+      placeholder="Select language..."
+      isSearchable
+      components={{
+        IndicatorSeparator: () => null,
+      }}
+    />
   );
 };

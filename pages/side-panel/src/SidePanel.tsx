@@ -28,7 +28,8 @@ import { Header } from './Header';
 import { usePageType } from './lib/use-page-type';
 import { HatSelector } from './HatSelector';
 import { replaceTokens } from './prompts/utils';
-import { SUPPORTED_LANGUAGES, selectedHatStorage } from '../../options/src/vars';
+import { SUPPORTED_LANGUAGES, selectedHatStorage, modeStorage, languageStorage } from '../../options/src/vars';
+import { LanguageSelector } from './LanguageSelector/LanguageSelector';
 
 type FormData = {
   question: string;
@@ -69,6 +70,10 @@ const handleOpenOptionsWithRoute = (route: string) => {
 const SidePanel = () => {
   const hats = useHats();
   const selectedHat = useStorage(selectedHatStorage);
+  const mode = useStorage(modeStorage);
+  const selectedLanguage = useStorage(languageStorage);
+
+  const latestLanguageRef = useRef(selectedLanguage);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
@@ -100,14 +105,12 @@ const SidePanel = () => {
   const [isThreadPaneAvailable, setIsThreadPaneAvailable] = useState(false);
 
   const { colorMode, toggleColorMode } = useColorMode();
-  console.log('[DEBUG] SidePanel - kcolorMode :', colorMode);
   const bg = useColorModeValue('dracula.light.background', 'dracula.background');
   const borderColor = useColorModeValue('dracula.light.currentLine', 'dracula.currentLine');
   const textColor = useColorModeValue('dracula.light.foreground', 'dracula.foreground');
   const textColorSecondary = useColorModeValue('dracula.light.comment', 'dracula.comment');
   const buttonBg = useColorModeValue('dracula.light.currentLine', 'dracula.currentLine');
 
-  // Add new state for tracking if we're on the options page
   const [isOptionsPage, setIsOptionsPage] = useState(false);
 
   const handleAskAssistant = useCallback(
@@ -119,15 +122,26 @@ const SidePanel = () => {
       if (!selectedHatData) return;
 
       try {
-        const selectedLanguage = SUPPORTED_LANGUAGES.find(lang => lang.code === selectedHatData.language);
-        if (!selectedLanguage) return;
+        // Use latestLanguage instead of selectedLanguage
+        const effectiveLanguage = mode === 'simple' ? latestLanguageRef.current : selectedHatData.language;
+        console.log('[DEBUG] latestLanguage :', latestLanguageRef.current);
+        console.log('[DEBUG] selectedHatData.language :', selectedHatData.language);
+        console.log('[DEBUG] effectiveLanguage :', effectiveLanguage);
+
+        const selectedLanguageData = SUPPORTED_LANGUAGES.find(lang => lang.code === effectiveLanguage);
+        if (!selectedLanguageData) return;
 
         const systemPrompt = replaceTokens(selectedHatData.prompt, {
           language: {
-            code: selectedLanguage.code,
-            name: selectedLanguage.name,
+            code: selectedLanguageData.code,
+            name: selectedLanguageData.name,
           },
         });
+
+        // Clear previous messages if language changed in simple mode
+        if (mode === 'simple' && isInitialAnalysis) {
+          setMessages([]);
+        }
 
         const previousMessages = messages.map(msg => ({
           role: msg.role,
@@ -189,7 +203,7 @@ const SidePanel = () => {
         setIsGenerating(false);
       }
     },
-    [hats, selectedHat, messages, originalContent],
+    [hats, selectedHat, mode, messages, originalContent],
   );
 
   const handleHatChange = useCallback(
@@ -351,19 +365,22 @@ ${articleContent.content || ''}`.trim();
     setIsOnOriginalPage(true);
   }, []);
 
-  const handleRegenerate = useCallback(async () => {
-    if (hasContent) {
-      setIsGenerating(true);
-      try {
-        if (threadData) {
-          const formattedData = formatThreadForLLM(threadData);
-          await handleAskAssistant(formattedData, true);
-        } else if (articleContent) {
-          const formattedContent =
-            typeof articleContent === 'string'
-              ? articleContent
-              : pageType.type === 'youtube'
-                ? `---
+  const handleRegenerate = useCallback(
+    async (newLanguage?: string) => {
+      console.log('[DEBUG] handleRegenerate - latestLanguage', latestLanguageRef.current);
+      console.log('[DEBUG] handleRegenerate - newLanguage', newLanguage);
+      if (hasContent) {
+        setIsGenerating(true);
+        try {
+          if (threadData) {
+            const formattedData = formatThreadForLLM(threadData);
+            await handleAskAssistant(formattedData, true);
+          } else if (articleContent) {
+            const formattedContent =
+              typeof articleContent === 'string'
+                ? articleContent
+                : pageType.type === 'youtube'
+                  ? `---
 title: ${articleTitle}
 ${articleContent.channel ? `channel: ${articleContent.channel}` : ''}
 ${articleContent.publishDate ? `published: ${articleContent.publishDate}` : ''}
@@ -373,7 +390,7 @@ type: youtube
 ${articleContent.description ? `## Description\n${articleContent.description}` : 'No description available'}
 
 ${articleContent.transcript ? `## Transcript\n${articleContent.transcript}` : ''}`
-                : `---
+                  : `---
 title: ${articleTitle}
 ${articleContent.siteName ? `source: ${articleContent.siteName}` : ''}
 ${articleContent.byline ? `author: ${articleContent.byline}` : ''}
@@ -385,15 +402,25 @@ ${articleContent.excerpt ? `## Summary\n${articleContent.excerpt}\n` : ''}
 ## Content
 ${articleContent.content || ''}`.trim();
 
-          await handleAskAssistant(formattedContent, true);
+            await handleAskAssistant(formattedContent, true);
+          }
+        } catch (error) {
+          console.error('Error regenerating:', error);
+        } finally {
+          setIsGenerating(false);
         }
-      } catch (error) {
-        console.error('Error regenerating:', error);
-      } finally {
-        setIsGenerating(false);
       }
-    }
-  }, [articleContent, articleTitle, handleAskAssistant, hasContent, pageType.type, threadData]);
+    },
+    [
+      latestLanguageRef.current,
+      hasContent,
+      threadData,
+      articleContent,
+      handleAskAssistant,
+      pageType.type,
+      articleTitle,
+    ],
+  );
 
   useEffect(() => {
     const handleMessage = async (
@@ -423,16 +450,6 @@ ${articleContent.content || ''}`.trim();
           handleAskAssistant(formattedData, true);
         }, 100);
       } else if (message.type === 'ARTICLE_DATA_RESULT') {
-        console.log('[DEBUG] handleMessage - Processing article data');
-        console.log('[DEBUG] Current hat:', selectedHat);
-        console.log('[DEBUG] Available hats:', hats);
-
-        // Wait for hat to be selected if not available
-        if (!selectedHat || !hats?.length) {
-          console.log('[DEBUG] Waiting for hat to be selected...');
-          return;
-        }
-
         setIsCapturing(false);
         setThreadData(null);
         setMessages([]);
@@ -651,13 +668,24 @@ ${articleContent.content || ''}`.trim();
   useEffect(() => {
     if (hasContent) return; // Don't auto-change hat if content exists
 
-    const updateHatFromUrl = (url?: string) => {
+    const updateHatFromUrl = async (url?: string) => {
       if (!url || !hats?.length) return;
 
       const bestMatch = findBestMatchingHat(url, hats);
-      if (bestMatch?.id && bestMatch.id !== selectedHat) {
-        setIsManuallySelected(false); // Reset manual selection when URL changes
-        selectedHatStorage.set(bestMatch.id);
+      if (bestMatch?.id) {
+        if (mode === 'advanced') {
+          if (bestMatch.id !== selectedHat && !isManuallySelected) {
+            setIsManuallySelected(false);
+            selectedHatStorage.set(bestMatch.id);
+          }
+        } else {
+          // In simple mode, use best match hat but override language
+          const hat = { ...bestMatch, language: selectedLanguage };
+          await selectedHatStorage.set(hat.id);
+          if (bestMatch.id !== selectedHat) {
+            selectedHatStorage.set(bestMatch.id);
+          }
+        }
       }
     };
 
@@ -693,7 +721,7 @@ ${articleContent.content || ''}`.trim();
       chrome.tabs.onActivated.removeListener(handleTabActivated);
       chrome.tabs.onUpdated.removeListener(handleTabUpdated);
     };
-  }, [hats, selectedHat, hasContent, isManuallySelected]);
+  }, [hats, selectedHat, hasContent, isManuallySelected, mode, selectedLanguage]);
 
   useEffect(() => {
     const checkIfOptionsPage = () => {
@@ -727,9 +755,19 @@ ${articleContent.content || ''}`.trim();
         <Flex justify="space-between" align="center">
           <ButtonGroup size="sm" variant="ghost" spacing={0} bg={buttonBg} borderRadius="md" p={1}>
             <Box px={1}>
-              <HatSelector value={selectedHat} onChange={handleHatChange} isDisabled={isGenerating} />
+              {mode === 'advanced' ? (
+                <HatSelector value={selectedHat} onChange={handleHatChange} isDisabled={isGenerating} />
+              ) : (
+                <LanguageSelector
+                  onChange={newLanguage => {
+                    latestLanguageRef.current = newLanguage;
+                    handleRegenerate(newLanguage);
+                  }}
+                  isDisabled={isGenerating}
+                />
+              )}
             </Box>
-            {selectedHat && (
+            {selectedHat && mode === 'advanced' ? (
               <Tooltip label="Edit current hat" placement="top">
                 <IconButton
                   aria-label="Edit current hat"
@@ -740,7 +778,7 @@ ${articleContent.content || ''}`.trim();
                   color={textColor}
                 />
               </Tooltip>
-            )}
+            ) : null}
             <Tooltip label="Create new hat" placement="top">
               <IconButton
                 aria-label="Create new hat"

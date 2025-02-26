@@ -5,5 +5,5 @@
     "outDir": "dist",
     "types": ["chrome"]
   },
-  "include": ["index.ts", "lib"]
+  "include": ["index.ts", "lib", "types.d.ts"]
 }
