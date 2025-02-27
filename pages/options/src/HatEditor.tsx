@@ -9,6 +9,7 @@ import {
   ModalBody,
   ModalCloseButton,
   FormControl,
+  Flex,
   FormLabel,
   Input,
   Button,
@@ -26,6 +27,7 @@ import {
   AlertIcon,
   AlertDescription,
   IconButton,
+  FormHelperText,
 } from '@chakra-ui/react';
 import { DeleteIcon, AddIcon } from '@chakra-ui/icons';
 import Select, { components } from 'react-select';
@@ -62,6 +64,11 @@ type LanguageOption = {
   name: string;
 };
 
+type OptionProps = {
+  children: React.ReactNode;
+  value: string;
+} & Record<string, unknown>;
+
 const createSelectTheme = (isLight: boolean) => (theme: ReactSelectTheme) => ({
   ...theme,
   colors: {
@@ -85,15 +92,16 @@ const createSelectTheme = (isLight: boolean) => (theme: ReactSelectTheme) => ({
 });
 
 const generateHatId = (label: string) => {
-  // Create a base slug from the label
-  const baseSlug = label
+  const slug = label
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_') // Replace non-alphanumeric chars with underscore
-    .replace(/^_+|_+$/g, ''); // Remove leading/trailing underscores
+    .replace(/[^a-z0-9]+/g, '')
+    .replace(/^_+|_+$/g, '')
+    .replace(/_+/g, '_');
 
-  // Add a unique suffix
-  const uniqueSuffix = nanoid(8); // 8 characters should be enough for uniqueness
-  return `hat_${baseSlug}_${uniqueSuffix}`;
+  const uniqueSuffix = nanoid(8);
+  return ['hat', slug, uniqueSuffix].filter(Boolean).join('_');
 };
 
 const isCustomModel = (modelValue: string) => {
@@ -187,7 +195,6 @@ export const HatEditor = ({ isOpen, onClose, editingHat, onSave, allHats }: Prop
     setNewHat(prev => ({
       ...prev,
       label: newLabel,
-      alias: prev.alias || newLabel.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
     }));
   };
 
@@ -197,8 +204,8 @@ export const HatEditor = ({ isOpen, onClose, editingHat, onSave, allHats }: Prop
       label: `Ollama: ${modelName}`,
     };
 
-    // Add the new model to SUPPORTED_MODELS
-    SUPPORTED_MODELS.push(newModel);
+    // Update custom models instead of SUPPORTED_MODELS
+    setCustomModels(prev => [...prev, newModel]);
 
     // Update the current hat's model
     setNewHat(prev => ({
@@ -229,7 +236,7 @@ export const HatEditor = ({ isOpen, onClose, editingHat, onSave, allHats }: Prop
   const isModelInUse = (modelValue: string) => allHats.some(hat => hat.model === modelValue);
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="6xl" portalProps={{ containerRef: null }}>
+    <Modal isOpen={isOpen} onClose={onClose} size="6xl" portalProps={{ containerRef: undefined }}>
       <ModalOverlay />
       <ModalContent bg={bg} color={textColor} mx={10} position="relative">
         <ModalHeader>
@@ -246,19 +253,12 @@ export const HatEditor = ({ isOpen, onClose, editingHat, onSave, allHats }: Prop
           <Grid templateColumns="350px 1fr" gap={8}>
             {/* Left Column - Settings */}
             <VStack spacing={4} align="stretch">
-              <FormControl>
+              <FormControl isRequired>
                 <FormLabel>Label</FormLabel>
                 <Input value={newHat.label || ''} onChange={handleLabelChange} placeholder="Enter hat label" />
+                <FormHelperText fontSize="xs">A unique name to identify this hat</FormHelperText>
               </FormControl>
-              <FormControl>
-                <FormLabel>Alias (Optional)</FormLabel>
-                <Input
-                  value={newHat.alias || ''}
-                  onChange={e => setNewHat(prev => ({ ...prev, alias: e.target.value }))}
-                  placeholder="Enter URL-friendly identifier"
-                />
-              </FormControl>
-              <FormControl>
+              <FormControl isRequired>
                 <FormLabel>Temperature ({newHat.temperature})</FormLabel>
                 <Box pt={2} pb={6} width="90%">
                   <Slider
@@ -290,13 +290,18 @@ export const HatEditor = ({ isOpen, onClose, editingHat, onSave, allHats }: Prop
                     </Tooltip>
                   </Slider>
                 </Box>
+                <FormHelperText fontSize="xs">
+                  Controls response creativity - lower values for factual responses, higher for more creative ones
+                </FormHelperText>
               </FormControl>
               <FormControl>
                 <FormLabel>Language</FormLabel>
                 <Select<LanguageOption>
-                  value={SUPPORTED_LANGUAGES.find(lang => lang.code === newHat.language)}
-                  onChange={option => setNewHat({ ...newHat, language: option?.code || DEFAULT_LANGUAGE_CODE })}
+                  value={SUPPORTED_LANGUAGES.find(lang => lang.code === newHat.language) || null}
+                  onChange={option => setNewHat(prev => ({ ...prev, language: option?.code || '' }))}
                   options={SUPPORTED_LANGUAGES}
+                  isClearable
+                  placeholder="(Use default)"
                   styles={{
                     container: (base: Record<string, unknown>) => ({
                       ...base,
@@ -315,90 +320,100 @@ export const HatEditor = ({ isOpen, onClose, editingHat, onSave, allHats }: Prop
                   menuPortalTarget={document.body}
                   menuPosition="fixed"
                   theme={selectTheme}
-                  placeholder="Select language..."
                   isSearchable
                   components={{
                     IndicatorSeparator: () => null,
                   }}
                 />
+                <FormHelperText fontSize="xs">
+                  Choose a specific language for responses, or leave empty to use the default
+                </FormHelperText>
               </FormControl>
-              <FormControl>
+              <FormControl isRequired>
                 <FormLabel>Model</FormLabel>
-                <VStack align="stretch" spacing={2}>
-                  <Select<ModelOption>
-                    value={allModels.find(model => model.value === newHat.model)}
-                    onChange={option => setNewHat({ ...newHat, model: option?.value || DEFAULT_MODEL })}
-                    options={allModels}
-                    styles={{
-                      container: (base: Record<string, unknown>) => ({
-                        ...base,
-                        zIndex: 9,
-                      }),
-                      control: (base: Record<string, unknown>) => ({
-                        ...base,
-                        minHeight: '32px',
-                        width: '100%',
-                      }),
-                    }}
-                    theme={selectTheme}
-                    placeholder="Select model..."
-                    isSearchable
-                    components={{
-                      IndicatorSeparator: () => null,
-                      Option: ({ children, ...props }) => (
-                        <Box position="relative">
-                          <components.Option {...props}>
-                            {children}
-                            {isCustomModel(props.value) && (
-                              <Tooltip
-                                hasArrow
-                                label={
-                                  isModelInUse(props.value) ? "Can't remove model while it's in use" : 'Remove model'
-                                }>
-                                <Box display="inline-block">
-                                  <IconButton
-                                    aria-label="Remove model"
-                                    icon={<DeleteIcon />}
-                                    size="xs"
-                                    position="absolute"
-                                    right={2}
-                                    top="50%"
-                                    transform="translateY(-50%)"
-                                    onClick={e => {
-                                      e.stopPropagation();
-                                      handleRemoveModel(props.value);
-                                    }}
-                                    isDisabled={isModelInUse(props.value)}
-                                  />
-                                </Box>
-                              </Tooltip>
-                            )}
-                          </components.Option>
-                        </Box>
-                      ),
-                    }}
-                  />
-                  <Button size="sm" onClick={() => setIsModelSelectorOpen(true)} leftIcon={<AddIcon />}>
-                    Add new model
+                <Flex align="stretch" alignItems="center" gap={2}>
+                  <Box flex={1}>
+                    <Select<ModelOption>
+                      value={allModels.find(model => model.value === newHat.model)}
+                      onChange={option => setNewHat({ ...newHat, model: option?.value || DEFAULT_MODEL })}
+                      options={allModels}
+                      styles={{
+                        container: (base: Record<string, unknown>) => ({
+                          ...base,
+                          zIndex: 9,
+                        }),
+                        control: (base: Record<string, unknown>) => ({
+                          ...base,
+                          minHeight: '32px',
+                          width: '100%',
+                        }),
+                      }}
+                      theme={selectTheme}
+                      placeholder="Select model..."
+                      isSearchable
+                      components={{
+                        IndicatorSeparator: () => null,
+                        Option: ({ children, ...props }: OptionProps) => (
+                          <Box position="relative">
+                            <components.Option {...props}>
+                              {children}
+                              {isCustomModel(props.value) && (
+                                <Tooltip
+                                  hasArrow
+                                  label={
+                                    isModelInUse(props.value) ? "Can't remove model while it's in use" : 'Remove model'
+                                  }>
+                                  <Box display="inline-block">
+                                    <IconButton
+                                      aria-label="Remove model"
+                                      icon={<DeleteIcon />}
+                                      size="xs"
+                                      position="absolute"
+                                      right={2}
+                                      top="50%"
+                                      transform="translateY(-50%)"
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        handleRemoveModel(props.value);
+                                      }}
+                                      isDisabled={isModelInUse(props.value)}
+                                    />
+                                  </Box>
+                                </Tooltip>
+                              )}
+                            </components.Option>
+                          </Box>
+                        ),
+                      }}
+                    />
+                  </Box>
+                  <Button size="sm" onClick={() => setIsModelSelectorOpen(true)}>
+                    <AddIcon />
                   </Button>
-                </VStack>
+                </Flex>
+                <FormHelperText fontSize="xs">Select the AI model to use for this hat</FormHelperText>
               </FormControl>
               <FormControl>
-                <FormLabel>URL Pattern (Optional)</FormLabel>
+                <FormLabel>URL Pattern</FormLabel>
                 <Input
                   value={newHat.urlPattern || ''}
                   onChange={e => setNewHat({ ...newHat, urlPattern: e.target.value })}
                   placeholder="e.g., https://*.example.com/*/page"
                 />
+                <FormHelperText fontSize="xs">
+                  When specified, this hat will automatically activate on matching URLs. Use * for wildcards
+                </FormHelperText>
               </FormControl>
             </VStack>
 
             {/* Right Column - Prompt Editor */}
-            <PromptEditor value={newHat.prompt || ''} onChange={prompt => setNewHat(prev => ({ ...prev, prompt }))} />
+            <Box>
+              <PromptEditor value={newHat.prompt || ''} onChange={prompt => setNewHat(prev => ({ ...prev, prompt }))} />
+            </Box>
           </Grid>
         </ModalBody>
         <ModalFooter display="flex" width="100%" alignItems="center" gap={3}>
-          {editingHat && (
+          {editingHat && !location.pathname.includes('/hats/clone/') && (
             <Button
               colorScheme="red"
               variant="ghost"
@@ -415,7 +430,7 @@ export const HatEditor = ({ isOpen, onClose, editingHat, onSave, allHats }: Prop
             Cancel
           </Button>
           <Button colorScheme="blue" onClick={handleSave}>
-            {editingHat ? 'Update Hat' : 'Add Hat'}
+            {location.pathname.includes('/hats/clone/') ? 'Add Hat' : editingHat ? 'Update Hat' : 'Add Hat'}
           </Button>
         </ModalFooter>
       </ModalContent>

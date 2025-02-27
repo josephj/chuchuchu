@@ -9,11 +9,10 @@ export type Language = {
 
 export type Hat = {
   id: string;
-  alias: string | undefined;
   label: string;
   prompt: string;
   temperature: number;
-  language: string;
+  language?: string;
   model: string;
   urlPattern?: string;
 };
@@ -21,17 +20,16 @@ export type Hat = {
 export type Hats = Hat[];
 
 // Add new types for the hat list
-export type HatListItem = Pick<Hat, 'id' | 'label' | 'alias' | 'urlPattern' | 'model' | 'language'>;
+export type HatListItem = Pick<Hat, 'id' | 'label' | 'urlPattern' | 'model' | 'language'>;
 
 export type HatList = HatListItem[];
 
 export const hatSchema = z.object({
   id: z.string(),
-  alias: z.string().optional(),
   label: z.string().min(1, 'Label is required'),
   prompt: z.string().min(1, 'Prompt is required'),
   temperature: z.number().min(0).max(2.5),
-  language: z.string(),
+  language: z.string().optional(),
   model: z.string(),
   urlPattern: z.string().optional(),
 });
@@ -44,3 +42,5 @@ export const optionsFormSchema = z.object({
 });
 
 export type OptionsFormData = z.infer<typeof optionsFormSchema>;
+
+export type Hat = z.infer<typeof hatSchema>;

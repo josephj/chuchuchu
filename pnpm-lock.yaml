@@ -214,6 +214,10 @@ importers:
         version: link:../tsconfig
 
   packages/storage:
+    dependencies:
+      nanoid:
+        specifier: ^5.0.9
+        version: 5.0.9
     devDependencies:
       '@extension/tsconfig':
         specifier: workspace:*

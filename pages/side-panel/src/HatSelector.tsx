@@ -73,10 +73,13 @@ export const HatSelector = ({ value, onChange, isDisabled }: Props) => {
     }),
   };
 
-  const options: HatOption[] = hats.map((hat: Hat) => ({
-    value: hat.id,
-    label: `${getLanguageFlag(hat.language)} ${hat.label}`,
-  }));
+  const options: HatOption[] = hats.map((hat: Hat) => {
+    const languageFlag = hat.language ? getLanguageFlag(hat.language) : '';
+    return {
+      value: hat.id,
+      label: `${languageFlag} ${hat.label}`,
+    };
+  });
 
   return (
     <Flex gap={2} alignItems="center">

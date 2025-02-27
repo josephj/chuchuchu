@@ -1,4 +1,4 @@
-import { Box, FormControl, FormLabel, useColorModeValue } from '@chakra-ui/react';
+import { Box, FormControl, FormHelperText, FormLabel, useColorModeValue } from '@chakra-ui/react';
 import {
   MDXEditor,
   headingsPlugin,
@@ -49,203 +49,202 @@ export const PromptEditor = ({ value, onChange }: Props) => {
   }, [value]);
 
   return (
-    <Box>
-      <FormControl height="100%">
-        <FormLabel color={textColor}>Prompt</FormLabel>
-        <Box
-          sx={{
-            position: 'relative',
-            '.mdxeditor': {
-              height: '500px',
-              overflow: 'auto',
-              backgroundColor: bg,
-              border: '1px solid',
+    <FormControl isRequired>
+      <FormLabel>Prompt</FormLabel>
+      <Box
+        sx={{
+          position: 'relative',
+          '.mdxeditor': {
+            height: '550px',
+            overflow: 'auto',
+            backgroundColor: bg,
+            border: '1px solid',
+            borderColor,
+            borderRadius: 'md',
+          },
+          '.mdxeditor-toolbar': {
+            backgroundColor: bg,
+            borderBottom: '1px solid',
+            borderColor,
+            position: 'sticky',
+            top: 0,
+            zIndex: 1,
+            button: {
+              color: textColor,
+              backgroundColor: buttonBg,
+              '&:hover': {
+                backgroundColor: buttonHoverBg,
+              },
+              '&[data-state="on"]': {
+                backgroundColor: buttonActiveBg,
+              },
+            },
+            '.mdxeditor-toolbar-group': {
               borderColor,
+            },
+          },
+          '.mdxeditor-root-contenteditable': {
+            fontSize: '14px',
+            height: '100%',
+            padding: '10px',
+            '[aria-label="editable markdown"]': {
+              color: `${textColor} !important`,
+            },
+            'ul, ol': {
+              paddingLeft: '2rem',
+              marginY: '0.5rem',
+            },
+            p: {
+              marginBottom: '0.5rem',
+            },
+            li: {
+              whiteSpace: 'normal',
+            },
+            // ul: {
+            //   listStyle: 'disc',
+            // },
+            // ol: {
+            //   listStyle: 'decimal',
+            // },
+            // 'li > ul, li > ol': {
+            //   marginY: '0.25rem',
+            // },
+            // p: {
+            //   marginY: '0.5rem',
+            // },
+            'h1, h2, h3, h4, h5, h6': {
+              fontWeight: 'bold',
+              // marginY: '1rem',
+              color: textColor,
+            },
+            h1: { fontSize: '2xl' },
+            h2: { fontSize: 'xl' },
+            h3: { fontSize: 'lg' },
+            blockquote: {
+              // borderLeftWidth: '4px',
+              borderLeftColor: borderColor,
+              // paddingLeft: '1rem',
+              // marginY: '1rem',
+              color: quoteColor,
+            },
+            'code, code > span': {
+              fontFamily: 'mono',
+              backgroundColor: codeBg,
+              borderRadius: 'sm',
+              color: codeColor,
+            },
+            code: {
+              display: 'inline-block',
+              marginX: '0.2rem',
               borderRadius: 'md',
             },
-            '.mdxeditor-toolbar': {
-              backgroundColor: bg,
-              borderBottom: '1px solid',
-              borderColor,
-              position: 'sticky',
-              top: 0,
-              zIndex: 1,
-              button: {
+            pre: {
+              backgroundColor: codeBg,
+              borderRadius: 'md',
+              margin: '1rem 0',
+            },
+            'pre code': {
+              display: 'block',
+              padding: '1rem',
+              overflow: 'auto',
+              color: textColor,
+              backgroundColor: 'transparent',
+            },
+            '.cm-editor': {
+              '.cm-content': {
                 color: textColor,
-                backgroundColor: buttonBg,
+                backgroundColor: codeBg,
+              },
+              '.cm-gutters': {
+                backgroundColor: codeBg,
+                color: textColor,
+                borderRight: '1px solid',
+                borderColor,
+              },
+            },
+            table: {
+              borderCollapse: 'collapse',
+              width: '100%',
+              marginY: '1rem',
+            },
+            'th, td': {
+              border: '1px solid',
+              borderColor,
+              padding: '0.5rem',
+              color: textColor,
+            },
+            th: {
+              backgroundColor: tableBg,
+              fontWeight: 'bold',
+            },
+          },
+          '.mdxeditor-popup-container': {
+            '.mdxeditor-select-content': {
+              backgroundColor: bg,
+              borderColor,
+              borderWidth: '1px',
+              borderRadius: 'md',
+              boxShadow: 'lg',
+              padding: '4px',
+              '[role="option"]': {
+                color: textColor,
+                padding: '8px 12px',
+                cursor: 'pointer',
+                borderRadius: 'sm',
                 '&:hover': {
                   backgroundColor: buttonHoverBg,
                 },
-                '&[data-state="on"]': {
+                '&[data-state="checked"]': {
                   backgroundColor: buttonActiveBg,
                 },
               },
-              '.mdxeditor-toolbar-group': {
-                borderColor,
-              },
             },
-            '.mdxeditor-root-contenteditable': {
-              fontSize: '14px',
-              height: '100%',
-              padding: '10px',
-              '[aria-label="editable markdown"]': {
-                color: `${textColor} !important`,
+          },
+        }}>
+        <MDXEditor
+          ref={ref}
+          plugins={[
+            // Core plugins
+            toolbarPlugin({
+              toolbarContents: () => (
+                <DiffSourceToggleWrapper>
+                  <UndoRedo />
+                  <ListsToggle />
+                  <CreateLink />
+                  <InsertTable />
+                  <InsertThematicBreak />
+                </DiffSourceToggleWrapper>
+              ),
+            }),
+            listsPlugin(),
+            quotePlugin(),
+            headingsPlugin(),
+            markdownShortcutPlugin(),
+            linkPlugin(),
+            tablePlugin(),
+            thematicBreakPlugin(),
+            codeBlockPlugin(),
+            codeMirrorPlugin({
+              codeBlockLanguages: {
+                js: 'JavaScript',
+                ts: 'TypeScript',
+                css: 'CSS',
+                html: 'HTML',
+                json: 'JSON',
               },
-              'ul, ol': {
-                paddingLeft: '2rem',
-                marginY: '0.5rem',
-              },
-              p: {
-                marginBottom: '0.5rem',
-              },
-              li: {
-                whiteSpace: 'normal',
-              },
-              // ul: {
-              //   listStyle: 'disc',
-              // },
-              // ol: {
-              //   listStyle: 'decimal',
-              // },
-              // 'li > ul, li > ol': {
-              //   marginY: '0.25rem',
-              // },
-              // p: {
-              //   marginY: '0.5rem',
-              // },
-              'h1, h2, h3, h4, h5, h6': {
-                fontWeight: 'bold',
-                // marginY: '1rem',
-                color: textColor,
-              },
-              h1: { fontSize: '2xl' },
-              h2: { fontSize: 'xl' },
-              h3: { fontSize: 'lg' },
-              blockquote: {
-                // borderLeftWidth: '4px',
-                borderLeftColor: borderColor,
-                // paddingLeft: '1rem',
-                // marginY: '1rem',
-                color: quoteColor,
-              },
-              'code, code > span': {
-                fontFamily: 'mono',
-                backgroundColor: codeBg,
-                borderRadius: 'sm',
-                color: codeColor,
-              },
-              code: {
-                display: 'inline-block',
-                marginX: '0.2rem',
-                borderRadius: 'md',
-              },
-              pre: {
-                backgroundColor: codeBg,
-                borderRadius: 'md',
-                margin: '1rem 0',
-              },
-              'pre code': {
-                display: 'block',
-                padding: '1rem',
-                overflow: 'auto',
-                color: textColor,
-                backgroundColor: 'transparent',
-              },
-              '.cm-editor': {
-                '.cm-content': {
-                  color: textColor,
-                  backgroundColor: codeBg,
-                },
-                '.cm-gutters': {
-                  backgroundColor: codeBg,
-                  color: textColor,
-                  borderRight: '1px solid',
-                  borderColor,
-                },
-              },
-              table: {
-                borderCollapse: 'collapse',
-                width: '100%',
-                marginY: '1rem',
-              },
-              'th, td': {
-                border: '1px solid',
-                borderColor,
-                padding: '0.5rem',
-                color: textColor,
-              },
-              th: {
-                backgroundColor: tableBg,
-                fontWeight: 'bold',
-              },
-            },
-            '.mdxeditor-popup-container': {
-              '.mdxeditor-select-content': {
-                backgroundColor: bg,
-                borderColor,
-                borderWidth: '1px',
-                borderRadius: 'md',
-                boxShadow: 'lg',
-                padding: '4px',
-                '[role="option"]': {
-                  color: textColor,
-                  padding: '8px 12px',
-                  cursor: 'pointer',
-                  borderRadius: 'sm',
-                  '&:hover': {
-                    backgroundColor: buttonHoverBg,
-                  },
-                  '&[data-state="checked"]': {
-                    backgroundColor: buttonActiveBg,
-                  },
-                },
-              },
-            },
-          }}>
-          <MDXEditor
-            ref={ref}
-            plugins={[
-              // Core plugins
-              toolbarPlugin({
-                toolbarContents: () => (
-                  <DiffSourceToggleWrapper>
-                    <UndoRedo />
-                    <ListsToggle />
-                    <CreateLink />
-                    <InsertTable />
-                    <InsertThematicBreak />
-                  </DiffSourceToggleWrapper>
-                ),
-              }),
-              listsPlugin(),
-              quotePlugin(),
-              headingsPlugin(),
-              markdownShortcutPlugin(),
-              linkPlugin(),
-              tablePlugin(),
-              thematicBreakPlugin(),
-              codeBlockPlugin(),
-              codeMirrorPlugin({
-                codeBlockLanguages: {
-                  js: 'JavaScript',
-                  ts: 'TypeScript',
-                  css: 'CSS',
-                  html: 'HTML',
-                  json: 'JSON',
-                },
-              }),
-              diffSourcePlugin({
-                viewMode: 'rich-text',
-                diffMarkdown: value || '',
-              }),
-            ]}
-            markdown={value || ''}
-            onChange={onChange}
-            placeholder="Enter your prompt in Markdown format"
-            contentEditableClassName="prose max-w-full"
-          />
-        </Box>
-      </FormControl>
-    </Box>
+            }),
+            diffSourcePlugin({
+              viewMode: 'rich-text',
+              diffMarkdown: value || '',
+            }),
+          ]}
+          markdown={value || ''}
+          onChange={onChange}
+          placeholder="Enter your prompt in Markdown format"
+          contentEditableClassName="prose max-w-full"
+        />
+      </Box>
+      <FormHelperText fontSize="xs">Define the behaviour and personality of your AI assistant</FormHelperText>
+    </FormControl>
   );
 };

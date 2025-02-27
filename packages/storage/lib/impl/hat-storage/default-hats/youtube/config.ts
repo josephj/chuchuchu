@@ -1,11 +1,11 @@
-import type { Hat } from '../../types';
+import type { HatConfig } from '../../types';
 import prompt from './system.md?raw';
 
-export const config: Hat = {
-  id: 'youtube',
+export const config: HatConfig = {
+  alias: 'youtube',
   label: 'YouTube',
   model: 'llama-3.1-8b-instant',
   temperature: 0,
-  urlPatterns: ['*://*.youtube.com/*'],
+  urlPattern: 'https://*.youtube.com/*',
   prompt,
 };

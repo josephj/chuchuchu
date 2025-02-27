@@ -6,10 +6,13 @@ export type HatListItem = {
 
 export type Hat = {
   id: string;
+  alias: string | undefined;
   label: string;
   language?: string;
+  model: string;
   prompt: string;
-  model?: string;
-  temperature?: number;
-  urlPatterns?: string[];
+  temperature: number;
+  urlPattern?: string;
 };
+
+export type HatConfig = Omit<Hat, 'id'>;

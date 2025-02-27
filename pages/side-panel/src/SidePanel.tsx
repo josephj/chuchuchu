@@ -123,10 +123,8 @@ const SidePanel = () => {
 
       try {
         // Use latestLanguage instead of selectedLanguage
-        const effectiveLanguage = mode === 'simple' ? latestLanguageRef.current : selectedHatData.language;
-        console.log('[DEBUG] latestLanguage :', latestLanguageRef.current);
-        console.log('[DEBUG] selectedHatData.language :', selectedHatData.language);
-        console.log('[DEBUG] effectiveLanguage :', effectiveLanguage);
+        const effectiveLanguage =
+          mode === 'simple' ? latestLanguageRef.current : selectedHatData.language || latestLanguageRef.current;
 
         const selectedLanguageData = SUPPORTED_LANGUAGES.find(lang => lang.code === effectiveLanguage);
         if (!selectedLanguageData) return;
@@ -365,22 +363,19 @@ ${articleContent.content || ''}`.trim();
     setIsOnOriginalPage(true);
   }, []);
 
-  const handleRegenerate = useCallback(
-    async (newLanguage?: string) => {
-      console.log('[DEBUG] handleRegenerate - latestLanguage', latestLanguageRef.current);
-      console.log('[DEBUG] handleRegenerate - newLanguage', newLanguage);
-      if (hasContent) {
-        setIsGenerating(true);
-        try {
-          if (threadData) {
-            const formattedData = formatThreadForLLM(threadData);
-            await handleAskAssistant(formattedData, true);
-          } else if (articleContent) {
-            const formattedContent =
-              typeof articleContent === 'string'
-                ? articleContent
-                : pageType.type === 'youtube'
-                  ? `---
+  const handleRegenerate = useCallback(async () => {
+    if (hasContent) {
+      setIsGenerating(true);
+      try {
+        if (threadData) {
+          const formattedData = formatThreadForLLM(threadData);
+          await handleAskAssistant(formattedData, true);
+        } else if (articleContent) {
+          const formattedContent =
+            typeof articleContent === 'string'
+              ? articleContent
+              : pageType.type === 'youtube'
+                ? `---
 title: ${articleTitle}
 ${articleContent.channel ? `channel: ${articleContent.channel}` : ''}
 ${articleContent.publishDate ? `published: ${articleContent.publishDate}` : ''}
@@ -390,7 +385,7 @@ type: youtube
 ${articleContent.description ? `## Description\n${articleContent.description}` : 'No description available'}
 
 ${articleContent.transcript ? `## Transcript\n${articleContent.transcript}` : ''}`
-                  : `---
+                : `---
 title: ${articleTitle}
 ${articleContent.siteName ? `source: ${articleContent.siteName}` : ''}
 ${articleContent.byline ? `author: ${articleContent.byline}` : ''}
@@ -402,25 +397,15 @@ ${articleContent.excerpt ? `## Summary\n${articleContent.excerpt}\n` : ''}
 ## Content
 ${articleContent.content || ''}`.trim();
 
-            await handleAskAssistant(formattedContent, true);
-          }
-        } catch (error) {
-          console.error('Error regenerating:', error);
-        } finally {
-          setIsGenerating(false);
+          await handleAskAssistant(formattedContent, true);
         }
+      } catch (error) {
+        console.error('Error regenerating:', error);
+      } finally {
+        setIsGenerating(false);
       }
-    },
-    [
-      latestLanguageRef.current,
-      hasContent,
-      threadData,
-      articleContent,
-      handleAskAssistant,
-      pageType.type,
-      articleTitle,
-    ],
-  );
+    }
+  }, [hasContent, threadData, articleContent, handleAskAssistant, pageType.type, articleTitle]);
 
   useEffect(() => {
     const handleMessage = async (

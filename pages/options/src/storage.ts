@@ -33,39 +33,4 @@ export const storage = {
     const key = HAT_DATA_PREFIX + id;
     await chrome.storage.sync.remove(key);
   },
-
-  // Migration helper
-  async migrateFromOldStorage(): Promise<void> {
-    try {
-      // Get old storage data
-      const result = await chrome.storage.sync.get('hats');
-      const oldHats: Hat[] = result.hats || [];
-
-      if (oldHats.length === 0) return;
-
-      // Create new hat list
-      const hatList: HatList = oldHats.map(hat => ({
-        id: hat.id,
-        label: hat.label,
-        alias: hat.alias,
-        urlPattern: hat.urlPattern,
-        model: hat.model,
-        language: hat.language,
-      }));
-
-      // Store hat list
-      await storage.setHatList(hatList);
-
-      // Store individual hats
-      await Promise.all(oldHats.map(hat => storage.setHat(hat)));
-
-      // Remove old storage
-      await chrome.storage.sync.remove('hats');
-
-      console.log('[Storage] Migration completed successfully');
-    } catch (error) {
-      console.error('[Storage] Migration failed:', error);
-      throw error;
-    }
-  },
 };

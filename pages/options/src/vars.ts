@@ -27,7 +27,21 @@ export const SUPPORTED_LANGUAGES = [...regionalVariants, ...baseLanguages].map(l
   name: lang.name,
 }));
 
-export const DEFAULT_LANGUAGE_CODE = 'zh-TW';
+const getBrowserPreferredLanguage = () => {
+  const browserLanguages = navigator.languages || [navigator.language];
+
+  const matchingLanguage = browserLanguages.find(browserLang =>
+    SUPPORTED_LANGUAGES.some(
+      supportedLang =>
+        supportedLang.code.toLowerCase() === browserLang.toLowerCase() ||
+        supportedLang.code.split('-')[0] === browserLang.split('-')[0], // Fallback to language without region
+    ),
+  );
+
+  return matchingLanguage || 'en-US';
+};
+
+export const DEFAULT_LANGUAGE_CODE = getBrowserPreferredLanguage();
 
 export type CustomModel = {
   value: string;

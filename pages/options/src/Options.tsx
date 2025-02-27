@@ -31,6 +31,7 @@ import {
   FormHelperText,
   Tooltip,
   ButtonGroup,
+  useToast,
 } from '@chakra-ui/react';
 import { CheckIcon, AddIcon, DeleteIcon, EditIcon, CopyIcon, InfoIcon } from '@chakra-ui/icons';
 import Select from 'react-select';
@@ -114,6 +115,7 @@ const Options = () => {
   const [hats, setHats] = useState<Hat[]>([]);
   const { colorMode } = useColorMode();
   const isLight = colorMode === 'light';
+  const toast = useToast();
 
   const bg = useColorModeValue('dracula.light.background', 'dracula.background');
   const borderColor = useColorModeValue('dracula.light.currentLine', 'dracula.currentLine');
@@ -220,14 +222,49 @@ const Options = () => {
 
   const handleDeleteConfirm = async () => {
     if (hatToDelete) {
-      const updatedHats = (hats || []).filter(hat => hat.id !== hatToDelete.id);
-      await hatsStorage.set(updatedHats);
-      closeDeleteAlert();
-      navigate('/');
+      try {
+        // Check if this is the last hat
+        if (hats.length <= 1) {
+          throw new Error("Can't delete the last hat. At least one hat must remain.");
+        }
 
-      // Close the tab if coming from side panel
-      if (isFromSidePanel) {
-        closeOptionsTab();
+        // Update local state immediately
+        const updatedHats = hats.filter(hat => hat.id !== hatToDelete.id);
+        setHats(updatedHats);
+
+        // Update storage
+        await hatsStorage.set(updatedHats);
+
+        closeDeleteAlert();
+        navigate('/');
+
+        // Show success toast
+        toast({
+          title: 'Hat deleted',
+          description: `Successfully deleted "${hatToDelete.label}"`,
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
+
+        // Close the tab if coming from side panel
+        if (isFromSidePanel) {
+          closeOptionsTab();
+        }
+      } catch (error) {
+        // Reload hats to restore state
+        loadHats();
+
+        // Show error toast
+        toast({
+          title: 'Error deleting hat',
+          description: error instanceof Error ? error.message : 'An unknown error occurred',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+
+        closeDeleteAlert();
       }
     }
   };
@@ -247,7 +284,6 @@ const Options = () => {
             ? {
                 id: hat.id,
                 label: hat.label,
-                alias: hat.alias,
                 urlPattern: hat.urlPattern,
                 model: hat.model,
                 language: hat.language,
@@ -258,7 +294,6 @@ const Options = () => {
         const listItem: HatListItem = {
           id: hat.id,
           label: hat.label,
-          alias: hat.alias,
           urlPattern: hat.urlPattern,
           model: hat.model,
           language: hat.language,
@@ -285,12 +320,10 @@ const Options = () => {
     const fullHats = await Promise.all(list.map(item => storage.getHat(item.id)));
     setHats(fullHats.filter((hat): hat is Hat => hat !== null));
   };
-
   // Load hats on mount and after migration
   useEffect(() => {
-    storage.migrateFromOldStorage().then(loadHats);
+    loadHats();
   }, []);
-
   const handleModalClose = () => {
     navigate('/');
     if (isFromSidePanel) {
@@ -488,9 +521,11 @@ const Options = () => {
                       }}
                       transition="all 0.2s">
                       <HStack>
-                        <Text color={textColorSecondary} fontSize="md">
-                          {getLanguageFlag(hat.language)}
-                        </Text>
+                        {hat.language ? (
+                          <Text color={textColorSecondary} fontSize="md">
+                            {getLanguageFlag(hat.language)}
+                          </Text>
+                        ) : null}
                         <Text fontWeight="bold">{hat.label}</Text>
                         {hat.urlPattern && (
                           <Text fontSize="xs" color={textColorSecondary}>
