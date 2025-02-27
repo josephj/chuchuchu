@@ -7,7 +7,6 @@ export const useHats = () => {
 
   const loadHats = useCallback(async () => {
     const list = await hatStorage.getHatList();
-    console.log('list :', list);
     const fullHats = await Promise.all(list.map(item => hatStorage.getHat(item.id)));
     const filteredHats = fullHats.filter((hat): hat is Hat => hat !== null);
     setHats(filteredHats);
@@ -16,7 +15,9 @@ export const useHats = () => {
   const handleStorageChange = useCallback(
     (changes: { [key: string]: chrome.storage.StorageChange }) => {
       const hatListChange = changes[hatStorage.HAT_LIST_KEY];
-      if (hatListChange) {
+      const hasHatDataChange = Object.keys(changes).some(key => key.startsWith(hatStorage.HAT_DATA_PREFIX));
+
+      if (hatListChange || hasHatDataChange) {
         loadHats();
       }
     },

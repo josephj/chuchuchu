@@ -13,6 +13,7 @@ type HatStorageType = BaseStorage<HatListItem[]> & {
   deleteHat: (id: string) => Promise<void>;
   initializeDefaultHats: () => Promise<void>;
   HAT_LIST_KEY: string;
+  HAT_DATA_PREFIX: string;
 };
 
 export const HAT_LIST_KEY = 'hat_list';
@@ -79,5 +80,9 @@ export const hatStorage: HatStorageType = {
 
   get HAT_LIST_KEY(): string {
     return HAT_LIST_KEY;
+  },
+
+  get HAT_DATA_PREFIX(): string {
+    return HAT_DATA_PREFIX;
   },
 };
