@@ -22,7 +22,16 @@ import {
   Tooltip,
   ButtonGroup,
 } from '@chakra-ui/react';
-import { MoonIcon, SunIcon, ChevronUpIcon, ChevronDownIcon, SettingsIcon, EditIcon, AddIcon } from '@chakra-ui/icons';
+import {
+  MoonIcon,
+  SunIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
+  SettingsIcon,
+  EditIcon,
+  AddIcon,
+  CopyIcon,
+} from '@chakra-ui/icons';
 import { Messages } from './Messages';
 import { Header } from './Header';
 import { usePageType } from './lib/use-page-type';
@@ -733,6 +742,17 @@ ${articleContent.content || ''}`.trim();
     };
   }, []);
 
+  const handleCopyContent = useCallback(() => {
+    navigator.clipboard.writeText(originalContent).then(
+      () => {
+        // Optional: You could add a toast notification here
+      },
+      err => {
+        console.error('Failed to copy text:', err);
+      },
+    );
+  }, [originalContent]);
+
   return (
     <Flex direction="column" h="100vh" bg={bg} color={textColor}>
       {/* Settings Section */}
@@ -917,19 +937,39 @@ ${articleContent.content || ''}`.trim();
               Original content ({estimateTokens(originalContent)} tokens)
             </Button>
             <Collapse in={showOriginalContent}>
-              <Box p={4} maxH="300px" overflowY="auto" fontSize="sm" whiteSpace="pre-wrap">
-                {contentType === 'slack' && threadData ? (
-                  <VStack align="stretch" spacing={4}>
-                    {threadData.messages.map((msg, index) => (
-                      <Box key={index}>
-                        <Text fontWeight="bold">{msg.user}</Text>
-                        <Text>{msg.text}</Text>
-                      </Box>
-                    ))}
-                  </VStack>
-                ) : (
-                  <Text>{originalContent}</Text>
-                )}
+              <Box position="relative">
+                <Box p={4} maxH="300px" overflowY="auto" overflowX="hidden" fontSize="sm" whiteSpace="pre-wrap">
+                  {contentType === 'slack' && threadData ? (
+                    <VStack align="stretch" spacing={4}>
+                      {threadData.messages.map((msg, index) => (
+                        <Box key={index}>
+                          <Text fontWeight="bold">{msg.user}</Text>
+                          <Text>{msg.text}</Text>
+                        </Box>
+                      ))}
+                    </VStack>
+                  ) : (
+                    <Text>{originalContent}</Text>
+                  )}
+                  <Tooltip hasArrow label="Copy content" placement="left">
+                    <IconButton
+                      aria-label="Copy content"
+                      icon={<CopyIcon />}
+                      onClick={handleCopyContent}
+                      size="sm"
+                      variant="ghost"
+                      position="absolute"
+                      bottom={5}
+                      right={5}
+                      bg="whiteAlpha.800"
+                      _dark={{ bg: 'blackAlpha.800' }}
+                      _hover={{
+                        bg: 'whiteAlpha.900',
+                        _dark: { bg: 'blackAlpha.900' },
+                      }}
+                    />
+                  </Tooltip>
+                </Box>
               </Box>
             </Collapse>
           </Box>
