@@ -59,13 +59,14 @@ export const customModelsStorage = createStorage<CustomModel[]>('customModels', 
 
 // Update SUPPORTED_MODELS to be mutable
 export const SUPPORTED_MODELS = [
-  { value: 'llama-3.1-8b-instant', label: 'LLaMA 3.1 8B Instant' },
+  { value: 'deepseek-r1-distill-qwen-32b', label: 'DeepSeek R1 Distill Qwen 32B' },
   { value: 'deepseek-r1-distill-llama-70b', label: 'DeepSeek R1 Distill LLaMA 70B' },
   { value: 'llama-3.3-70b-versatile', label: 'LLaMA 3.3 70B Versatile' },
-  { value: 'llama3-70b-8192', label: 'LLaMA3 70B (8K context)' },
-  { value: 'llama3-8b-8192', label: 'LLaMA3 8B (8K context)' },
-  { value: 'gemma2-9b-it', label: 'Gemma2 9B Instruct' },
-  { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B (32K context)' },
+  { value: 'llama-3.1-8b-instant', label: 'LLaMA 3.1 8B Instant' },
+  // { value: 'llama3-70b-8192', label: 'LLaMA3 70B (8K context)' },
+  // { value: 'llama3-8b-8192', label: 'LLaMA3 8B (8K context)' },
+  // { value: 'gemma2-9b-it', label: 'Gemma2 9B Instruct' },
+  // { value: 'llama3-mixtral-8x7b-32768', label: 'Mixtral 8x7B (32K context)' },
 ] as const;
 
 export const DEFAULT_MODEL = SUPPORTED_MODELS[0].value;
