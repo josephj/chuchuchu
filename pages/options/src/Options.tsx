@@ -33,7 +33,7 @@ import {
   ButtonGroup,
   useToast,
 } from '@chakra-ui/react';
-import { CheckIcon, AddIcon, DeleteIcon, EditIcon, CopyIcon, InfoIcon } from '@chakra-ui/icons';
+import { CheckIcon, AddIcon, DeleteIcon, EditIcon, CopyIcon, InfoIcon, RepeatIcon } from '@chakra-ui/icons';
 import Select from 'react-select';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -143,6 +143,8 @@ const Options = () => {
 
   const [searchParams] = useSearchParams();
   const isFromSidePanel = searchParams.get('via') === 'side-panel';
+
+  const [isResetAlertOpen, setIsResetAlertOpen] = useState(false);
 
   useEffect(() => {
     // Clear saved indicators after 2 seconds
@@ -333,6 +335,35 @@ const Options = () => {
 
   const isAdvancedMode = mode === 'advanced';
 
+  const handleResetClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResetAlertOpen(true);
+  };
+
+  const handleResetConfirm = async () => {
+    try {
+      await storage.initializeDefaultHats();
+      await loadHats();
+      toast({
+        title: 'Hats Reset',
+        description: 'Successfully restored default hats',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (error) {
+      toast({
+        title: 'Error resetting hats',
+        description: error instanceof Error ? error.message : 'An unknown error occurred',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsResetAlertOpen(false);
+    }
+  };
+
   return (
     <VStack p={6} bg={bg} minH="100vh" color={textColor}>
       <form onChange={handleSubmit(onSubmit)} style={{ width: '100%', maxWidth: '800px' }}>
@@ -496,6 +527,15 @@ const Options = () => {
                       </Tooltip>
                     </HStack>
                   </Box>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    colorScheme="red"
+                    leftIcon={<RepeatIcon />}
+                    mr={2}
+                    onClick={handleResetClick}>
+                    Reset
+                  </Button>
                   <AccordionIcon />
                 </AccordionButton>
               </h2>
@@ -625,6 +665,32 @@ const Options = () => {
                   </Button>
                   <Button colorScheme="red" onClick={handleDeleteConfirm} fontWeight="bold">
                     Delete
+                  </Button>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialogOverlay>
+          </AlertDialog>
+
+          <AlertDialog
+            isOpen={isResetAlertOpen}
+            leastDestructiveRef={cancelDeleteRef}
+            onClose={() => setIsResetAlertOpen(false)}>
+            <AlertDialogOverlay>
+              <AlertDialogContent bg={bg} color={textColor}>
+                <AlertDialogHeader fontSize="lg" fontWeight="bold">
+                  Reset Hats
+                </AlertDialogHeader>
+
+                <AlertDialogBody>
+                  Are you sure you want to reset all hats to default? This will remove any custom hats you've created.
+                </AlertDialogBody>
+
+                <AlertDialogFooter>
+                  <Button ref={cancelDeleteRef} onClick={() => setIsResetAlertOpen(false)} variant="ghost" mr={3}>
+                    Cancel
+                  </Button>
+                  <Button colorScheme="red" onClick={handleResetConfirm} fontWeight="bold">
+                    Reset
                   </Button>
                 </AlertDialogFooter>
               </AlertDialogContent>
