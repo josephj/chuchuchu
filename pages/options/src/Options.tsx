@@ -533,8 +533,14 @@ const Options = () => {
                     colorScheme="red"
                     leftIcon={<RepeatIcon />}
                     mr={2}
-                    onClick={handleResetClick}>
-                    Reset
+                    onClick={handleResetClick}
+                    title="Reset all hats to their default settings">
+                    <Tooltip
+                      label="Reset all hats to their default settings. This will remove any custom hats you've created and restore the original set of hats."
+                      placement="top"
+                      hasArrow>
+                      <span>Reset</span>
+                    </Tooltip>
                   </Button>
                   <AccordionIcon />
                 </AccordionButton>
