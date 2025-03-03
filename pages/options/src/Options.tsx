@@ -331,10 +331,12 @@ const Options = () => {
     }
   };
 
+  const isAdvancedMode = mode === 'advanced';
+
   return (
-    <Center p={6} bg={bg} minH="100vh" color={textColor}>
+    <VStack p={6} bg={bg} minH="100vh" color={textColor}>
       <form onChange={handleSubmit(onSubmit)} style={{ width: '100%', maxWidth: '800px' }}>
-        <Accordion defaultIndex={[0, 1, 2]} allowMultiple>
+        <Accordion defaultIndex={isAdvancedMode ? [0, 1, 2] : [0, 1]} allowMultiple>
           {/* General Settings */}
           <AccordionItem borderColor={borderColor}>
             <h2>
@@ -479,154 +481,158 @@ const Options = () => {
             </AccordionPanel>
           </AccordionItem>
 
-          {/* Hats Settings */}
-          <AccordionItem borderColor={borderColor}>
-            <h2>
-              <AccordionButton _hover={{ bg: buttonBg }}>
-                <Box as="span" flex="1" textAlign="left">
-                  <HStack spacing={2}>
-                    <Heading size="md">Hats</Heading>
-                    <Tooltip
-                      label="Hats are like different personas for the AI. Each hat can have its own prompt, language, model, and URL pattern. Switch between hats to get different types of responses based on your needs."
-                      placement="top"
-                      hasArrow>
-                      <InfoIcon color="primary.500" boxSize={4} />
-                    </Tooltip>
-                  </HStack>
-                </Box>
-                <AccordionIcon />
-              </AccordionButton>
-            </h2>
-            <AccordionPanel pb={4}>
-              <VStack spacing={4} align="stretch">
-                {!hats || hats.length === 0 ? (
-                  <Text color={textColorSecondary}>No hats added yet</Text>
-                ) : (
-                  hats.map(hat => (
-                    <Box
-                      key={hat.id}
-                      p={4}
-                      borderWidth="1px"
-                      borderRadius="md"
-                      display="flex"
-                      justifyContent="space-between"
-                      alignItems="center"
-                      position="relative"
-                      role="group"
-                      onClick={() => navigate(`hats/edit/${hat.id}`)}
-                      _hover={{
-                        borderColor: 'blue.500',
-                        cursor: 'pointer',
-                        bg: hoverBg,
-                      }}
-                      transition="all 0.2s">
-                      <HStack>
-                        {hat.language ? (
-                          <Text color={textColorSecondary} fontSize="md">
-                            {getLanguageFlag(hat.language)}
-                          </Text>
-                        ) : null}
-                        <Text fontWeight="bold">{hat.label}</Text>
-                        {hat.urlPattern && (
-                          <Text fontSize="xs" color={textColorSecondary}>
-                            {hat.urlPattern}
-                          </Text>
-                        )}
-                      </HStack>
+          {isAdvancedMode ? (
+            <AccordionItem borderColor={borderColor}>
+              <h2>
+                <AccordionButton _hover={{ bg: buttonBg }}>
+                  <Box as="span" flex="1" textAlign="left">
+                    <HStack spacing={2}>
+                      <Heading size="md">Hats</Heading>
+                      <Tooltip
+                        label="Hats are like different personas for the AI. Each hat can have its own prompt, language, model, and URL pattern. Switch between hats to get different types of responses based on your needs."
+                        placement="top"
+                        hasArrow>
+                        <InfoIcon color="primary.500" boxSize={4} />
+                      </Tooltip>
+                    </HStack>
+                  </Box>
+                  <AccordionIcon />
+                </AccordionButton>
+              </h2>
+              <AccordionPanel pb={4}>
+                <VStack spacing={4} align="stretch">
+                  {!hats || hats.length === 0 ? (
+                    <Text color={textColorSecondary}>No hats added yet</Text>
+                  ) : (
+                    hats.map(hat => (
                       <Box
-                        opacity={0}
-                        _groupHover={{
-                          opacity: 1,
-                        }}
-                        transition="opacity 0.2s"
+                        key={hat.id}
+                        p={4}
+                        borderWidth="1px"
+                        borderRadius="md"
                         display="flex"
-                        position="absolute"
-                        right={4}
-                        onClick={e => e.stopPropagation()}>
-                        <IconButton
-                          aria-label="Clone hat"
-                          icon={<CopyIcon />}
-                          size="sm"
-                          variant="ghost"
-                          colorScheme="green"
-                          mr={2}
-                          onClick={e => {
-                            e.stopPropagation();
-                            navigate(`hats/clone/${hat.id}`);
+                        justifyContent="space-between"
+                        alignItems="center"
+                        position="relative"
+                        role="group"
+                        onClick={() => navigate(`hats/edit/${hat.id}`)}
+                        _hover={{
+                          borderColor: 'blue.500',
+                          cursor: 'pointer',
+                          bg: hoverBg,
+                        }}
+                        transition="all 0.2s">
+                        <HStack>
+                          {hat.language ? (
+                            <Text color={textColorSecondary} fontSize="md">
+                              {getLanguageFlag(hat.language)}
+                            </Text>
+                          ) : null}
+                          <Text fontWeight="bold">{hat.label}</Text>
+                          {hat.urlPattern && (
+                            <Text fontSize="xs" color={textColorSecondary}>
+                              {hat.urlPattern}
+                            </Text>
+                          )}
+                        </HStack>
+                        <Box
+                          opacity={0}
+                          _groupHover={{
+                            opacity: 1,
                           }}
-                        />
-                        <IconButton
-                          aria-label="Edit hat"
-                          icon={<EditIcon />}
-                          size="sm"
-                          variant="ghost"
-                          colorScheme="blue"
-                          mr={2}
-                          onClick={e => {
-                            e.stopPropagation();
-                            navigate(`hats/edit/${hat.id}`);
-                          }}
-                        />
-                        <IconButton
-                          aria-label="Delete hat"
-                          icon={<DeleteIcon />}
-                          size="sm"
-                          variant="ghost"
-                          colorScheme="red"
-                          onClick={e => {
-                            e.stopPropagation();
-                            handleDeleteClick(hat);
-                          }}
-                        />
+                          transition="opacity 0.2s"
+                          display="flex"
+                          position="absolute"
+                          right={4}
+                          onClick={e => e.stopPropagation()}>
+                          <IconButton
+                            aria-label="Clone hat"
+                            icon={<CopyIcon />}
+                            size="sm"
+                            variant="ghost"
+                            colorScheme="green"
+                            mr={2}
+                            onClick={e => {
+                              e.stopPropagation();
+                              navigate(`hats/clone/${hat.id}`);
+                            }}
+                          />
+                          <IconButton
+                            aria-label="Edit hat"
+                            icon={<EditIcon />}
+                            size="sm"
+                            variant="ghost"
+                            colorScheme="blue"
+                            mr={2}
+                            onClick={e => {
+                              e.stopPropagation();
+                              navigate(`hats/edit/${hat.id}`);
+                            }}
+                          />
+                          <IconButton
+                            aria-label="Delete hat"
+                            icon={<DeleteIcon />}
+                            size="sm"
+                            variant="ghost"
+                            colorScheme="red"
+                            onClick={e => {
+                              e.stopPropagation();
+                              handleDeleteClick(hat);
+                            }}
+                          />
+                        </Box>
                       </Box>
-                    </Box>
-                  ))
-                )}
-                <Button
-                  leftIcon={<AddIcon />}
-                  onClick={() => navigate('hats/add')}
-                  colorScheme="blue"
-                  variant="outline">
-                  Add new hat
-                </Button>
-              </VStack>
-            </AccordionPanel>
-          </AccordionItem>
+                    ))
+                  )}
+                  <Button
+                    leftIcon={<AddIcon />}
+                    onClick={() => navigate('hats/add')}
+                    colorScheme="blue"
+                    variant="outline">
+                    Add new hat
+                  </Button>
+                </VStack>
+              </AccordionPanel>
+            </AccordionItem>
+          ) : null}
         </Accordion>
       </form>
 
-      <HatEditor
-        isOpen={isModalOpen}
-        onClose={handleModalClose}
-        editingHat={editingHat}
-        onSave={handleSaveHat}
-        allHats={hats}
-      />
+      {isAdvancedMode ? (
+        <>
+          <HatEditor
+            isOpen={isModalOpen}
+            onClose={handleModalClose}
+            editingHat={editingHat}
+            onSave={handleSaveHat}
+            allHats={hats}
+          />
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog isOpen={isDeleteAlertOpen} leastDestructiveRef={cancelDeleteRef} onClose={closeDeleteAlert}>
-        <AlertDialogOverlay>
-          <AlertDialogContent bg={bg} color={textColor}>
-            <AlertDialogHeader fontSize="lg" fontWeight="bold">
-              Delete Hat
-            </AlertDialogHeader>
+          <AlertDialog isOpen={isDeleteAlertOpen} leastDestructiveRef={cancelDeleteRef} onClose={closeDeleteAlert}>
+            <AlertDialogOverlay>
+              <AlertDialogContent bg={bg} color={textColor}>
+                <AlertDialogHeader fontSize="lg" fontWeight="bold">
+                  Delete Hat
+                </AlertDialogHeader>
 
-            <AlertDialogBody>
-              Are you sure you want to delete &ldquo;{hatToDelete?.label}&rdquo;? This action cannot be undone.
-            </AlertDialogBody>
+                <AlertDialogBody>
+                  Are you sure you want to delete &ldquo;{hatToDelete?.label}&rdquo;? This action cannot be undone.
+                </AlertDialogBody>
 
-            <AlertDialogFooter>
-              <Button ref={cancelDeleteRef} onClick={closeDeleteAlert} variant="ghost" mr={3}>
-                Cancel
-              </Button>
-              <Button colorScheme="red" onClick={handleDeleteConfirm} fontWeight="bold">
-                Delete
-              </Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialogOverlay>
-      </AlertDialog>
-    </Center>
+                <AlertDialogFooter>
+                  <Button ref={cancelDeleteRef} onClick={closeDeleteAlert} variant="ghost" mr={3}>
+                    Cancel
+                  </Button>
+                  <Button colorScheme="red" onClick={handleDeleteConfirm} fontWeight="bold">
+                    Delete
+                  </Button>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialogOverlay>
+          </AlertDialog>
+        </>
+      ) : null}
+    </VStack>
   );
 };
 
