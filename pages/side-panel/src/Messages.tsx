@@ -1,13 +1,32 @@
-import { Box, Flex, Text, VStack, useColorModeValue, Button, Tooltip } from '@chakra-ui/react';
+import { Box, Flex, Text, VStack, useColorModeValue, Button, Tooltip, IconButton, HStack } from '@chakra-ui/react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useEffect, useRef, useState } from 'react';
-import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons';
+import { ViewIcon, ViewOffIcon, CopyIcon, DownloadIcon } from '@chakra-ui/icons';
 import type { Message } from './types';
+import { MdTextFormat } from 'react-icons/md';
+import { getFormattedText, removeThinkBlocks } from './utils/textFormatters';
+import { convertToDocx } from './utils/docxConverter';
 
 type Props = {
   messages: Message[];
   isTyping: boolean;
+};
+
+const downloadFile = (content: string, filename: string, type: string) => {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
+
+const copyToClipboard = async (text: string) => {
+  await navigator.clipboard.writeText(text);
 };
 
 export const Messages = ({ messages, isTyping }: Props) => {
@@ -20,6 +39,8 @@ export const Messages = ({ messages, isTyping }: Props) => {
   const codeBg = useColorModeValue('dracula.light.currentLine', 'dracula.background');
   const blockquoteBorderColor = useColorModeValue('dracula.light.purple', 'dracula.purple');
   const codeFg = useColorModeValue('dracula.light.pink', 'dracula.pink');
+  const buttonColor = useColorModeValue('dracula.light.comment', 'dracula.comment');
+  const buttonHoverBg = useColorModeValue('dracula.light.currentLine', 'dracula.currentLine');
 
   const hasThinkBlock = messages.some(
     message =>
@@ -112,7 +133,13 @@ export const Messages = ({ messages, isTyping }: Props) => {
               direction="column"
               bg={messageAssistantBg}
               borderRadius="lg"
-              color={textColor}>
+              color={textColor}
+              position="relative"
+              _hover={{
+                '& > .message-actions': {
+                  opacity: 1,
+                },
+              }}>
               <Box
                 sx={{
                   fontSize: '14px',
@@ -202,9 +229,104 @@ export const Messages = ({ messages, isTyping }: Props) => {
                   {processedContent}
                 </ReactMarkdown>
               </Box>
-              <Text fontSize="xs" color={textColorSecondary} mt={2} textAlign="right">
-                {new Date(message.timestamp).toLocaleTimeString()}
-              </Text>
+              <Flex justifyContent="flex-end" alignItems="center" mt={2}>
+                <HStack spacing={1} className="message-actions" transition="all 0.2s">
+                  <Tooltip label="Copy">
+                    <IconButton
+                      aria-label="Copy"
+                      icon={<CopyIcon />}
+                      size="xs"
+                      variant="ghost"
+                      color={buttonColor}
+                      opacity={0.6}
+                      _hover={{
+                        opacity: 1,
+                        bg: buttonHoverBg,
+                      }}
+                      onClick={() => {
+                        if (typeof message.content === 'string') {
+                          const cleanContent = removeThinkBlocks(message.content);
+                          const formatted = getFormattedText(cleanContent);
+                          copyToClipboard(formatted);
+                        }
+                      }}
+                    />
+                  </Tooltip>
+                  <Tooltip label="Copy as Markdown">
+                    <IconButton
+                      aria-label="Copy as Markdown"
+                      icon={<CopyIcon />}
+                      size="xs"
+                      variant="ghost"
+                      color={buttonColor}
+                      opacity={0.6}
+                      _hover={{
+                        opacity: 1,
+                        bg: buttonHoverBg,
+                      }}
+                      onClick={() => {
+                        if (typeof message.content === 'string') {
+                          const cleanContent = removeThinkBlocks(message.content);
+                          copyToClipboard(cleanContent);
+                        }
+                      }}
+                    />
+                  </Tooltip>
+                  <Tooltip label="Download (docx)">
+                    <IconButton
+                      aria-label="Download (docx)"
+                      icon={<DownloadIcon />}
+                      size="xs"
+                      variant="ghost"
+                      color={buttonColor}
+                      opacity={0.6}
+                      _hover={{
+                        opacity: 1,
+                        bg: buttonHoverBg,
+                      }}
+                      onClick={async () => {
+                        if (typeof message.content === 'string') {
+                          const cleanContent = removeThinkBlocks(message.content);
+                          const blob = await convertToDocx(cleanContent);
+                          const filename = `message-${new Date(message.timestamp).toISOString()}.docx`;
+                          const url = URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.href = url;
+                          link.download = filename;
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                          URL.revokeObjectURL(url);
+                        }
+                      }}
+                    />
+                  </Tooltip>
+                  <Tooltip label="Download Markdown">
+                    <IconButton
+                      aria-label="Download Markdown"
+                      icon={<DownloadIcon />}
+                      size="xs"
+                      variant="ghost"
+                      color={buttonColor}
+                      opacity={0.6}
+                      _hover={{
+                        opacity: 1,
+                        bg: buttonHoverBg,
+                      }}
+                      onClick={() => {
+                        if (typeof message.content === 'string') {
+                          const cleanContent = removeThinkBlocks(message.content);
+                          const filename = `message-${new Date(message.timestamp).toISOString()}.md`;
+                          downloadFile(cleanContent, filename, 'text/markdown');
+                        }
+                      }}
+                    />
+                  </Tooltip>
+                </HStack>
+                <Text fontSize="xs" color={textColorSecondary} ml={2}>
+                  {new Date(message.timestamp).toLocaleTimeString()}
+                </Text>
+              </Flex>
             </Flex>
           );
         }
@@ -224,9 +346,104 @@ export const Messages = ({ messages, isTyping }: Props) => {
             ) : (
               message.content
             )}
-            <Text fontSize="xs" color={textColorSecondary} mt={2} textAlign="right">
-              {new Date(message.timestamp).toLocaleTimeString()}
-            </Text>
+            <Flex justifyContent="flex-end" alignItems="center" mt={2}>
+              <HStack spacing={1} className="message-actions" transition="all 0.2s">
+                <Tooltip label="Copy">
+                  <IconButton
+                    aria-label="Copy"
+                    icon={<MdTextFormat />}
+                    size="xs"
+                    variant="ghost"
+                    color={buttonColor}
+                    opacity={0.6}
+                    _hover={{
+                      opacity: 1,
+                      bg: buttonHoverBg,
+                    }}
+                    onClick={() => {
+                      if (typeof message.content === 'string') {
+                        const cleanContent = removeThinkBlocks(message.content);
+                        const formatted = getFormattedText(cleanContent);
+                        copyToClipboard(formatted);
+                      }
+                    }}
+                  />
+                </Tooltip>
+                <Tooltip label="Copy as Markdown">
+                  <IconButton
+                    aria-label="Copy as Markdown"
+                    icon={<CopyIcon />}
+                    size="xs"
+                    variant="ghost"
+                    color={buttonColor}
+                    opacity={0.6}
+                    _hover={{
+                      opacity: 1,
+                      bg: buttonHoverBg,
+                    }}
+                    onClick={() => {
+                      if (typeof message.content === 'string') {
+                        const cleanContent = removeThinkBlocks(message.content);
+                        copyToClipboard(cleanContent);
+                      }
+                    }}
+                  />
+                </Tooltip>
+                <Tooltip label="Download (Markdown)">
+                  <IconButton
+                    aria-label="Download Markdown"
+                    icon={<DownloadIcon />}
+                    size="xs"
+                    variant="ghost"
+                    color={buttonColor}
+                    opacity={0.6}
+                    _hover={{
+                      opacity: 1,
+                      bg: buttonHoverBg,
+                    }}
+                    onClick={() => {
+                      if (typeof message.content === 'string') {
+                        const cleanContent = removeThinkBlocks(message.content);
+                        const filename = `message-${new Date(message.timestamp).toISOString()}.md`;
+                        downloadFile(cleanContent, filename, 'text/markdown');
+                      }
+                    }}
+                  />
+                </Tooltip>
+                <Tooltip label="Download (docx)">
+                  <IconButton
+                    aria-label="Download (docx)"
+                    icon={<DownloadIcon />}
+                    size="xs"
+                    variant="ghost"
+                    color={buttonColor}
+                    opacity={0.6}
+                    _hover={{
+                      opacity: 1,
+                      bg: buttonHoverBg,
+                    }}
+                    onClick={async () => {
+                      if (typeof message.content === 'string') {
+                        const cleanContent = removeThinkBlocks(message.content);
+                        const blob = await convertToDocx(cleanContent);
+                        const filename = `message-${new Date(message.timestamp).toISOString()}.docx`;
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = filename;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        URL.revokeObjectURL(url);
+                      }
+                    }}
+                  />
+                </Tooltip>
+              </HStack>
+              <Text fontSize="xs" color={textColorSecondary} ml={2}>
+                {new Date(message.timestamp).toLocaleTimeString()}
+              </Text>
+            </Flex>
           </Flex>
         );
       })}
