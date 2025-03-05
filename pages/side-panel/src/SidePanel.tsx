@@ -661,6 +661,20 @@ ${articleContent.content || ''}`.trim();
     );
   }, [originalContent]);
 
+  useEffect(() => {
+    const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }) => {
+      if (changes.selectedLanguage?.newValue) {
+        latestLanguageRef.current = changes.selectedLanguage.newValue;
+        if (hasContent && mode === 'simple') {
+          handleRegenerate();
+        }
+      }
+    };
+
+    chrome.storage.onChanged.addListener(handleStorageChange);
+    return () => chrome.storage.onChanged.removeListener(handleStorageChange);
+  }, [hasContent, mode, handleRegenerate]);
+
   return (
     <Flex direction="column" h="100vh" bg={bg} color={textColor}>
       {/* Settings Section */}

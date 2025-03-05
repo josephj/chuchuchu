@@ -36,7 +36,7 @@ import { CheckIcon, AddIcon, DeleteIcon, EditIcon, CopyIcon, InfoIcon, RepeatIco
 import Select from 'react-select';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import type { OptionsFormData, Hat, HatList, HatListItem } from './types';
+import type { OptionsFormData, Hat } from './types';
 import { optionsFormSchema } from './types';
 import {
   SUPPORTED_LANGUAGES,
@@ -123,6 +123,7 @@ const Options = () => {
 
   const { control, setValue, handleSubmit } = useForm<OptionsFormData>({
     resolver: zodResolver(optionsFormSchema),
+    mode: 'onChange',
     defaultValues: {
       language: DEFAULT_LANGUAGE_CODE,
       theme: !isLight,
@@ -158,8 +159,20 @@ const Options = () => {
     setValue('mode', mode);
   }, [setValue, selectedLanguage, openInWeb, mode]);
 
-  const onSubmit = async (data: OptionsFormData) => {
+  useEffect(() => {
+    const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }) => {
+      if (changes.selectedLanguage?.newValue) {
+        setValue('language', changes.selectedLanguage.newValue);
+      }
+    };
+
+    chrome.storage.onChanged.addListener(handleStorageChange);
+    return () => chrome.storage.onChanged.removeListener(handleStorageChange);
+  }, [setValue]);
+
+  const handleSave = async (data: OptionsFormData) => {
     // Handle language change
+    console.log('[Options] onSubmit', data);
     if (data.language !== selectedLanguage) {
       await languageStorage.set(data.language);
       setSavedSettings(prev => ({ ...prev, language: true }));
@@ -181,23 +194,6 @@ const Options = () => {
       await modeStorage.set(data.mode);
       setSavedSettings(prev => ({ ...prev, mode: true }));
     }
-  };
-
-  const languageSelectStyles = {
-    control: (base: Record<string, unknown>) => ({
-      ...base,
-      minHeight: '32px',
-      width: '100%',
-    }),
-    container: (base: Record<string, unknown>) => ({
-      ...base,
-      zIndex: 3,
-    }),
-    option: (base: Record<string, unknown>) => ({
-      ...base,
-      cursor: 'pointer',
-      padding: '8px 12px',
-    }),
   };
 
   const handleDeleteClick = (hat: Hat) => {
@@ -366,7 +362,7 @@ const Options = () => {
 
   return (
     <VStack p={6} bg={bg} minH="100vh" color={textColor}>
-      <form onChange={handleSubmit(onSubmit)} style={{ width: '100%', maxWidth: '800px' }}>
+      <form onSubmit={handleSubmit(handleSave)} style={{ width: '100%', maxWidth: '800px' }}>
         <Accordion defaultIndex={isAdvancedMode ? [0, 1, 2] : [0, 1]} allowMultiple>
           {/* General Settings */}
           <AccordionItem borderColor={borderColor}>
@@ -394,7 +390,11 @@ const Options = () => {
                       render={({ field: { onChange, value } }) => (
                         <Select<LanguageOption>
                           value={SUPPORTED_LANGUAGES.find(lang => lang.code === value)}
-                          onChange={option => onChange(option?.code || DEFAULT_LANGUAGE_CODE)}
+                          onChange={option => {
+                            const languageCode = option?.code || DEFAULT_LANGUAGE_CODE;
+                            onChange(languageCode);
+                            languageStorage.set(languageCode);
+                          }}
                           options={SUPPORTED_LANGUAGES}
                           styles={{
                             container: (base: Record<string, unknown>) => ({
