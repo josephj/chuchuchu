@@ -223,65 +223,17 @@ const SidePanel = () => {
         setIsGenerating(true);
 
         const selectedHatData = hats.find(hat => hat.id === hatId);
-        if (!selectedHatData) return;
+        if (!selectedHatData) {
+          setIsGenerating(false);
+          return;
+        }
 
-        const selectedLanguage = SUPPORTED_LANGUAGES.find(lang => lang.code === selectedHatData.language);
-        if (!selectedLanguage) return;
-
-        const systemPrompt = replaceTokens(selectedHatData.prompt, {
-          language: {
-            code: selectedLanguage.code,
-            name: selectedLanguage.name,
-          },
-        });
+        // Clear previous messages before regenerating
+        setMessages([]);
 
         if (threadData) {
           const formattedData = formatThreadForLLM(threadData);
-          askAssistant({
-            systemPrompt,
-            userPrompt: formattedData,
-            previousMessages: [],
-            ...(selectedHatData.model && { model: selectedHatData.model }),
-            ...(selectedHatData.temperature && { temperature: selectedHatData.temperature }),
-            options: {
-              onAbort: () => {
-                setIsTyping(false);
-                setIsGenerating(false);
-              },
-              onError: () => {
-                setMessages(prev => [
-                  ...prev,
-                  {
-                    role: 'assistant',
-                    content: (
-                      <Alert status="error" variant="left-accent">
-                        <AlertIcon />
-                        Failed to generate response. Please try again.
-                      </Alert>
-                    ),
-                    timestamp: Date.now(),
-                  },
-                ]);
-                setIsTyping(false);
-                setIsGenerating(false);
-              },
-              onUpdate: response => {
-                setMessages(prev => {
-                  const newMessages = [...prev];
-                  if (newMessages.length && newMessages[newMessages.length - 1].role === 'assistant') {
-                    newMessages[newMessages.length - 1].content = response;
-                  } else {
-                    newMessages.push({ role: 'assistant', content: response, timestamp: Date.now() });
-                  }
-                  return newMessages;
-                });
-              },
-              onComplete: () => {
-                setIsTyping(false);
-                setIsGenerating(false);
-              },
-            },
-          });
+          handleAskAssistant(formattedData, true);
         } else if (articleContent) {
           const formattedContent =
             typeof articleContent === 'string'
@@ -309,55 +261,11 @@ ${articleContent.excerpt ? `## Summary\n${articleContent.excerpt}\n` : ''}
 ## Content
 ${articleContent.content || ''}`.trim();
 
-          askAssistant({
-            systemPrompt,
-            userPrompt: formattedContent,
-            previousMessages: [],
-            ...(selectedHatData.model && { model: selectedHatData.model }),
-            ...(selectedHatData.temperature && { temperature: selectedHatData.temperature }),
-            options: {
-              onAbort: () => {
-                setIsTyping(false);
-                setIsGenerating(false);
-              },
-              onError: () => {
-                setMessages(prev => [
-                  ...prev,
-                  {
-                    role: 'assistant',
-                    content: (
-                      <Alert status="error" variant="left-accent">
-                        <AlertIcon />
-                        Failed to generate response. Please try again.
-                      </Alert>
-                    ),
-                    timestamp: Date.now(),
-                  },
-                ]);
-                setIsTyping(false);
-                setIsGenerating(false);
-              },
-              onUpdate: response => {
-                setMessages(prev => {
-                  const newMessages = [...prev];
-                  if (newMessages.length && newMessages[newMessages.length - 1].role === 'assistant') {
-                    newMessages[newMessages.length - 1].content = response;
-                  } else {
-                    newMessages.push({ role: 'assistant', content: response, timestamp: Date.now() });
-                  }
-                  return newMessages;
-                });
-              },
-              onComplete: () => {
-                setIsTyping(false);
-                setIsGenerating(false);
-              },
-            },
-          });
+          handleAskAssistant(formattedContent, true);
         }
       }
     },
-    [articleContent, articleTitle, hasContent, hats, pageType.type, threadData],
+    [articleContent, articleTitle, hasContent, hats, pageType.type, threadData, handleAskAssistant],
   );
 
   const handleClose = useCallback(() => {
@@ -372,20 +280,19 @@ ${articleContent.content || ''}`.trim();
     setIsOnOriginalPage(true);
   }, []);
 
-  const handleRegenerate = useCallback(
-    async (language: string) => {
-      if (hasContent) {
-        setIsGenerating(true);
-        try {
-          if (threadData) {
-            const formattedData = formatThreadForLLM(threadData);
-            await handleAskAssistant(formattedData, true);
-          } else if (articleContent) {
-            const formattedContent =
-              typeof articleContent === 'string'
-                ? articleContent
-                : pageType.type === 'youtube'
-                  ? `---
+  const handleRegenerate = useCallback(async () => {
+    if (hasContent) {
+      setIsGenerating(true);
+      try {
+        if (threadData) {
+          const formattedData = formatThreadForLLM(threadData);
+          await handleAskAssistant(formattedData, true);
+        } else if (articleContent) {
+          const formattedContent =
+            typeof articleContent === 'string'
+              ? articleContent
+              : pageType.type === 'youtube'
+                ? `---
 title: ${articleTitle}
 ${articleContent.channel ? `channel: ${articleContent.channel}` : ''}
 ${articleContent.publishDate ? `published: ${articleContent.publishDate}` : ''}
@@ -395,7 +302,7 @@ type: youtube
 ${articleContent.description ? `## Description\n${articleContent.description}` : 'No description available'}
 
 ${articleContent.transcript ? `## Transcript\n${articleContent.transcript}` : ''}`
-                  : `---
+                : `---
 title: ${articleTitle}
 ${articleContent.siteName ? `source: ${articleContent.siteName}` : ''}
 ${articleContent.byline ? `author: ${articleContent.byline}` : ''}
@@ -407,17 +314,15 @@ ${articleContent.excerpt ? `## Summary\n${articleContent.excerpt}\n` : ''}
 ## Content
 ${articleContent.content || ''}`.trim();
 
-            await handleAskAssistant(formattedContent, true);
-          }
-        } catch (error) {
-          console.error('Error regenerating:', error);
-        } finally {
-          setIsGenerating(false);
+          await handleAskAssistant(formattedContent, true);
         }
+      } catch (error) {
+        console.error('Error regenerating:', error);
+      } finally {
+        setIsGenerating(false);
       }
-    },
-    [hasContent, threadData, articleContent, handleAskAssistant, pageType.type, articleTitle],
-  );
+    }
+  }, [hasContent, threadData, articleContent, handleAskAssistant, pageType.type, articleTitle]);
 
   useEffect(() => {
     const handleMessage = async (
@@ -768,7 +673,7 @@ ${articleContent.content || ''}`.trim();
                 <LanguageSelector
                   onChange={newLanguage => {
                     latestLanguageRef.current = newLanguage;
-                    handleRegenerate(newLanguage);
+                    handleRegenerate();
                   }}
                   isDisabled={isGenerating}
                 />
