@@ -36,7 +36,6 @@ import { Messages } from './Messages';
 import { Header } from './Header';
 import { usePageType } from './lib/use-page-type';
 import { HatSelector } from './HatSelector';
-import { replaceTokens } from './prompts/utils';
 import { SUPPORTED_LANGUAGES, selectedHatStorage, modeStorage, languageStorage } from '../../options/src/vars';
 import { LanguageSelector } from './LanguageSelector/LanguageSelector';
 
@@ -138,12 +137,14 @@ const SidePanel = () => {
         const selectedLanguageData = SUPPORTED_LANGUAGES.find(lang => lang.code === effectiveLanguage);
         if (!selectedLanguageData) return;
 
-        const systemPrompt = replaceTokens(selectedHatData.prompt, {
-          language: {
-            code: selectedLanguageData.code,
-            name: selectedLanguageData.name,
-          },
-        });
+        const systemPrompt = `---
+output_language:
+  name: "${selectedLanguageData.name}"
+  code: "${selectedLanguageData.code}"
+current_time: "${new Date().toISOString()}"
+---
+
+${selectedHatData.prompt}`;
 
         // Clear previous messages if language changed in simple mode
         if (mode === 'simple' && isInitialAnalysis) {
