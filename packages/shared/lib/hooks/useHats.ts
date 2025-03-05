@@ -15,7 +15,7 @@ export const useHats = () => {
   const handleStorageChange = useCallback(
     (changes: { [key: string]: chrome.storage.StorageChange }) => {
       const hatListChange = changes[hatStorage.HAT_LIST_KEY];
-      const hasHatDataChange = Object.keys(changes).some(key => key.startsWith(hatStorage.HAT_DATA_PREFIX));
+      const hasHatDataChange = Object.keys(changes).some(key => key.startsWith(hatStorage.HAT_PREFIX));
 
       if (hatListChange || hasHatDataChange) {
         loadHats();

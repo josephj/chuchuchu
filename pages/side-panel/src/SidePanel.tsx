@@ -372,19 +372,20 @@ ${articleContent.content || ''}`.trim();
     setIsOnOriginalPage(true);
   }, []);
 
-  const handleRegenerate = useCallback(async () => {
-    if (hasContent) {
-      setIsGenerating(true);
-      try {
-        if (threadData) {
-          const formattedData = formatThreadForLLM(threadData);
-          await handleAskAssistant(formattedData, true);
-        } else if (articleContent) {
-          const formattedContent =
-            typeof articleContent === 'string'
-              ? articleContent
-              : pageType.type === 'youtube'
-                ? `---
+  const handleRegenerate = useCallback(
+    async (language: string) => {
+      if (hasContent) {
+        setIsGenerating(true);
+        try {
+          if (threadData) {
+            const formattedData = formatThreadForLLM(threadData);
+            await handleAskAssistant(formattedData, true);
+          } else if (articleContent) {
+            const formattedContent =
+              typeof articleContent === 'string'
+                ? articleContent
+                : pageType.type === 'youtube'
+                  ? `---
 title: ${articleTitle}
 ${articleContent.channel ? `channel: ${articleContent.channel}` : ''}
 ${articleContent.publishDate ? `published: ${articleContent.publishDate}` : ''}
@@ -394,7 +395,7 @@ type: youtube
 ${articleContent.description ? `## Description\n${articleContent.description}` : 'No description available'}
 
 ${articleContent.transcript ? `## Transcript\n${articleContent.transcript}` : ''}`
-                : `---
+                  : `---
 title: ${articleTitle}
 ${articleContent.siteName ? `source: ${articleContent.siteName}` : ''}
 ${articleContent.byline ? `author: ${articleContent.byline}` : ''}
@@ -406,15 +407,17 @@ ${articleContent.excerpt ? `## Summary\n${articleContent.excerpt}\n` : ''}
 ## Content
 ${articleContent.content || ''}`.trim();
 
-          await handleAskAssistant(formattedContent, true);
+            await handleAskAssistant(formattedContent, true);
+          }
+        } catch (error) {
+          console.error('Error regenerating:', error);
+        } finally {
+          setIsGenerating(false);
         }
-      } catch (error) {
-        console.error('Error regenerating:', error);
-      } finally {
-        setIsGenerating(false);
       }
-    }
-  }, [hasContent, threadData, articleContent, handleAskAssistant, pageType.type, articleTitle]);
+    },
+    [hasContent, threadData, articleContent, handleAskAssistant, pageType.type, articleTitle],
+  );
 
   useEffect(() => {
     const handleMessage = async (
@@ -758,11 +761,10 @@ ${articleContent.content || ''}`.trim();
       {/* Settings Section */}
       <Box p={4} borderBottom="1px" borderColor={borderColor}>
         <Flex justify="space-between" align="center">
-          <ButtonGroup size="sm" variant="ghost" spacing={0} bg={buttonBg} borderRadius="md" p={1}>
-            <Box px={1}>
-              {mode === 'advanced' ? (
-                <HatSelector value={selectedHat} onChange={handleHatChange} isDisabled={isGenerating} />
-              ) : (
+          <Box px="1">
+            {mode === 'simple' ? (
+              <HStack>
+                <Text fontSize="xl">🌐</Text>
                 <LanguageSelector
                   onChange={newLanguage => {
                     latestLanguageRef.current = newLanguage;
@@ -770,31 +772,35 @@ ${articleContent.content || ''}`.trim();
                   }}
                   isDisabled={isGenerating}
                 />
-              )}
-            </Box>
-            {selectedHat && mode === 'advanced' ? (
-              <Tooltip label="Edit current hat" placement="top">
-                <IconButton
-                  aria-label="Edit current hat"
-                  icon={<EditIcon />}
-                  onClick={() => handleOpenOptionsWithRoute(`/hats/edit/${selectedHat}`)}
-                  size="sm"
-                  variant="ghost"
-                  color={textColor}
-                />
-              </Tooltip>
-            ) : null}
-            <Tooltip label="Create new hat" placement="top">
-              <IconButton
-                aria-label="Create new hat"
-                icon={<AddIcon />}
-                onClick={() => handleOpenOptionsWithRoute('/hats/add')}
-                size="sm"
-                variant="ghost"
-                color={textColor}
-              />
-            </Tooltip>
-          </ButtonGroup>
+              </HStack>
+            ) : (
+              <ButtonGroup size="sm" variant="ghost" spacing={0} bg={buttonBg} borderRadius="md" p={1}>
+                <Box px={1}>
+                  <HatSelector value={selectedHat} onChange={handleHatChange} isDisabled={isGenerating} />
+                </Box>
+                <Tooltip label="Edit current hat" placement="top">
+                  <IconButton
+                    aria-label="Edit current hat"
+                    icon={<EditIcon />}
+                    onClick={() => handleOpenOptionsWithRoute(`/hats/edit/${selectedHat}`)}
+                    size="sm"
+                    variant="ghost"
+                    color={textColor}
+                  />
+                </Tooltip>
+                <Tooltip label="Create new hat" placement="top">
+                  <IconButton
+                    aria-label="Create new hat"
+                    icon={<AddIcon />}
+                    onClick={() => handleOpenOptionsWithRoute('/hats/add')}
+                    size="sm"
+                    variant="ghost"
+                    color={textColor}
+                  />
+                </Tooltip>
+              </ButtonGroup>
+            )}
+          </Box>
 
           <Flex gap={2}>
             <IconButton

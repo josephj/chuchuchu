@@ -1,10 +1,11 @@
-import type { HatConfig } from '../../types';
+import type { Hat } from '../../types';
 import prompt from './system.md?raw';
 
-export const config: HatConfig = {
+export const config: Hat = {
+  id: 'hat_default_default',
   alias: 'default',
   label: 'Default',
-  model: 'llama-3.1-8b-instant',
+  model: 'deepseek-r1-distill-qwen-32b',
   temperature: 0,
   urlPattern: '*',
   prompt,

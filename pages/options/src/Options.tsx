@@ -1,7 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { withErrorBoundary, withSuspense, useStorage } from '@extension/shared';
 import {
-  Center,
   Switch,
   Grid,
   GridItem,
@@ -44,14 +43,13 @@ import {
   DEFAULT_LANGUAGE_CODE,
   languageStorage,
   openInWebStorage,
-  hatsStorage,
   modeStorage,
   DEFAULT_MODE,
 } from './vars';
 import { HashRouter, Routes, Route, useNavigate, useParams, useLocation, useSearchParams } from 'react-router-dom';
 import type { Theme as ReactSelectTheme } from 'react-select';
 import { HatEditor } from './HatEditor';
-import { storage } from './storage';
+import { hatStorage } from '@extension/storage';
 
 type LanguageOption = {
   value: string;
@@ -230,12 +228,10 @@ const Options = () => {
           throw new Error("Can't delete the last hat. At least one hat must remain.");
         }
 
-        // Update local state immediately
-        const updatedHats = hats.filter(hat => hat.id !== hatToDelete.id);
-        setHats(updatedHats);
+        await hatStorage.deleteHat(hatToDelete.id);
 
-        // Update storage
-        await hatsStorage.set(updatedHats);
+        // Update local state
+        await loadHats();
 
         closeDeleteAlert();
         navigate('/');
@@ -254,9 +250,6 @@ const Options = () => {
           closeOptionsTab();
         }
       } catch (error) {
-        // Reload hats to restore state
-        loadHats();
-
         // Show error toast
         toast({
           title: 'Error deleting hat',
@@ -273,40 +266,24 @@ const Options = () => {
 
   const handleSaveHat = async (hat: Hat) => {
     try {
-      // Save the full hat data
-      await storage.setHat(hat);
-
-      // Get and update the hat list
-      const currentList = await storage.getHatList();
-      let updatedList: HatList;
-
       if (location.pathname.includes('/hats/edit/')) {
-        updatedList = currentList.map(h =>
-          h.id === hat.id
-            ? {
-                id: hat.id,
-                label: hat.label,
-                urlPattern: hat.urlPattern,
-                model: hat.model,
-                language: hat.language,
-              }
-            : h,
-        );
+        await hatStorage.setHat(hat);
       } else {
-        const listItem: HatListItem = {
-          id: hat.id,
-          label: hat.label,
-          urlPattern: hat.urlPattern,
-          model: hat.model,
-          language: hat.language,
-        };
-        updatedList = [...currentList, listItem];
+        await hatStorage.addHat(hat);
       }
 
-      await storage.setHatList(updatedList);
+      // Show success toast
+      toast({
+        title: location.pathname.includes('/hats/edit/') ? 'Hat updated' : 'Hat created',
+        description: `Successfully ${location.pathname.includes('/hats/edit/') ? 'updated' : 'created'} "${hat.label}"`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
 
       // Refresh the UI
-      loadHats();
+      await loadHats();
+      navigate('/');
 
       // Close the tab if coming from side panel
       if (isFromSidePanel) {
@@ -314,18 +291,41 @@ const Options = () => {
       }
     } catch (error) {
       console.error('Failed to save hat:', error);
+      toast({
+        title: 'Error saving hat',
+        description: error instanceof Error ? error.message : 'An unknown error occurred',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
     }
   };
 
   const loadHats = async () => {
-    const list = await storage.getHatList();
-    const fullHats = await Promise.all(list.map(item => storage.getHat(item.id)));
+    const list = await hatStorage.getHatList();
+    const fullHats = await Promise.all(list.map(item => hatStorage.getHat(item.id)));
     setHats(fullHats.filter((hat): hat is Hat => hat !== null));
   };
-  // Load hats on mount and after migration
+
   useEffect(() => {
-    loadHats();
+    const initializeHats = async () => {
+      try {
+        await loadHats();
+      } catch (error) {
+        console.error('Error initializing hats:', error);
+        toast({
+          title: 'Error loading hats',
+          description: error instanceof Error ? error.message : 'An unknown error occurred',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+      }
+    };
+
+    initializeHats();
   }, []);
+
   const handleModalClose = () => {
     navigate('/');
     if (isFromSidePanel) {
@@ -342,7 +342,7 @@ const Options = () => {
 
   const handleResetConfirm = async () => {
     try {
-      await storage.initializeDefaultHats();
+      await hatStorage.reset();
       await loadHats();
       toast({
         title: 'Hats Reset',
