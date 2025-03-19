@@ -31,6 +31,7 @@ import {
   EditIcon,
   AddIcon,
   CopyIcon,
+  ArrowUpIcon,
 } from '@chakra-ui/icons';
 import { Messages } from './Messages';
 import { Header } from './Header';
@@ -734,7 +735,7 @@ ${articleContent.content || ''}`.trim();
                 <Box px={1}>
                   <HatSelector value={selectedHat} onChange={handleHatChange} isDisabled={isGenerating} />
                 </Box>
-                <Tooltip label="Edit current hat" placement="top">
+                <Tooltip label="Edit current hat" placement="top" fontSize="xs">
                   <IconButton
                     aria-label="Edit current hat"
                     icon={<EditIcon />}
@@ -744,7 +745,7 @@ ${articleContent.content || ''}`.trim();
                     color={textColor}
                   />
                 </Tooltip>
-                <Tooltip label="Create new hat" placement="top">
+                <Tooltip label="Create new hat" placement="top" fontSize="xs">
                   <IconButton
                     aria-label="Create new hat"
                     icon={<AddIcon />}
@@ -877,7 +878,7 @@ ${articleContent.content || ''}`.trim();
         <>
           <Box p={4} borderTop="1px" borderColor={borderColor} fontSize="13px">
             <form onSubmit={handleFormSubmit(onSubmit)}>
-              <Flex gap={2}>
+              <Box position="relative">
                 <Textarea
                   {...register('question')}
                   onKeyDown={handleKeyDown}
@@ -889,11 +890,28 @@ ${articleContent.content || ''}`.trim();
                   color={textColor}
                   variant="outline"
                   _placeholder={{ color: textColorSecondary }}
+                  pr="40px"
+                  sx={{
+                    '&:focus-visible': {
+                      '& + div': {
+                        zIndex: 2,
+                      },
+                    },
+                  }}
                 />
-                <Button type="submit" isDisabled={isTyping || !watch('question').trim()} colorScheme="blue">
-                  Send
-                </Button>
-              </Flex>
+                <Box position="absolute" right="8px" top="8px" zIndex={1}>
+                  <Tooltip label="Send (Cmd/Ctrl + Enter)" placement="top" fontSize="xs">
+                    <IconButton
+                      type="submit"
+                      isDisabled={isTyping || !watch('question').trim()}
+                      colorScheme="blue"
+                      aria-label="Send message"
+                      icon={<ArrowUpIcon />}
+                      size="sm"
+                    />
+                  </Tooltip>
+                </Box>
+              </Box>
             </form>
           </Box>
 
@@ -924,7 +942,7 @@ ${articleContent.content || ''}`.trim();
                   ) : (
                     <Text>{originalContent}</Text>
                   )}
-                  <Tooltip hasArrow label="Copy content" placement="left">
+                  <Tooltip hasArrow label="Copy content" placement="left" fontSize="xs">
                     <IconButton
                       aria-label="Copy content"
                       icon={<CopyIcon />}
