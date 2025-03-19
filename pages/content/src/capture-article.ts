@@ -1,4 +1,4 @@
-import { Readability } from '@mozilla/readability';
+import { Readability, isProbablyReaderable } from '@mozilla/readability';
 import TurndownService from 'turndown';
 
 export type ArticleData = {
@@ -12,6 +12,16 @@ export type ArticleData = {
 
 export const captureArticle = () => {
   const handleMessage = (message: { type: string }, _: chrome.runtime.MessageSender, sendResponse: () => void) => {
+    if (message.type === 'CHECK_READABILITY') {
+      const isReadable = isProbablyReaderable(document, { minContentLength: 200 });
+      chrome.runtime.sendMessage({
+        type: 'READABILITY_RESULT',
+        isReadable,
+      });
+      sendResponse();
+      return;
+    }
+
     if (message.type === 'CAPTURE_ARTICLE') {
       try {
         const documentClone = document.cloneNode(true) as Document;

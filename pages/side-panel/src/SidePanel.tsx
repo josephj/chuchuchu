@@ -122,7 +122,8 @@ const SidePanel = () => {
 
   const [isOptionsPage, setIsOptionsPage] = useState(false);
   const [isContentScriptLoaded, setIsContentScriptLoaded] = useState(false);
-  const [showReloadPrompt, setShowReloadPrompt] = useState(false);
+  const [isReadable, setIsReadable] = useState(true);
+  const [isPageLoading, setIsPageLoading] = useState(true);
 
   const handleAskAssistant = useCallback(
     async (prompt: string, isInitialAnalysis = false) => {
@@ -331,12 +332,17 @@ ${articleContent.content || ''}`.trim();
       message:
         | ThreadDataMessage
         | ArticleDataResultMessage
-        | { type: 'RELOAD_AND_CAPTURE' | 'THREAD_PANE_AVAILABLE' | 'THREAD_PANE_CLOSED' },
+        | {
+            type: 'RELOAD_AND_CAPTURE' | 'THREAD_PANE_AVAILABLE' | 'THREAD_PANE_CLOSED' | 'READABILITY_RESULT';
+            isReadable?: boolean;
+          },
     ) => {
       if (message.type === 'THREAD_PANE_AVAILABLE') {
         setIsThreadPaneAvailable(true);
       } else if (message.type === 'THREAD_PANE_CLOSED') {
         setIsThreadPaneAvailable(false);
+      } else if (message.type === 'READABILITY_RESULT' && message.isReadable !== undefined) {
+        setIsReadable(message.isReadable);
       } else if (message.type === 'THREAD_DATA_RESULT') {
         setIsCapturing(false);
         setThreadData(null);
@@ -404,16 +410,16 @@ ${message.data.content || ''}`.trim();
 
   useEffect(() => {
     const handleTabUpdate = (tabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
-      if (changeInfo.status === 'complete') {
+      if (changeInfo.status === 'loading') {
+        setIsPageLoading(true);
+      } else if (changeInfo.status === 'complete') {
+        setIsPageLoading(false);
         chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
           const currentTab = tabs[0];
           if (currentTab?.id === tabId) {
             chrome.tabs.sendMessage(tabId, { type: 'PING' }, () => {
               const isLoaded = chrome.runtime.lastError ? false : true;
               setIsContentScriptLoaded(isLoaded);
-              if (isLoaded) {
-                setIsCapturing(false);
-              }
             });
           }
         });
@@ -694,20 +700,31 @@ ${articleContent.content || ''}`.trim();
       chrome.tabs.sendMessage(currentTab.id, { type: 'PING' }, () => {
         const isLoaded = chrome.runtime.lastError ? false : true;
         setIsContentScriptLoaded(isLoaded);
-        setShowReloadPrompt(!isLoaded);
       });
     });
   }, []);
 
   useEffect(() => {
-    checkContentScript();
-  }, [checkContentScript]);
+    if (!isPageLoading) {
+      checkContentScript();
+    }
+  }, [checkContentScript, isPageLoading]);
 
   const handleReloadPage = useCallback(() => {
     setIsCapturing(true);
     chrome.runtime.sendMessage({ type: 'RELOAD_AND_CAPTURE' });
-    setShowReloadPrompt(false);
   }, []);
+
+  useEffect(() => {
+    if (pageType.type === 'default' && !isOptionsPage && isContentScriptLoaded) {
+      chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+        const currentTab = tabs[0];
+        if (currentTab?.id) {
+          chrome.tabs.sendMessage(currentTab.id, { type: 'CHECK_READABILITY' });
+        }
+      });
+    }
+  }, [pageType.type, isOptionsPage, isContentScriptLoaded]);
 
   return (
     <Flex direction="column" h="100vh" bg={bg} color={textColor}>
@@ -816,7 +833,7 @@ ${articleContent.content || ''}`.trim();
                   leftIcon={<Text>⭐️</Text>}
                   isLoading={isCapturing}
                   loadingText="Capturing page"
-                  isDisabled={isOptionsPage || !isContentScriptLoaded}>
+                  isDisabled={isOptionsPage || !isContentScriptLoaded || !isReadable}>
                   Summarize current page
                 </Button>
                 {pageType.url && !isOptionsPage && isContentScriptLoaded && (
@@ -830,9 +847,15 @@ ${articleContent.content || ''}`.trim();
                     {pageType.url}
                   </Text>
                 )}
+                {!isReadable ||
+                  (isOptionsPage && (
+                    <Text fontSize="xs" color="red.500" textAlign="center">
+                      This page doesn&apos;t contain readable content
+                    </Text>
+                  ))}
               </VStack>
             )}
-            {!isContentScriptLoaded && !isCapturing && (
+            {!isContentScriptLoaded && !isCapturing && !isOptionsPage && !isPageLoading && (
               <Text fontSize="xs" color={textColorSecondary} textAlign="center">
                 Please{' '}
                 <Button onClick={handleReloadPage} size="xs">
