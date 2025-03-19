@@ -260,9 +260,8 @@ ${articleContent.byline ? `author: ${articleContent.byline}` : ''}
 type: article
 ---
 
-${articleContent.excerpt ? `## Summary\n${articleContent.excerpt}\n` : ''}
+${articleContent.excerpt ? `Summary: \n${articleContent.excerpt}\n` : ''}
 
-## Content
 ${articleContent.content || ''}`.trim();
 
           handleAskAssistant(formattedContent, true);
@@ -313,9 +312,8 @@ ${articleContent.byline ? `author: ${articleContent.byline}` : ''}
 type: article
 ---
 
-${articleContent.excerpt ? `## Summary\n${articleContent.excerpt}\n` : ''}
+${articleContent.excerpt ? `Summary: \n${articleContent.excerpt}\n` : ''}
 
-## Content
 ${articleContent.content || ''}`.trim();
 
           await handleAskAssistant(formattedContent, true);
@@ -389,9 +387,8 @@ ${message.data.byline ? `author: ${message.data.byline}` : ''}
 type: article
 ---
 
-${message.data.excerpt ? `## Summary\n${message.data.excerpt}\n` : ''}
+${message.data.excerpt ? `Summary: \n${message.data.excerpt}\n` : ''}
 
-## Content
 ${message.data.content || ''}`.trim();
 
         setOriginalContent(formattedContent);
@@ -456,9 +453,8 @@ ${articleContent.byline ? `author: ${articleContent.byline}` : ''}
 type: article
 ---
 
-${articleContent.excerpt ? `## Summary\n${articleContent.excerpt}\n` : ''}
+${articleContent.excerpt ? `Summary: \n${articleContent.excerpt}\n` : ''}
 
-## Content
 ${articleContent.content || ''}`.trim();
 
       setMessages([]);

@@ -88,9 +88,27 @@ export const getTranscript = async (): Promise<string | null> => {
               const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
               const textElements = xmlDoc.getElementsByTagName('text');
 
-              const transcript = Array.from(textElements)
-                .map(element => element.textContent?.replace(/&#39;/g, "'") || '')
-                .join(' ');
+              // Start with WebVTT header
+              let transcript = 'WEBVTT\n\n';
+
+              transcript += Array.from(textElements)
+                .map(element => {
+                  const start = element.getAttribute('start');
+                  const duration = element.getAttribute('dur');
+                  const speaker = element.getAttribute('speaker') || 'Speaker';
+                  const text = element.textContent?.replace(/&#39;/g, "'") || '';
+
+                  if (!start || !duration) return '';
+
+                  // Convert start time to VTT format (HH:MM:SS.mmm)
+                  const startTime = new Date(Number(start) * 1000).toISOString().substr(11, 12);
+                  const endTime = new Date((Number(start) + Number(duration)) * 1000).toISOString().substr(11, 12);
+
+                  // Format the VTT entry
+                  return `${startTime} --> ${endTime}\n${speaker}: ${text}\n`;
+                })
+                .filter(Boolean)
+                .join('\n');
 
               return transcript;
             }

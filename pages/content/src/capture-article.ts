@@ -1,4 +1,5 @@
 import { Readability } from '@mozilla/readability';
+import TurndownService from 'turndown';
 
 export type ArticleData = {
   title: string | null;
@@ -18,7 +19,12 @@ export const captureArticle = () => {
         const article = reader.parse();
 
         if (article) {
-          const cleanContent = article.content?.replace(/\n{3,}/g, '\n\n').trim();
+          const turndownService = new TurndownService({
+            headingStyle: 'atx',
+            codeBlockStyle: 'fenced',
+          });
+          const markdown = turndownService.turndown(article.content || '');
+          const cleanContent = markdown.replace(/\n{3,}/g, '\n\n').trim();
 
           chrome.runtime.sendMessage({
             type: 'ARTICLE_DATA_RESULT',
