@@ -31,6 +31,7 @@ import {
   Tooltip,
   ButtonGroup,
   useToast,
+  type ExpandedIndex,
 } from '@chakra-ui/react';
 import { CheckIcon, AddIcon, DeleteIcon, EditIcon, CopyIcon, InfoIcon, RepeatIcon } from '@chakra-ui/icons';
 import Select from 'react-select';
@@ -108,6 +109,7 @@ const Options = () => {
   const [savedSettings, setSavedSettings] = useState<{ [K in keyof OptionsFormData]?: boolean }>({});
   const [hatToDelete, setHatToDelete] = useState<Hat | null>(null);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
+  const [expandedPanels, setExpandedPanels] = useState<number[]>([0, 1]);
   const cancelDeleteRef = useRef<HTMLButtonElement>(null);
   const textColorSecondary = useColorModeValue('dracula.light.comment', 'dracula.comment');
   const [hats, setHats] = useState<Hat[]>([]);
@@ -157,6 +159,7 @@ const Options = () => {
     setValue('language', selectedLanguage);
     setValue('openInWeb', openInWeb);
     setValue('mode', mode);
+    setExpandedPanels(mode === 'advanced' ? [0, 1, 2] : [0, 1]);
   }, [setValue, selectedLanguage, openInWeb, mode]);
 
   useEffect(() => {
@@ -360,10 +363,14 @@ const Options = () => {
     }
   };
 
+  const handleAccordionChange = (expandedIndex: ExpandedIndex) => {
+    setExpandedPanels(Array.isArray(expandedIndex) ? expandedIndex : [expandedIndex]);
+  };
+
   return (
     <VStack p={6} bg={bg} minH="100vh" color={textColor}>
       <form onSubmit={handleSubmit(handleSave)} style={{ width: '100%', maxWidth: '800px' }}>
-        <Accordion defaultIndex={isAdvancedMode ? [0, 1, 2] : [0, 1]} allowMultiple>
+        <Accordion index={expandedPanels} onChange={handleAccordionChange} allowMultiple>
           {/* General Settings */}
           <AccordionItem borderColor={borderColor}>
             <h2>
