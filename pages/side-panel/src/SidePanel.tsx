@@ -121,7 +121,7 @@ const SidePanel = () => {
   const buttonBg = useColorModeValue('dracula.light.currentLine', 'dracula.currentLine');
 
   const [isOptionsPage, setIsOptionsPage] = useState(false);
-  const [isContentScriptLoaded, setIsContentScriptLoaded] = useState(false);
+  const [isContentScriptLoaded, setIsContentScriptLoaded] = useState(true);
   const [isReadable, setIsReadable] = useState(true);
   const [isPageLoading, setIsPageLoading] = useState(true);
 
@@ -697,18 +697,44 @@ ${articleContent.content || ''}`.trim();
       const currentTab = tabs[0];
       if (!currentTab?.id) return;
 
+      // First try to ping the content script
       chrome.tabs.sendMessage(currentTab.id, { type: 'PING' }, () => {
         const isLoaded = chrome.runtime.lastError ? false : true;
         setIsContentScriptLoaded(isLoaded);
+
+        // If content script is not loaded and we're not on options page, try to inject it
+        if (!isLoaded && !isOptionsPage && !isPageLoading) {
+          chrome.scripting
+            .executeScript({
+              target: { tabId: currentTab.id as number },
+              files: ['content-script.js'],
+            })
+            .then(() => {
+              setIsContentScriptLoaded(true);
+            })
+            .catch(() => {
+              setIsContentScriptLoaded(false);
+            });
+        }
       });
     });
-  }, []);
+  }, [isOptionsPage, isPageLoading]);
 
   useEffect(() => {
-    if (!isPageLoading) {
-      checkContentScript();
-    }
-  }, [checkContentScript, isPageLoading]);
+    // Check content script when side panel opens
+    checkContentScript();
+
+    // Also check when tab updates
+    const handleTabUpdate = (tabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
+      if (changeInfo.status === 'complete') {
+        setIsPageLoading(false);
+        checkContentScript();
+      }
+    };
+
+    chrome.tabs.onUpdated.addListener(handleTabUpdate);
+    return () => chrome.tabs.onUpdated.removeListener(handleTabUpdate);
+  }, [checkContentScript]);
 
   const handleReloadPage = useCallback(() => {
     setIsCapturing(true);
@@ -800,7 +826,7 @@ ${articleContent.content || ''}`.trim();
             {pageType.type === 'slack' ? (
               <VStack spacing={4} width="100%" align="center">
                 <Button
-                  isDisabled={!isThreadPaneAvailable || !isContentScriptLoaded}
+                  isDisabled={!isThreadPaneAvailable || isOptionsPage}
                   colorScheme="blue"
                   leftIcon={<Text>⭐️</Text>}
                   onClick={handleSummarizeSlack}
@@ -808,7 +834,7 @@ ${articleContent.content || ''}`.trim();
                   loadingText="Capturing thread">
                   Summarize current page
                 </Button>
-                {!isOptionsPage && isContentScriptLoaded && (
+                {!isOptionsPage && (
                   <HStack spacing={1}>
                     <Text fontSize="xs" color={textColorSecondary}>
                       Click
@@ -833,10 +859,10 @@ ${articleContent.content || ''}`.trim();
                   leftIcon={<Text>⭐️</Text>}
                   isLoading={isCapturing}
                   loadingText="Capturing page"
-                  isDisabled={isOptionsPage || !isContentScriptLoaded || !isReadable}>
+                  isDisabled={isOptionsPage || !isReadable}>
                   Summarize current page
                 </Button>
-                {pageType.url && !isOptionsPage && isContentScriptLoaded && (
+                {pageType.url && !isOptionsPage && (
                   <Text
                     maxW="300px"
                     fontSize="xs"
@@ -847,12 +873,11 @@ ${articleContent.content || ''}`.trim();
                     {pageType.url}
                   </Text>
                 )}
-                {!isReadable ||
-                  (isOptionsPage && (
-                    <Text fontSize="xs" color="red.500" textAlign="center">
-                      This page doesn&apos;t contain readable content
-                    </Text>
-                  ))}
+                {!isReadable && !isOptionsPage && (
+                  <Text fontSize="xs" color="red.500" textAlign="center">
+                    This page doesn&apos;t contain readable content
+                  </Text>
+                )}
               </VStack>
             )}
             {!isContentScriptLoaded && !isCapturing && !isOptionsPage && !isPageLoading && (

@@ -29,6 +29,22 @@ const copyToClipboard = async (text: string) => {
   await navigator.clipboard.writeText(text);
 };
 
+const getMeaningfulFilename = (content: string, timestamp: number, extension: string): string => {
+  // Get the first non-empty line that's not a heading
+  const firstLine = content
+    .split('\n')
+    .find(line => line.trim() && !line.startsWith('#'))
+    ?.trim()
+    .replace(/[^a-zA-Z0-9\s-]/g, '') // Remove special characters
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .slice(0, 50); // Limit length
+
+  // Format date as YYYY-MM-DD
+  const date = new Date(timestamp).toISOString().split('T')[0];
+
+  return `${firstLine || 'message'}-${date}.${extension}`;
+};
+
 export const Messages = ({ messages, isTyping }: Props) => {
   const [showThinkBlocks, setShowThinkBlocks] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -288,7 +304,7 @@ export const Messages = ({ messages, isTyping }: Props) => {
                         if (typeof message.content === 'string') {
                           const cleanContent = removeThinkBlocks(message.content);
                           const blob = await convertToDocx(cleanContent);
-                          const filename = `message-${new Date(message.timestamp).toISOString()}.docx`;
+                          const filename = getMeaningfulFilename(cleanContent, message.timestamp, 'docx');
                           const url = URL.createObjectURL(blob);
                           const link = document.createElement('a');
                           link.href = url;
@@ -316,7 +332,7 @@ export const Messages = ({ messages, isTyping }: Props) => {
                       onClick={() => {
                         if (typeof message.content === 'string') {
                           const cleanContent = removeThinkBlocks(message.content);
-                          const filename = `message-${new Date(message.timestamp).toISOString()}.md`;
+                          const filename = getMeaningfulFilename(cleanContent, message.timestamp, 'md');
                           downloadFile(cleanContent, filename, 'text/markdown');
                         }
                       }}
@@ -404,7 +420,7 @@ export const Messages = ({ messages, isTyping }: Props) => {
                     onClick={() => {
                       if (typeof message.content === 'string') {
                         const cleanContent = removeThinkBlocks(message.content);
-                        const filename = `message-${new Date(message.timestamp).toISOString()}.md`;
+                        const filename = getMeaningfulFilename(cleanContent, message.timestamp, 'md');
                         downloadFile(cleanContent, filename, 'text/markdown');
                       }
                     }}
@@ -426,7 +442,7 @@ export const Messages = ({ messages, isTyping }: Props) => {
                       if (typeof message.content === 'string') {
                         const cleanContent = removeThinkBlocks(message.content);
                         const blob = await convertToDocx(cleanContent);
-                        const filename = `message-${new Date(message.timestamp).toISOString()}.docx`;
+                        const filename = getMeaningfulFilename(cleanContent, message.timestamp, 'docx');
                         const url = URL.createObjectURL(blob);
                         const link = document.createElement('a');
                         link.href = url;
