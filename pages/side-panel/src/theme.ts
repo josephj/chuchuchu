@@ -31,6 +31,10 @@ const colors = {
       yellow: '#854d0e',
     },
   },
+  clearButton: {
+    dark: 'dracula.currentLine',
+    light: 'dracula.light.currentLine',
+  },
 };
 
 const config: ThemeConfig = {
@@ -99,6 +103,13 @@ export const theme = extendTheme({
         ghost: (props: { colorMode: 'light' | 'dark' }) => ({
           _hover: {
             bg: props.colorMode === 'dark' ? 'dracula.currentLine' : 'dracula.light.currentLine',
+          },
+        }),
+        blackAlpha: (props: { colorMode: 'light' | 'dark' }) => ({
+          bg: props.colorMode === 'dark' ? 'dracula.currentLine' : 'dracula.light.currentLine',
+          color: 'white',
+          _hover: {
+            bg: props.colorMode === 'dark' ? 'dracula.red' : 'dracula.light.red',
           },
         }),
       },

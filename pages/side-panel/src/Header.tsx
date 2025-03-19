@@ -60,15 +60,6 @@ export const Header = ({
       p={4}
       width="100%">
       <Flex justify="space-between" width="100%" gap={1}>
-        <Tooltip label="Clear conversation" placement="top" openDelay={500}>
-          <IconButton
-            icon={<CloseIcon fontSize="10px" />}
-            onClick={onClose}
-            aria-label="Clear conversation"
-            variant="ghost"
-            size="xs"
-          />
-        </Tooltip>
         <Stack spacing={0} flex="1" width="calc(100% - 100px)">
           {isSlack && threadInfo ? (
             <Text fontSize="sm" fontWeight="medium" color={textColor} noOfLines={2}>
@@ -89,7 +80,7 @@ export const Header = ({
             articleTitle && (
               <Text fontSize="sm" fontWeight="medium" color={textColor} noOfLines={2}>
                 {articleTitle}{' '}
-                <Tooltip label="Regenerate summary" placement="top" openDelay={500}>
+                <Tooltip fontSize="xs" label="Regenerate summary" placement="top" openDelay={500}>
                   <IconButton
                     icon={<RepeatIcon />}
                     onClick={onRegenerate}
@@ -103,7 +94,7 @@ export const Header = ({
             )
           )}
           {threadUrl && (
-            <Tooltip label={threadUrl} placement="bottom-start" openDelay={500}>
+            <Tooltip fontSize="xs" label={threadUrl} placement="bottom-start" openDelay={500}>
               <Link
                 href={threadUrl}
                 isExternal
@@ -117,6 +108,20 @@ export const Header = ({
             </Tooltip>
           )}
         </Stack>
+        <Tooltip label="Clear conversation" placement="top" openDelay={500} fontSize="xs">
+          <IconButton
+            icon={<CloseIcon fontSize="10px" color="#ffffff" />}
+            onClick={onClose}
+            aria-label="Clear conversation"
+            bg={useColorModeValue('#333333', '#666666')}
+            color="#fffff"
+            _hover={{
+              bg: useColorModeValue('#666666', '#999999'),
+            }}
+            size="sm"
+            isRound
+          />
+        </Tooltip>
       </Flex>
       {hasContent && !isOnOriginalPage && (
         <Alert alignItems="flex-start" status="warning" size="sm" mt={2} py={2} borderRadius="md">
