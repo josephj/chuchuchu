@@ -7,6 +7,14 @@ const isSlackDomain = window.location.hostname.endsWith('slack.com');
 const isYouTubeDomain = window.location.hostname.endsWith('youtube.com');
 const isZoomDomain = window.location.hostname.endsWith('zoom.us');
 
+chrome.runtime.onMessage.addListener((message, _, sendResponse) => {
+  if (message.type === 'PING') {
+    sendResponse({ type: 'PONG' });
+    return true;
+  }
+  return false;
+});
+
 if (isSlackDomain) {
   console.log('[DEBUG] Slack domain detected, capturing thread');
   captureThread();

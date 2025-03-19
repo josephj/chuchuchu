@@ -120,6 +120,8 @@ const SidePanel = () => {
   const buttonBg = useColorModeValue('dracula.light.currentLine', 'dracula.currentLine');
 
   const [isOptionsPage, setIsOptionsPage] = useState(false);
+  const [isContentScriptLoaded, setIsContentScriptLoaded] = useState(false);
+  const [showReloadPrompt, setShowReloadPrompt] = useState(false);
 
   const handleAskAssistant = useCallback(
     async (prompt: string, isInitialAnalysis = false) => {
@@ -404,14 +406,25 @@ ${message.data.content || ''}`.trim();
 
   useEffect(() => {
     const handleTabUpdate = (tabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
-      if (changeInfo.status === 'loading' && isCapturing) {
-        setIsCapturing(true);
+      if (changeInfo.status === 'complete') {
+        chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+          const currentTab = tabs[0];
+          if (currentTab?.id === tabId) {
+            chrome.tabs.sendMessage(tabId, { type: 'PING' }, () => {
+              const isLoaded = chrome.runtime.lastError ? false : true;
+              setIsContentScriptLoaded(isLoaded);
+              if (isLoaded) {
+                setIsCapturing(false);
+              }
+            });
+          }
+        });
       }
     };
 
     chrome.tabs.onUpdated.addListener(handleTabUpdate);
     return () => chrome.tabs.onUpdated.removeListener(handleTabUpdate);
-  }, [isCapturing]);
+  }, []);
 
   useEffect(() => {
     if (!selectedHat || isTyping || !isInitialLoad.current) return;
@@ -676,6 +689,29 @@ ${articleContent.content || ''}`.trim();
     return () => chrome.storage.onChanged.removeListener(handleStorageChange);
   }, [hasContent, mode, handleRegenerate]);
 
+  const checkContentScript = useCallback(() => {
+    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+      const currentTab = tabs[0];
+      if (!currentTab?.id) return;
+
+      chrome.tabs.sendMessage(currentTab.id, { type: 'PING' }, () => {
+        const isLoaded = chrome.runtime.lastError ? false : true;
+        setIsContentScriptLoaded(isLoaded);
+        setShowReloadPrompt(!isLoaded);
+      });
+    });
+  }, []);
+
+  useEffect(() => {
+    checkContentScript();
+  }, [checkContentScript]);
+
+  const handleReloadPage = useCallback(() => {
+    setIsCapturing(true);
+    chrome.runtime.sendMessage({ type: 'RELOAD_AND_CAPTURE' });
+    setShowReloadPrompt(false);
+  }, []);
+
   return (
     <Flex direction="column" h="100vh" bg={bg} color={textColor}>
       {/* Settings Section */}
@@ -746,11 +782,11 @@ ${articleContent.content || ''}`.trim();
       {/* Main Content Section */}
       <Box flex="1" overflowY="auto" position="relative">
         {!hasContent ? (
-          <Flex height="100%" direction="column" justify="center" align="center" p={4} gap={1}>
+          <Flex height="100%" direction="column" justify="center" align="center" p={4} gap={3}>
             {pageType.type === 'slack' ? (
               <VStack spacing={4} width="100%" align="center">
                 <Button
-                  isDisabled={!isThreadPaneAvailable}
+                  isDisabled={!isThreadPaneAvailable || !isContentScriptLoaded}
                   colorScheme="blue"
                   leftIcon={<Text>⭐️</Text>}
                   onClick={handleSummarizeSlack}
@@ -758,20 +794,22 @@ ${articleContent.content || ''}`.trim();
                   loadingText="Capturing thread">
                   Summarize current page
                 </Button>
-                <HStack spacing={1}>
-                  <Text fontSize="xs" color={textColorSecondary}>
-                    Click
-                  </Text>
-                  <Flex h="24px" align="center" gap={2} bg={buttonBg} px={3} borderRadius="md" boxShadow="lg">
-                    <Text fontSize="xs">⭐️</Text>
-                    <Text fontSize="xs" color={textColor}>
-                      Summarize
+                {!isOptionsPage && isContentScriptLoaded && (
+                  <HStack spacing={1}>
+                    <Text fontSize="xs" color={textColorSecondary}>
+                      Click
                     </Text>
-                  </Flex>
-                  <Text fontSize="xs" color={textColorSecondary}>
-                    in any conversation
-                  </Text>
-                </HStack>
+                    <Flex h="24px" align="center" gap={2} bg={buttonBg} px={3} borderRadius="md" boxShadow="lg">
+                      <Text fontSize="xs">⭐️</Text>
+                      <Text fontSize="xs" color={textColor}>
+                        Summarize
+                      </Text>
+                    </Flex>
+                    <Text fontSize="xs" color={textColorSecondary}>
+                      in any conversation
+                    </Text>
+                  </HStack>
+                )}
               </VStack>
             ) : (
               <VStack spacing={3}>
@@ -781,10 +819,10 @@ ${articleContent.content || ''}`.trim();
                   leftIcon={<Text>⭐️</Text>}
                   isLoading={isCapturing}
                   loadingText="Capturing page"
-                  isDisabled={isOptionsPage}>
+                  isDisabled={isOptionsPage || !isContentScriptLoaded}>
                   Summarize current page
                 </Button>
-                {pageType.url && !isOptionsPage && (
+                {pageType.url && !isOptionsPage && isContentScriptLoaded && (
                   <Text
                     maxW="300px"
                     fontSize="xs"
@@ -796,6 +834,15 @@ ${articleContent.content || ''}`.trim();
                   </Text>
                 )}
               </VStack>
+            )}
+            {!isContentScriptLoaded && !isCapturing && (
+              <Text fontSize="xs" color={textColorSecondary} textAlign="center">
+                Please{' '}
+                <Button onClick={handleReloadPage} size="xs">
+                  reload
+                </Button>{' '}
+                the page to enable summarization
+              </Text>
             )}
           </Flex>
         ) : (
