@@ -16,7 +16,6 @@ chrome.runtime.onMessage.addListener((message, _, sendResponse) => {
 });
 
 if (isSlackDomain) {
-  console.log('[DEBUG] Slack domain detected, capturing thread');
   captureThread();
 } else if (isYouTubeDomain) {
   captureYouTube();

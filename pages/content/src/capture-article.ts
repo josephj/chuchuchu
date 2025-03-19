@@ -18,7 +18,7 @@ export const captureArticle = () => {
         const article = reader.parse();
 
         if (article) {
-          const cleanContent = article.textContent?.replace(/\n{3,}/g, '\n\n').trim();
+          const cleanContent = article.content?.replace(/\n{3,}/g, '\n\n').trim();
 
           chrome.runtime.sendMessage({
             type: 'ARTICLE_DATA_RESULT',
