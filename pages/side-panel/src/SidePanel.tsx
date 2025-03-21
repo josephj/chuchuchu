@@ -2,43 +2,20 @@ import '@src/SidePanel.css';
 import { withErrorBoundary, withSuspense, useStorage, useHats } from '@extension/shared';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { askAssistant } from './ask-assistant';
-import { formatThreadForLLM, convertToWebUrl, formatRelativeTime, estimateTokens, findBestMatchingHat } from './utils';
+import { formatThreadForLLM, convertToWebUrl, formatRelativeTime, findBestMatchingHat } from './utils';
+import { formatArticleContent } from './utils/formatContent';
+import { isRestrictedGoogleDomain } from './utils/domainUtils';
 import type { ThreadData, ThreadDataMessage, ArticleDataResultMessage, ArticleData, Message } from './types';
 import { useForm } from 'react-hook-form';
-import {
-  Box,
-  Flex,
-  Text,
-  Button,
-  Textarea,
-  useColorModeValue,
-  VStack,
-  IconButton,
-  useColorMode,
-  Collapse,
-  HStack,
-  Alert,
-  AlertIcon,
-  Tooltip,
-  ButtonGroup,
-} from '@chakra-ui/react';
-import {
-  MoonIcon,
-  SunIcon,
-  ChevronUpIcon,
-  ChevronDownIcon,
-  SettingsIcon,
-  EditIcon,
-  AddIcon,
-  CopyIcon,
-  ArrowUpIcon,
-} from '@chakra-ui/icons';
+import { Box, Flex, useColorModeValue, useColorMode, Alert, AlertIcon } from '@chakra-ui/react';
 import { Messages } from './Messages';
-import { Header } from './Header';
+import { MessageHeader } from './components/MessageHeader';
+import { Nav } from './components/Nav';
 import { usePageType } from './lib/use-page-type';
-import { HatSelector } from './HatSelector';
 import { SUPPORTED_LANGUAGES, selectedHatStorage, modeStorage, languageStorage } from '../../options/src/vars';
-import { LanguageSelector } from './LanguageSelector/LanguageSelector';
+import { OriginalContent } from './components/OriginalContent';
+import { QuestionInput } from './components/QuestionInput';
+import { ZeroState } from './components/ZeroState';
 
 type FormData = {
   question: string;
@@ -115,10 +92,7 @@ const SidePanel = () => {
 
   const { colorMode, toggleColorMode } = useColorMode();
   const bg = useColorModeValue('dracula.light.background', 'dracula.background');
-  const borderColor = useColorModeValue('dracula.light.currentLine', 'dracula.currentLine');
   const textColor = useColorModeValue('dracula.light.foreground', 'dracula.foreground');
-  const textColorSecondary = useColorModeValue('dracula.light.comment', 'dracula.comment');
-  const buttonBg = useColorModeValue('dracula.light.currentLine', 'dracula.currentLine');
 
   const [isOptionsPage, setIsOptionsPage] = useState(false);
   const [isContentScriptLoaded, setIsContentScriptLoaded] = useState(true);
@@ -126,6 +100,7 @@ const SidePanel = () => {
   const [isPageLoading, setIsPageLoading] = useState(false);
   const [readabilityChecked, setReadabilityChecked] = useState(false);
   const [domReady, setDomReady] = useState(true);
+  const [isRestrictedDomain, setIsRestrictedDomain] = useState(false);
 
   const handleAskAssistant = useCallback(
     async (prompt: string, isInitialAnalysis = false) => {
@@ -242,31 +217,9 @@ ${selectedHatData.prompt}`;
           const formattedData = formatThreadForLLM(threadData);
           handleAskAssistant(formattedData, true);
         } else if (articleContent) {
-          const formattedContent =
-            typeof articleContent === 'string'
-              ? articleContent
-              : pageType.type === 'youtube'
-                ? `---
-title: ${articleTitle}
-${articleContent.channel ? `channel: ${articleContent.channel}` : ''}
-${articleContent.publishDate ? `published: ${articleContent.publishDate}` : ''}
-type: youtube
----
+          const formattedContent = formatArticleContent(articleContent, pageType, articleTitle);
 
-${articleContent.description ? `## Description\n${articleContent.description}` : 'No description available'}
-
-${articleContent.transcript ? `## Transcript\n${articleContent.transcript}` : ''}`
-                : `---
-title: ${articleTitle}
-${articleContent.siteName ? `source: ${articleContent.siteName}` : ''}
-${articleContent.byline ? `author: ${articleContent.byline}` : ''}
-type: article
----
-
-${articleContent.excerpt ? `Summary: \n${articleContent.excerpt}\n` : ''}
-
-${articleContent.content || ''}`.trim();
-
+          setOriginalContent(formattedContent);
           handleAskAssistant(formattedContent, true);
         }
       }
@@ -294,30 +247,7 @@ ${articleContent.content || ''}`.trim();
           const formattedData = formatThreadForLLM(threadData);
           await handleAskAssistant(formattedData, true);
         } else if (articleContent) {
-          const formattedContent =
-            typeof articleContent === 'string'
-              ? articleContent
-              : pageType.type === 'youtube'
-                ? `---
-title: ${articleTitle}
-${articleContent.channel ? `channel: ${articleContent.channel}` : ''}
-${articleContent.publishDate ? `published: ${articleContent.publishDate}` : ''}
-type: youtube
----
-
-${articleContent.description ? `## Description\n${articleContent.description}` : 'No description available'}
-
-${articleContent.transcript ? `## Transcript\n${articleContent.transcript}` : ''}`
-                : `---
-title: ${articleTitle}
-${articleContent.siteName ? `source: ${articleContent.siteName}` : ''}
-${articleContent.byline ? `author: ${articleContent.byline}` : ''}
-type: article
----
-
-${articleContent.excerpt ? `Summary: \n${articleContent.excerpt}\n` : ''}
-
-${articleContent.content || ''}`.trim();
+          const formattedContent = formatArticleContent(articleContent, pageType, articleTitle);
 
           await handleAskAssistant(formattedContent, true);
         }
@@ -377,28 +307,7 @@ ${articleContent.content || ''}`.trim();
         setContentType('article');
         setArticleContent(message.data);
 
-        const formattedContent =
-          pageType.type === 'youtube'
-            ? `---
-title: ${message.data.title || ''}
-${message.data.channel ? `channel: ${message.data.channel}` : ''}
-${message.data.publishDate ? `published: ${message.data.publishDate}` : ''}
-type: youtube
----
-
-${message.data.description ? `## Description\n${message.data.description}` : 'No description available'}
-
-${message.data.transcript ? `## Transcript\n${message.data.transcript}` : ''}`
-            : `---
-title: ${message.data.title || ''}
-${message.data.siteName ? `source: ${message.data.siteName}` : ''}
-${message.data.byline ? `author: ${message.data.byline}` : ''}
-type: article
----
-
-${message.data.excerpt ? `Summary: \n${message.data.excerpt}\n` : ''}
-
-${message.data.content || ''}`.trim();
+        const formattedContent = formatArticleContent(message.data, pageType, message.data.title || '');
 
         setOriginalContent(formattedContent);
         handleAskAssistant(formattedContent, true);
@@ -417,6 +326,12 @@ ${message.data.content || ''}`.trim();
       if (!currentTab?.id) return;
 
       const tabId = currentTab.id;
+
+      // Skip check if we're on a restricted domain
+      if (isRestrictedDomain) {
+        setIsContentScriptLoaded(false);
+        return;
+      }
 
       // First try to ping the content script
       chrome.tabs.sendMessage(tabId, { type: 'PING' }, response => {
@@ -471,7 +386,7 @@ ${message.data.content || ''}`.trim();
         }
       });
     });
-  }, [isOptionsPage, isPageLoading, pageType]);
+  }, [isOptionsPage, isPageLoading, pageType.type, isRestrictedDomain]);
 
   // Add a new useEffect for handling tab activation
   useEffect(() => {
@@ -508,7 +423,10 @@ ${message.data.content || ''}`.trim();
         chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
           const currentTab = tabs[0];
           if (currentTab?.id === tabId) {
-            checkContentScript();
+            // Give a little time for the page to fully load before checking
+            setTimeout(() => {
+              checkContentScript();
+            }, 200);
           }
         });
       } else if (changeInfo.status && !domReady) {
@@ -537,14 +455,16 @@ ${message.data.content || ''}`.trim();
 
     // Initial check when component mounts
     const initialCheck = setTimeout(() => {
+      // Reset content script loaded state initially
+      setIsContentScriptLoaded(true);
       checkContentScript();
-    }, 100);
+    }, 300);
 
     return () => {
       chrome.tabs.onUpdated.removeListener(handleTabUpdate);
       clearTimeout(initialCheck);
     };
-  }, [checkContentScript]);
+  }, [checkContentScript, domReady]);
 
   useEffect(() => {
     if (!selectedHat || isTyping || !isInitialLoad.current) return;
@@ -554,30 +474,7 @@ ${message.data.content || ''}`.trim();
       setMessages([]);
       handleAskAssistant(formattedData, true);
     } else if (articleContent) {
-      const formattedContent =
-        pageType.type === 'youtube' && typeof articleContent !== 'string'
-          ? `---
-title: ${articleTitle}
-${articleContent.channel ? `channel: ${articleContent.channel}` : ''}
-${articleContent.publishDate ? `published: ${articleContent.publishDate}` : ''}
-type: youtube
----
-
-${articleContent.description ? `## Description\n${articleContent.description}` : 'No description available'}
-
-${articleContent.transcript ? `## Transcript\n${articleContent.transcript}` : ''}`
-          : typeof articleContent === 'string'
-            ? articleContent
-            : `---
-title: ${articleTitle}
-${articleContent.siteName ? `source: ${articleContent.siteName}` : ''}
-${articleContent.byline ? `author: ${articleContent.byline}` : ''}
-type: article
----
-
-${articleContent.excerpt ? `Summary: \n${articleContent.excerpt}\n` : ''}
-
-${articleContent.content || ''}`.trim();
+      const formattedContent = formatArticleContent(articleContent, pageType, articleTitle);
 
       setMessages([]);
       handleAskAssistant(formattedContent, true);
@@ -766,7 +663,10 @@ ${articleContent.content || ''}`.trim();
 
         const isOptions = currentTab.url.startsWith(chrome.runtime.getURL('/options/'));
         const isChromeUrl = currentTab.url.startsWith('chrome://');
-        setIsOptionsPage(isOptions || isChromeUrl);
+        const isRestricted = isRestrictedGoogleDomain(currentTab.url);
+
+        setIsOptionsPage(isOptions || isChromeUrl || isRestricted);
+        setIsRestrictedDomain(isRestricted);
       });
     };
 
@@ -783,17 +683,6 @@ ${articleContent.content || ''}`.trim();
       chrome.tabs.onUpdated.removeListener(checkIfOptionsPage);
     };
   }, []);
-
-  const handleCopyContent = useCallback(() => {
-    navigator.clipboard.writeText(originalContent).then(
-      () => {
-        // Optional: You could add a toast notification here
-      },
-      err => {
-        console.error('Failed to copy text:', err);
-      },
-    );
-  }, [originalContent]);
 
   useEffect(() => {
     const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }) => {
@@ -834,153 +723,47 @@ ${articleContent.content || ''}`.trim();
 
       return () => clearTimeout(timeoutId);
     }
+    return undefined; // Explicit return for the case when condition is false
   }, [pageType.type, isOptionsPage, isContentScriptLoaded, domReady]);
 
   return (
     <Flex direction="column" h="100vh" bg={bg} color={textColor}>
       {/* Settings Section */}
-      <Box p={4} borderBottom="1px" borderColor={borderColor}>
-        <Flex justify="space-between" align="center">
-          <Box px="1">
-            {mode === 'simple' ? (
-              <HStack>
-                <Text fontSize="xl">🌐</Text>
-                <LanguageSelector
-                  onChange={newLanguage => {
-                    latestLanguageRef.current = newLanguage;
-                    handleRegenerate();
-                  }}
-                  isDisabled={isGenerating}
-                />
-              </HStack>
-            ) : (
-              <ButtonGroup size="sm" variant="ghost" spacing={0} bg={buttonBg} borderRadius="md" p={1}>
-                <Box px={1}>
-                  <HatSelector value={selectedHat} onChange={handleHatChange} isDisabled={isGenerating} />
-                </Box>
-                <Tooltip label="Edit current hat" placement="top" fontSize="xs">
-                  <IconButton
-                    aria-label="Edit current hat"
-                    icon={<EditIcon />}
-                    onClick={() => handleOpenOptionsWithRoute(`/hats/edit/${selectedHat}`)}
-                    size="sm"
-                    variant="ghost"
-                    color={textColor}
-                  />
-                </Tooltip>
-                <Tooltip label="Create new hat" placement="top" fontSize="xs">
-                  <IconButton
-                    aria-label="Create new hat"
-                    icon={<AddIcon />}
-                    onClick={() => handleOpenOptionsWithRoute('/hats/add')}
-                    size="sm"
-                    variant="ghost"
-                    color={textColor}
-                  />
-                </Tooltip>
-              </ButtonGroup>
-            )}
-          </Box>
+      <Nav
+        mode={mode}
+        selectedHat={selectedHat}
+        colorMode={colorMode}
+        isGenerating={isGenerating}
+        onHatChange={handleHatChange}
+        onOpenOptions={handleOpenOptions}
+        onOpenOptionsWithRoute={handleOpenOptionsWithRoute}
+        onToggleColorMode={toggleColorMode}
+        onLanguageChange={newLanguage => {
+          latestLanguageRef.current = newLanguage;
+          handleRegenerate();
+        }}
+      />
 
-          <Flex gap={2}>
-            <IconButton
-              aria-label="Open settings"
-              icon={<SettingsIcon />}
-              onClick={handleOpenOptions}
-              size="sm"
-              variant="ghost"
-              color={textColor}
-            />
-            <IconButton
-              aria-label="Toggle color mode"
-              icon={colorMode === 'light' ? <MoonIcon /> : <SunIcon />}
-              onClick={toggleColorMode}
-              size="sm"
-              variant="ghost"
-              color={textColor}
-            />
-          </Flex>
-        </Flex>
-      </Box>
-
-      {/* Main Content Section */}
       <Box flex="1" overflowY="auto" position="relative">
         {!hasContent ? (
-          <Flex height="100%" direction="column" justify="center" align="center" p={4} gap={3}>
-            {pageType.type === 'slack' ? (
-              <VStack spacing={4} width="100%" align="center">
-                <Button
-                  isDisabled={!isThreadPaneAvailable || (!isContentScriptLoaded && !isOptionsPage)}
-                  colorScheme="blue"
-                  leftIcon={<Text>⭐️</Text>}
-                  onClick={handleSummarizeSlack}
-                  isLoading={isCapturing}
-                  loadingText="Capturing thread">
-                  Summarize current page
-                </Button>
-                {!isOptionsPage && isContentScriptLoaded && (
-                  <HStack spacing={1}>
-                    <Text fontSize="xs" color={textColorSecondary}>
-                      Click
-                    </Text>
-                    <Flex h="24px" align="center" gap={2} bg={buttonBg} px={3} borderRadius="md" boxShadow="lg">
-                      <Text fontSize="xs">⭐️</Text>
-                      <Text fontSize="xs" color={textColor}>
-                        Summarize
-                      </Text>
-                    </Flex>
-                    <Text fontSize="xs" color={textColorSecondary}>
-                      in any conversation
-                    </Text>
-                  </HStack>
-                )}
-              </VStack>
-            ) : (
-              <VStack spacing={3}>
-                <Tooltip
-                  label={readabilityChecked && !isReadable ? "This page doesn't contain readable content" : ''}
-                  isDisabled={!readabilityChecked || isReadable}
-                  hasArrow
-                  placement="top"
-                  fontSize="xs">
-                  <Button
-                    onClick={handleCapturePage}
-                    colorScheme="blue"
-                    leftIcon={<Text>⭐️</Text>}
-                    isLoading={isCapturing}
-                    loadingText="Capturing page"
-                    isDisabled={
-                      isOptionsPage || (readabilityChecked && !isReadable) || (!isContentScriptLoaded && domReady)
-                    }>
-                    Summarize current page
-                  </Button>
-                </Tooltip>
-                {pageType.url && !isOptionsPage && (
-                  <Text
-                    maxW="300px"
-                    fontSize="xs"
-                    color={textColorSecondary}
-                    textAlign="center"
-                    title={pageType.url}
-                    isTruncated>
-                    {pageType.url}
-                  </Text>
-                )}
-              </VStack>
-            )}
-            {!isContentScriptLoaded && !isCapturing && !isOptionsPage && !isPageLoading && (
-              <Text fontSize="xs" color={textColorSecondary} textAlign="center">
-                Please{' '}
-                <Button onClick={handleReloadPage} size="xs">
-                  reload
-                </Button>{' '}
-                the page to enable summarization
-              </Text>
-            )}
-          </Flex>
+          <ZeroState
+            pageType={pageType}
+            isThreadPaneAvailable={isThreadPaneAvailable}
+            isContentScriptLoaded={isContentScriptLoaded}
+            isOptionsPage={isOptionsPage}
+            isCapturing={isCapturing}
+            isRestrictedDomain={isRestrictedDomain}
+            isPageLoading={isPageLoading}
+            readabilityChecked={readabilityChecked}
+            isReadable={isReadable}
+            domReady={domReady}
+            handleSummarizeSlack={handleSummarizeSlack}
+            handleCapturePage={handleCapturePage}
+            handleReloadPage={handleReloadPage}
+          />
         ) : (
-          <VStack spacing={4} align="stretch">
-            <Header
+          <Flex direction="column" height="100%" position="relative">
+            <MessageHeader
               threadUrl={formattedUrl}
               articleTitle={articleTitle}
               isSlack={contentType === 'slack'}
@@ -1000,104 +783,32 @@ ${articleContent.content || ''}`.trim();
               onCapturePage={handleCapturePage}
               pageType={pageType}
             />
-            <Messages messages={messages} isTyping={isTyping} />
-          </VStack>
+            <Box flex="1" overflowY="auto" pb="150px">
+              <Messages messages={messages} isTyping={isTyping} />
+            </Box>
+
+            <Box position="absolute" bottom="0" left="0" right="0" bg={bg}>
+              <QuestionInput
+                register={register}
+                watch={watch}
+                onSubmit={onSubmit}
+                handleKeyDown={handleKeyDown}
+                handleFormSubmit={handleFormSubmit}
+                isTyping={isTyping}
+              />
+
+              {/* Original Content Section */}
+              <OriginalContent
+                isOpen={showOriginalContent}
+                onToggle={handleToggleContent}
+                originalContent={originalContent}
+                contentType={contentType}
+                threadData={threadData}
+              />
+            </Box>
+          </Flex>
         )}
       </Box>
-
-      {/* Input Section */}
-      {hasContent && (
-        <>
-          <Box p={4} borderTop="1px" borderColor={borderColor} fontSize="13px">
-            <form onSubmit={handleFormSubmit(onSubmit)}>
-              <Box position="relative">
-                <Textarea
-                  {...register('question')}
-                  onKeyDown={handleKeyDown}
-                  isDisabled={isTyping}
-                  rows={3}
-                  fontSize="13px"
-                  placeholder="Ask a follow-up question... (Cmd/Ctrl + Enter to submit)"
-                  resize="none"
-                  color={textColor}
-                  variant="outline"
-                  _placeholder={{ color: textColorSecondary }}
-                  pr="40px"
-                  sx={{
-                    '&:focus-visible': {
-                      '& + div': {
-                        zIndex: 2,
-                      },
-                    },
-                  }}
-                />
-                <Box position="absolute" right="8px" top="8px" zIndex={1}>
-                  <Tooltip label="Send (Cmd/Ctrl + Enter)" placement="top" fontSize="xs">
-                    <IconButton
-                      type="submit"
-                      isDisabled={isTyping || !watch('question').trim()}
-                      colorScheme="blue"
-                      aria-label="Send message"
-                      icon={<ArrowUpIcon />}
-                      size="sm"
-                    />
-                  </Tooltip>
-                </Box>
-              </Box>
-            </form>
-          </Box>
-
-          {/* Original Content Section */}
-          <Box borderTop="1px" borderColor={borderColor}>
-            <Button
-              width="100%"
-              variant="ghost"
-              fontSize="xs"
-              onClick={handleToggleContent}
-              rightIcon={showOriginalContent ? <ChevronDownIcon /> : <ChevronUpIcon />}
-              size="sm"
-              color={textColorSecondary}>
-              Original content ({estimateTokens(originalContent)} tokens)
-            </Button>
-            <Collapse in={showOriginalContent}>
-              <Box position="relative">
-                <Box p={4} maxH="300px" overflowY="auto" overflowX="hidden" fontSize="sm" whiteSpace="pre-wrap">
-                  {contentType === 'slack' && threadData ? (
-                    <VStack align="stretch" spacing={4}>
-                      {threadData.messages.map((msg, index) => (
-                        <Box key={index}>
-                          <Text fontWeight="bold">{msg.user}</Text>
-                          <Text>{msg.text}</Text>
-                        </Box>
-                      ))}
-                    </VStack>
-                  ) : (
-                    <Text>{originalContent}</Text>
-                  )}
-                  <Tooltip hasArrow label="Copy content" placement="left" fontSize="xs">
-                    <IconButton
-                      aria-label="Copy content"
-                      icon={<CopyIcon />}
-                      onClick={handleCopyContent}
-                      size="sm"
-                      variant="ghost"
-                      position="absolute"
-                      bottom={5}
-                      right={5}
-                      bg="whiteAlpha.800"
-                      _dark={{ bg: 'blackAlpha.800' }}
-                      _hover={{
-                        bg: 'whiteAlpha.900',
-                        _dark: { bg: 'blackAlpha.900' },
-                      }}
-                    />
-                  </Tooltip>
-                </Box>
-              </Box>
-            </Collapse>
-          </Box>
-        </>
-      )}
     </Flex>
   );
 };
