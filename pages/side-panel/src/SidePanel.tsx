@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { askAssistant } from './ask-assistant';
 import { formatThreadForLLM, convertToWebUrl, formatRelativeTime, findBestMatchingHat } from './utils';
 import { formatArticleContent } from './utils/formatContent';
-import { isRestrictedGoogleDomain } from './utils/domainUtils';
 import type { ThreadData, ThreadDataMessage, ArticleDataResultMessage, ArticleData, Message } from './types';
 import { useForm } from 'react-hook-form';
 import { Box, Flex, useColorModeValue, useColorMode, Alert, AlertIcon } from '@chakra-ui/react';
@@ -88,19 +87,10 @@ const SidePanel = () => {
   const [articleTitle, setArticleTitle] = useState<string>('');
   const [contentType, setContentType] = useState<'slack' | 'article' | null>(null);
   const [showOriginalContent, setShowOriginalContent] = useState(false);
-  const [isThreadPaneAvailable, setIsThreadPaneAvailable] = useState(false);
 
   const { colorMode, toggleColorMode } = useColorMode();
   const bg = useColorModeValue('dracula.light.background', 'dracula.background');
   const textColor = useColorModeValue('dracula.light.foreground', 'dracula.foreground');
-
-  const [isOptionsPage, setIsOptionsPage] = useState(false);
-  const [isContentScriptLoaded, setIsContentScriptLoaded] = useState(true);
-  const [isReadable, setIsReadable] = useState(true);
-  const [isPageLoading, setIsPageLoading] = useState(false);
-  const [readabilityChecked, setReadabilityChecked] = useState(false);
-  const [domReady, setDomReady] = useState(true);
-  const [isRestrictedDomain, setIsRestrictedDomain] = useState(false);
 
   const handleAskAssistant = useCallback(
     async (prompt: string, isInitialAnalysis = false) => {
@@ -224,19 +214,19 @@ ${selectedHatData.prompt}`;
         }
       }
     },
-    [articleContent, articleTitle, hasContent, hats, pageType.type, threadData, handleAskAssistant],
+    [hasContent, hats, threadData, articleContent, handleAskAssistant, pageType, articleTitle],
   );
 
   const handleClose = useCallback(() => {
-    setHasContent(false);
-    setThreadData(null);
-    setMessages([]);
-    setOriginalUrl('');
-    setFormattedUrl('');
     setArticleContent('');
     setArticleTitle('');
     setContentType(null);
+    setFormattedUrl('');
+    setHasContent(false);
     setIsOnOriginalPage(true);
+    setMessages([]);
+    setOriginalUrl('');
+    setThreadData(null);
   }, []);
 
   const handleRegenerate = useCallback(async () => {
@@ -257,7 +247,7 @@ ${selectedHatData.prompt}`;
         setIsGenerating(false);
       }
     }
-  }, [hasContent, threadData, articleContent, handleAskAssistant, pageType.type, articleTitle]);
+  }, [hasContent, threadData, articleContent, handleAskAssistant, pageType, articleTitle]);
 
   useEffect(() => {
     const handleMessage = async (
@@ -269,13 +259,8 @@ ${selectedHatData.prompt}`;
             isReadable?: boolean;
           },
     ) => {
-      if (message.type === 'THREAD_PANE_AVAILABLE') {
-        setIsThreadPaneAvailable(true);
-      } else if (message.type === 'THREAD_PANE_CLOSED') {
-        setIsThreadPaneAvailable(false);
-      } else if (message.type === 'READABILITY_RESULT' && message.isReadable !== undefined) {
-        setIsReadable(message.isReadable);
-        setReadabilityChecked(true);
+      if (message.type === 'RELOAD_AND_CAPTURE') {
+        setIsCapturing(true);
       } else if (message.type === 'THREAD_DATA_RESULT') {
         setIsCapturing(false);
         setThreadData(null);
@@ -311,8 +296,6 @@ ${selectedHatData.prompt}`;
 
         setOriginalContent(formattedContent);
         handleAskAssistant(formattedContent, true);
-      } else if (message.type === 'RELOAD_AND_CAPTURE') {
-        setIsCapturing(true);
       }
     };
 
@@ -320,152 +303,80 @@ ${selectedHatData.prompt}`;
     return () => chrome.runtime.onMessage.removeListener(handleMessage);
   }, [handleAskAssistant, pageType.type, selectedHat, hats]);
 
-  const checkContentScript = useCallback(() => {
+  // Add effect for URL-based hat selection
+  useEffect(() => {
+    if (hasContent) return;
+
+    const updateHatFromUrl = async (url?: string) => {
+      if (!url || !hats?.length) return;
+
+      const bestMatch = findBestMatchingHat(url, hats);
+      if (bestMatch?.id) {
+        if (mode === 'advanced') {
+          if (bestMatch.id !== selectedHat && !isManuallySelected) {
+            setIsManuallySelected(false);
+            selectedHatStorage.set(bestMatch.id);
+          }
+        } else {
+          // In simple mode, use best match hat but override language
+          const hat = { ...bestMatch, language: selectedLanguage };
+          await selectedHatStorage.set(hat.id);
+          if (bestMatch.id !== selectedHat) {
+            selectedHatStorage.set(bestMatch.id);
+          }
+        }
+      }
+    };
+
+    // Initial check
     chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
       const currentTab = tabs[0];
-      if (!currentTab?.id) return;
-
-      const tabId = currentTab.id;
-
-      // Skip check if we're on a restricted domain
-      if (isRestrictedDomain) {
-        setIsContentScriptLoaded(false);
-        return;
+      if (!isManuallySelected) {
+        // Only update if not manually selected
+        updateHatFromUrl(currentTab?.url);
       }
-
-      // First try to ping the content script
-      chrome.tabs.sendMessage(tabId, { type: 'PING' }, response => {
-        // If we get a response or an error that's not connection-related, consider script loaded
-        const lastError = chrome.runtime.lastError;
-        if (
-          response ||
-          (lastError &&
-            typeof lastError === 'object' &&
-            'message' in lastError &&
-            typeof lastError.message === 'string' &&
-            !lastError.message.includes('connect'))
-        ) {
-          setIsContentScriptLoaded(true);
-          // If we have a content script, immediately check readability
-          if (pageType.type === 'default' || pageType.type === 'youtube') {
-            chrome.tabs.sendMessage(tabId, { type: 'CHECK_READABILITY' });
-          }
-          return;
-        }
-
-        // If we're here, the content script might not be loaded
-        setIsContentScriptLoaded(false);
-
-        // Try to inject it if we're not on the options page
-        if (!isOptionsPage && !isPageLoading) {
-          try {
-            chrome.scripting
-              .executeScript({
-                // Here tabId is guaranteed to be a number since we checked currentTab?.id above
-                target: { tabId },
-                files: ['content-script.js'],
-              })
-              .then(() => {
-                setIsContentScriptLoaded(true);
-
-                // After injecting, check readability for article pages
-                if (pageType.type === 'default' || pageType.type === 'youtube') {
-                  setTimeout(() => {
-                    chrome.tabs.sendMessage(tabId, { type: 'CHECK_READABILITY' });
-                  }, 200); // Reduced from 500ms to make it faster
-                }
-              })
-              .catch(err => {
-                console.error('Failed to inject content script:', err);
-                setIsContentScriptLoaded(false);
-              });
-          } catch (err) {
-            console.error('Error injecting content script:', err);
-            setIsContentScriptLoaded(false);
-          }
-        }
-      });
     });
-  }, [isOptionsPage, isPageLoading, pageType.type, isRestrictedDomain]);
 
-  // Add a new useEffect for handling tab activation
-  useEffect(() => {
-    const handleTabActivated = () => {
-      // Reset states when switching tabs
-      setDomReady(true);
-      setReadabilityChecked(false);
-      setIsReadable(true);
+    // Listen for tab changes
+    const handleTabActivated = (activeInfo: chrome.tabs.TabActiveInfo) => {
+      setIsManuallySelected(false); // Reset manual selection when switching tabs
+      chrome.tabs.get(activeInfo.tabId, tab => {
+        updateHatFromUrl(tab.url);
+      });
+    };
 
-      // Check the content script when a tab is activated
-      setTimeout(() => {
-        checkContentScript();
-      }, 100);
+    // Listen for URL changes in the current tab
+    const handleTabUpdated = (tabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
+      if (changeInfo.url) {
+        setIsManuallySelected(false); // Reset manual selection when URL changes
+        updateHatFromUrl(changeInfo.url);
+      }
     };
 
     chrome.tabs.onActivated.addListener(handleTabActivated);
+    chrome.tabs.onUpdated.addListener(handleTabUpdated);
 
     return () => {
       chrome.tabs.onActivated.removeListener(handleTabActivated);
+      chrome.tabs.onUpdated.removeListener(handleTabUpdated);
     };
-  }, [checkContentScript]);
+  }, [hats, selectedHat, hasContent, isManuallySelected, mode, selectedLanguage]);
 
-  // Handle tab updates
   useEffect(() => {
-    // Define handler inside effect to avoid circular deps
-    const handleTabUpdate = (tabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
-      if (changeInfo.status === 'loading') {
-        setIsPageLoading(true);
-        setDomReady(false);
-        setReadabilityChecked(false); // Reset readability check on page load
-      } else if (changeInfo.status === 'complete') {
-        setIsPageLoading(false);
-        setDomReady(true);
-        chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-          const currentTab = tabs[0];
-          if (currentTab?.id === tabId) {
-            // Give a little time for the page to fully load before checking
-            setTimeout(() => {
-              checkContentScript();
-            }, 200);
-          }
-        });
-      } else if (changeInfo.status && !domReady) {
-        // If we get any status update and DOM isn't ready, check DOM ready
-        chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-          const currentTab = tabs[0];
-          if (currentTab?.id === tabId) {
-            try {
-              chrome.tabs.executeScript(tabId, { code: 'document.readyState' }, results => {
-                if (chrome.runtime.lastError) return;
-
-                if (results && results[0] && (results[0] === 'interactive' || results[0] === 'complete')) {
-                  setDomReady(true);
-                  checkContentScript();
-                }
-              });
-            } catch (e) {
-              console.error('Error checking DOM ready state:', e);
-            }
-          }
-        });
+    const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }) => {
+      if (changes.selectedLanguage?.newValue) {
+        latestLanguageRef.current = changes.selectedLanguage.newValue;
+        if (hasContent && mode === 'simple') {
+          handleRegenerate();
+        }
       }
     };
 
-    chrome.tabs.onUpdated.addListener(handleTabUpdate);
+    chrome.storage.onChanged.addListener(handleStorageChange);
+    return () => chrome.storage.onChanged.removeListener(handleStorageChange);
+  }, [hasContent, mode, handleRegenerate]);
 
-    // Initial check when component mounts
-    const initialCheck = setTimeout(() => {
-      // Reset content script loaded state initially
-      setIsContentScriptLoaded(true);
-      checkContentScript();
-    }, 300);
-
-    return () => {
-      chrome.tabs.onUpdated.removeListener(handleTabUpdate);
-      clearTimeout(initialCheck);
-    };
-  }, [checkContentScript, domReady]);
-
+  // Reapply initial content analysis when hat changes
   useEffect(() => {
     if (!selectedHat || isTyping || !isInitialLoad.current) return;
 
@@ -481,7 +392,7 @@ ${selectedHatData.prompt}`;
     }
 
     isInitialLoad.current = false;
-  }, [selectedHat, threadData, articleContent, handleAskAssistant, isTyping, pageType.type, articleTitle]);
+  }, [selectedHat, threadData, articleContent, handleAskAssistant, isTyping, pageType, articleTitle]);
 
   const onSubmit = async (data: FormData) => {
     if (!data.question.trim() || isTyping) return;
@@ -584,151 +495,8 @@ ${selectedHatData.prompt}`;
     return () => clearTimeout(timeoutId);
   }, []);
 
-  // Check thread availability when component mounts
-  useEffect(() => {
-    if (pageType.type === 'slack') {
-      chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-        const currentTab = tabs[0];
-        if (currentTab?.id) {
-          chrome.tabs.sendMessage(currentTab.id, { type: 'CHECK_THREAD_PANE' });
-        }
-      });
-    }
-  }, [pageType.type]);
-
-  // Add effect for URL-based hat selection
-  useEffect(() => {
-    if (hasContent) return; // Don't auto-change hat if content exists
-
-    const updateHatFromUrl = async (url?: string) => {
-      if (!url || !hats?.length) return;
-
-      const bestMatch = findBestMatchingHat(url, hats);
-      if (bestMatch?.id) {
-        if (mode === 'advanced') {
-          if (bestMatch.id !== selectedHat && !isManuallySelected) {
-            setIsManuallySelected(false);
-            selectedHatStorage.set(bestMatch.id);
-          }
-        } else {
-          // In simple mode, use best match hat but override language
-          const hat = { ...bestMatch, language: selectedLanguage };
-          await selectedHatStorage.set(hat.id);
-          if (bestMatch.id !== selectedHat) {
-            selectedHatStorage.set(bestMatch.id);
-          }
-        }
-      }
-    };
-
-    // Initial check
-    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-      const currentTab = tabs[0];
-      if (!isManuallySelected) {
-        // Only update if not manually selected
-        updateHatFromUrl(currentTab?.url);
-      }
-    });
-
-    // Listen for tab changes
-    const handleTabActivated = (activeInfo: chrome.tabs.TabActiveInfo) => {
-      setIsManuallySelected(false); // Reset manual selection when switching tabs
-      chrome.tabs.get(activeInfo.tabId, tab => {
-        updateHatFromUrl(tab.url);
-      });
-    };
-
-    // Listen for URL changes in the current tab
-    const handleTabUpdated = (tabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
-      if (changeInfo.url) {
-        setIsManuallySelected(false); // Reset manual selection when URL changes
-        updateHatFromUrl(changeInfo.url);
-      }
-    };
-
-    chrome.tabs.onActivated.addListener(handleTabActivated);
-    chrome.tabs.onUpdated.addListener(handleTabUpdated);
-
-    return () => {
-      chrome.tabs.onActivated.removeListener(handleTabActivated);
-      chrome.tabs.onUpdated.removeListener(handleTabUpdated);
-    };
-  }, [hats, selectedHat, hasContent, isManuallySelected, mode, selectedLanguage]);
-
-  useEffect(() => {
-    const checkIfOptionsPage = () => {
-      chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-        const currentTab = tabs[0];
-        if (!currentTab?.url) return;
-
-        const isOptions = currentTab.url.startsWith(chrome.runtime.getURL('/options/'));
-        const isChromeUrl = currentTab.url.startsWith('chrome://');
-        const isRestricted = isRestrictedGoogleDomain(currentTab.url);
-
-        setIsOptionsPage(isOptions || isChromeUrl || isRestricted);
-        setIsRestrictedDomain(isRestricted);
-      });
-    };
-
-    checkIfOptionsPage();
-    chrome.tabs.onActivated.addListener(checkIfOptionsPage);
-    chrome.tabs.onUpdated.addListener((_, changeInfo) => {
-      if (changeInfo.url) {
-        checkIfOptionsPage();
-      }
-    });
-
-    return () => {
-      chrome.tabs.onActivated.removeListener(checkIfOptionsPage);
-      chrome.tabs.onUpdated.removeListener(checkIfOptionsPage);
-    };
-  }, []);
-
-  useEffect(() => {
-    const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }) => {
-      if (changes.selectedLanguage?.newValue) {
-        latestLanguageRef.current = changes.selectedLanguage.newValue;
-        if (hasContent && mode === 'simple') {
-          handleRegenerate();
-        }
-      }
-    };
-
-    chrome.storage.onChanged.addListener(handleStorageChange);
-    return () => chrome.storage.onChanged.removeListener(handleStorageChange);
-  }, [hasContent, mode, handleRegenerate]);
-
-  const handleReloadPage = useCallback(() => {
-    setIsCapturing(true);
-    chrome.runtime.sendMessage({ type: 'RELOAD_AND_CAPTURE' });
-  }, []);
-
-  // Update the readability check useEffect to support YouTube as well
-  useEffect(() => {
-    if (
-      (pageType.type === 'default' || pageType.type === 'youtube') &&
-      !isOptionsPage &&
-      isContentScriptLoaded &&
-      domReady
-    ) {
-      // Reduced delay for readability check since we're already waiting for DOM ready
-      const timeoutId = setTimeout(() => {
-        chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-          const currentTab = tabs[0];
-          if (currentTab?.id) {
-            chrome.tabs.sendMessage(currentTab.id, { type: 'CHECK_READABILITY' });
-          }
-        });
-      }, 500); // Reduced from 1000ms to make it faster
-
-      return () => clearTimeout(timeoutId);
-    }
-    return undefined; // Explicit return for the case when condition is false
-  }, [pageType.type, isOptionsPage, isContentScriptLoaded, domReady]);
-
   return (
     <Flex direction="column" h="100vh" bg={bg} color={textColor}>
-      {/* Settings Section */}
       <Nav
         mode={mode}
         selectedHat={selectedHat}
@@ -744,25 +512,24 @@ ${selectedHatData.prompt}`;
         }}
       />
 
-      <Box flex="1" overflowY="auto" position="relative">
+      <Box flex="1" height="0" overflowY="auto">
         {!hasContent ? (
           <ZeroState
             pageType={pageType}
-            isThreadPaneAvailable={isThreadPaneAvailable}
-            isContentScriptLoaded={isContentScriptLoaded}
-            isOptionsPage={isOptionsPage}
             isCapturing={isCapturing}
-            isRestrictedDomain={isRestrictedDomain}
-            isPageLoading={isPageLoading}
-            readabilityChecked={readabilityChecked}
-            isReadable={isReadable}
-            domReady={domReady}
-            handleSummarizeSlack={handleSummarizeSlack}
-            handleCapturePage={handleCapturePage}
-            handleReloadPage={handleReloadPage}
+            onSummarize={options => {
+              setIsCapturing(true);
+              if (!options?.reloadPage) {
+                if (pageType.type === 'slack') {
+                  handleSummarizeSlack();
+                } else {
+                  handleCapturePage();
+                }
+              }
+            }}
           />
         ) : (
-          <Flex direction="column" height="100%" position="relative">
+          <Flex direction="column" height="100%">
             <MessageHeader
               threadUrl={formattedUrl}
               articleTitle={articleTitle}
@@ -783,11 +550,11 @@ ${selectedHatData.prompt}`;
               onCapturePage={handleCapturePage}
               pageType={pageType}
             />
-            <Box flex="1" overflowY="auto" pb="150px">
+            <Box flex="1" height="0" overflowY="auto">
               <Messages messages={messages} isTyping={isTyping} />
             </Box>
 
-            <Box position="absolute" bottom="0" left="0" right="0" bg={bg}>
+            <Box bg={bg}>
               <QuestionInput
                 register={register}
                 watch={watch}
@@ -796,8 +563,6 @@ ${selectedHatData.prompt}`;
                 handleFormSubmit={handleFormSubmit}
                 isTyping={isTyping}
               />
-
-              {/* Original Content Section */}
               <OriginalContent
                 isOpen={showOriginalContent}
                 onToggle={handleToggleContent}
