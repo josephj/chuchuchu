@@ -123,7 +123,9 @@ const SidePanel = () => {
   const [isOptionsPage, setIsOptionsPage] = useState(false);
   const [isContentScriptLoaded, setIsContentScriptLoaded] = useState(true);
   const [isReadable, setIsReadable] = useState(true);
-  const [isPageLoading, setIsPageLoading] = useState(true);
+  const [isPageLoading, setIsPageLoading] = useState(false);
+  const [readabilityChecked, setReadabilityChecked] = useState(false);
+  const [domReady, setDomReady] = useState(true);
 
   const handleAskAssistant = useCallback(
     async (prompt: string, isInitialAnalysis = false) => {
@@ -343,6 +345,7 @@ ${articleContent.content || ''}`.trim();
         setIsThreadPaneAvailable(false);
       } else if (message.type === 'READABILITY_RESULT' && message.isReadable !== undefined) {
         setIsReadable(message.isReadable);
+        setReadabilityChecked(true);
       } else if (message.type === 'THREAD_DATA_RESULT') {
         setIsCapturing(false);
         setThreadData(null);
@@ -408,27 +411,140 @@ ${message.data.content || ''}`.trim();
     return () => chrome.runtime.onMessage.removeListener(handleMessage);
   }, [handleAskAssistant, pageType.type, selectedHat, hats]);
 
+  const checkContentScript = useCallback(() => {
+    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+      const currentTab = tabs[0];
+      if (!currentTab?.id) return;
+
+      const tabId = currentTab.id;
+
+      // First try to ping the content script
+      chrome.tabs.sendMessage(tabId, { type: 'PING' }, response => {
+        // If we get a response or an error that's not connection-related, consider script loaded
+        const lastError = chrome.runtime.lastError;
+        if (
+          response ||
+          (lastError &&
+            typeof lastError === 'object' &&
+            'message' in lastError &&
+            typeof lastError.message === 'string' &&
+            !lastError.message.includes('connect'))
+        ) {
+          setIsContentScriptLoaded(true);
+          // If we have a content script, immediately check readability
+          if (pageType.type === 'default' || pageType.type === 'youtube') {
+            chrome.tabs.sendMessage(tabId, { type: 'CHECK_READABILITY' });
+          }
+          return;
+        }
+
+        // If we're here, the content script might not be loaded
+        setIsContentScriptLoaded(false);
+
+        // Try to inject it if we're not on the options page
+        if (!isOptionsPage && !isPageLoading) {
+          try {
+            chrome.scripting
+              .executeScript({
+                // Here tabId is guaranteed to be a number since we checked currentTab?.id above
+                target: { tabId },
+                files: ['content-script.js'],
+              })
+              .then(() => {
+                setIsContentScriptLoaded(true);
+
+                // After injecting, check readability for article pages
+                if (pageType.type === 'default' || pageType.type === 'youtube') {
+                  setTimeout(() => {
+                    chrome.tabs.sendMessage(tabId, { type: 'CHECK_READABILITY' });
+                  }, 200); // Reduced from 500ms to make it faster
+                }
+              })
+              .catch(err => {
+                console.error('Failed to inject content script:', err);
+                setIsContentScriptLoaded(false);
+              });
+          } catch (err) {
+            console.error('Error injecting content script:', err);
+            setIsContentScriptLoaded(false);
+          }
+        }
+      });
+    });
+  }, [isOptionsPage, isPageLoading, pageType]);
+
+  // Add a new useEffect for handling tab activation
   useEffect(() => {
+    const handleTabActivated = () => {
+      // Reset states when switching tabs
+      setDomReady(true);
+      setReadabilityChecked(false);
+      setIsReadable(true);
+
+      // Check the content script when a tab is activated
+      setTimeout(() => {
+        checkContentScript();
+      }, 100);
+    };
+
+    chrome.tabs.onActivated.addListener(handleTabActivated);
+
+    return () => {
+      chrome.tabs.onActivated.removeListener(handleTabActivated);
+    };
+  }, [checkContentScript]);
+
+  // Handle tab updates
+  useEffect(() => {
+    // Define handler inside effect to avoid circular deps
     const handleTabUpdate = (tabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
       if (changeInfo.status === 'loading') {
         setIsPageLoading(true);
+        setDomReady(false);
+        setReadabilityChecked(false); // Reset readability check on page load
       } else if (changeInfo.status === 'complete') {
         setIsPageLoading(false);
+        setDomReady(true);
         chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
           const currentTab = tabs[0];
           if (currentTab?.id === tabId) {
-            chrome.tabs.sendMessage(tabId, { type: 'PING' }, () => {
-              const isLoaded = chrome.runtime.lastError ? false : true;
-              setIsContentScriptLoaded(isLoaded);
-            });
+            checkContentScript();
+          }
+        });
+      } else if (changeInfo.status && !domReady) {
+        // If we get any status update and DOM isn't ready, check DOM ready
+        chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+          const currentTab = tabs[0];
+          if (currentTab?.id === tabId) {
+            try {
+              chrome.tabs.executeScript(tabId, { code: 'document.readyState' }, results => {
+                if (chrome.runtime.lastError) return;
+
+                if (results && results[0] && (results[0] === 'interactive' || results[0] === 'complete')) {
+                  setDomReady(true);
+                  checkContentScript();
+                }
+              });
+            } catch (e) {
+              console.error('Error checking DOM ready state:', e);
+            }
           }
         });
       }
     };
 
     chrome.tabs.onUpdated.addListener(handleTabUpdate);
-    return () => chrome.tabs.onUpdated.removeListener(handleTabUpdate);
-  }, []);
+
+    // Initial check when component mounts
+    const initialCheck = setTimeout(() => {
+      checkContentScript();
+    }, 100);
+
+    return () => {
+      chrome.tabs.onUpdated.removeListener(handleTabUpdate);
+      clearTimeout(initialCheck);
+    };
+  }, [checkContentScript]);
 
   useEffect(() => {
     if (!selectedHat || isTyping || !isInitialLoad.current) return;
@@ -649,7 +765,8 @@ ${articleContent.content || ''}`.trim();
         if (!currentTab?.url) return;
 
         const isOptions = currentTab.url.startsWith(chrome.runtime.getURL('/options/'));
-        setIsOptionsPage(isOptions);
+        const isChromeUrl = currentTab.url.startsWith('chrome://');
+        setIsOptionsPage(isOptions || isChromeUrl);
       });
     };
 
@@ -692,65 +809,32 @@ ${articleContent.content || ''}`.trim();
     return () => chrome.storage.onChanged.removeListener(handleStorageChange);
   }, [hasContent, mode, handleRegenerate]);
 
-  const checkContentScript = useCallback(() => {
-    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-      const currentTab = tabs[0];
-      if (!currentTab?.id) return;
-
-      // First try to ping the content script
-      chrome.tabs.sendMessage(currentTab.id, { type: 'PING' }, () => {
-        const isLoaded = chrome.runtime.lastError ? false : true;
-        setIsContentScriptLoaded(isLoaded);
-
-        // If content script is not loaded and we're not on options page, try to inject it
-        if (!isLoaded && !isOptionsPage && !isPageLoading) {
-          chrome.scripting
-            .executeScript({
-              target: { tabId: currentTab.id as number },
-              files: ['content-script.js'],
-            })
-            .then(() => {
-              setIsContentScriptLoaded(true);
-            })
-            .catch(() => {
-              setIsContentScriptLoaded(false);
-            });
-        }
-      });
-    });
-  }, [isOptionsPage, isPageLoading]);
-
-  useEffect(() => {
-    // Check content script when side panel opens
-    checkContentScript();
-
-    // Also check when tab updates
-    const handleTabUpdate = (tabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
-      if (changeInfo.status === 'complete') {
-        setIsPageLoading(false);
-        checkContentScript();
-      }
-    };
-
-    chrome.tabs.onUpdated.addListener(handleTabUpdate);
-    return () => chrome.tabs.onUpdated.removeListener(handleTabUpdate);
-  }, [checkContentScript]);
-
   const handleReloadPage = useCallback(() => {
     setIsCapturing(true);
     chrome.runtime.sendMessage({ type: 'RELOAD_AND_CAPTURE' });
   }, []);
 
+  // Update the readability check useEffect to support YouTube as well
   useEffect(() => {
-    if (pageType.type === 'default' && !isOptionsPage && isContentScriptLoaded) {
-      chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-        const currentTab = tabs[0];
-        if (currentTab?.id) {
-          chrome.tabs.sendMessage(currentTab.id, { type: 'CHECK_READABILITY' });
-        }
-      });
+    if (
+      (pageType.type === 'default' || pageType.type === 'youtube') &&
+      !isOptionsPage &&
+      isContentScriptLoaded &&
+      domReady
+    ) {
+      // Reduced delay for readability check since we're already waiting for DOM ready
+      const timeoutId = setTimeout(() => {
+        chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+          const currentTab = tabs[0];
+          if (currentTab?.id) {
+            chrome.tabs.sendMessage(currentTab.id, { type: 'CHECK_READABILITY' });
+          }
+        });
+      }, 500); // Reduced from 1000ms to make it faster
+
+      return () => clearTimeout(timeoutId);
     }
-  }, [pageType.type, isOptionsPage, isContentScriptLoaded]);
+  }, [pageType.type, isOptionsPage, isContentScriptLoaded, domReady]);
 
   return (
     <Flex direction="column" h="100vh" bg={bg} color={textColor}>
@@ -826,7 +910,7 @@ ${articleContent.content || ''}`.trim();
             {pageType.type === 'slack' ? (
               <VStack spacing={4} width="100%" align="center">
                 <Button
-                  isDisabled={!isThreadPaneAvailable || isOptionsPage}
+                  isDisabled={!isThreadPaneAvailable || (!isContentScriptLoaded && !isOptionsPage)}
                   colorScheme="blue"
                   leftIcon={<Text>⭐️</Text>}
                   onClick={handleSummarizeSlack}
@@ -834,7 +918,7 @@ ${articleContent.content || ''}`.trim();
                   loadingText="Capturing thread">
                   Summarize current page
                 </Button>
-                {!isOptionsPage && (
+                {!isOptionsPage && isContentScriptLoaded && (
                   <HStack spacing={1}>
                     <Text fontSize="xs" color={textColorSecondary}>
                       Click
@@ -853,15 +937,24 @@ ${articleContent.content || ''}`.trim();
               </VStack>
             ) : (
               <VStack spacing={3}>
-                <Button
-                  onClick={handleCapturePage}
-                  colorScheme="blue"
-                  leftIcon={<Text>⭐️</Text>}
-                  isLoading={isCapturing}
-                  loadingText="Capturing page"
-                  isDisabled={isOptionsPage || !isReadable}>
-                  Summarize current page
-                </Button>
+                <Tooltip
+                  label={readabilityChecked && !isReadable ? "This page doesn't contain readable content" : ''}
+                  isDisabled={!readabilityChecked || isReadable}
+                  hasArrow
+                  placement="top"
+                  fontSize="xs">
+                  <Button
+                    onClick={handleCapturePage}
+                    colorScheme="blue"
+                    leftIcon={<Text>⭐️</Text>}
+                    isLoading={isCapturing}
+                    loadingText="Capturing page"
+                    isDisabled={
+                      isOptionsPage || (readabilityChecked && !isReadable) || (!isContentScriptLoaded && domReady)
+                    }>
+                    Summarize current page
+                  </Button>
+                </Tooltip>
                 {pageType.url && !isOptionsPage && (
                   <Text
                     maxW="300px"
@@ -871,11 +964,6 @@ ${articleContent.content || ''}`.trim();
                     title={pageType.url}
                     isTruncated>
                     {pageType.url}
-                  </Text>
-                )}
-                {!isReadable && !isOptionsPage && (
-                  <Text fontSize="xs" color="red.500" textAlign="center">
-                    This page doesn&apos;t contain readable content
                   </Text>
                 )}
               </VStack>
