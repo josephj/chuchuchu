@@ -105,7 +105,7 @@ export const ZeroState = ({ pageType, isCapturing, onSummarize }: Props) => {
             chrome.scripting
               .executeScript({
                 target: { tabId },
-                files: ['content-script.js'],
+                files: ['content/index.iife.js'],
               })
               .then(() => {
                 setIsContentScriptLoaded(true);
