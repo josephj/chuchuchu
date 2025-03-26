@@ -1,16 +1,1 @@
-[
-  {
-    "id": 1,
-    "priority": 1,
-    "action": {
-      "type": "redirect",
-      "redirect": {
-        "regexSubstitution": "https://\\1.slack.com/messages/\\2"
-      }
-    },
-    "condition": {
-      "regexFilter": "https://(.*?).slack.com/archives/(.*)",
-      "resourceTypes": ["main_frame"]
-    }
-  }
-]
+[]

@@ -1,11 +1,8 @@
 import 'webextension-polyfill';
 // import { exampleThemeStorage } from '@extension/storage';
 import debounce from 'debounce';
+import type { RuleActionType, ResourceType } from 'chrome';
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
-
-// exampleThemeStorage.get().then(theme => {
-//   console.log('theme', theme);
-// });
 
 const filters = {
   url: [
@@ -33,6 +30,34 @@ const isSlackUrl = (url: string) => {
     return urlObj.hostname.endsWith('slack.com');
   } catch {
     return false;
+  }
+};
+
+const updateRedirectRule = async (enabled: boolean) => {
+  if (enabled) {
+    await chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: [1],
+      addRules: [
+        {
+          id: 1,
+          priority: 1,
+          action: {
+            type: 'redirect' as RuleActionType,
+            redirect: {
+              url: 'https://app.slack.com/client',
+            },
+          },
+          condition: {
+            urlFilter: 'https://*.slack.com/archives/*',
+            resourceTypes: ['main_frame' as ResourceType],
+          },
+        },
+      ],
+    });
+  } else {
+    await chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: [1],
+    });
   }
 };
 
@@ -81,31 +106,7 @@ chrome.runtime.onMessage.addListener(message => {
   }
 
   if (message.type === 'OPEN_IN_WEB_CHANGED') {
-    if (message.value) {
-      chrome.declarativeNetRequest.updateDynamicRules({
-        removeRuleIds: [1],
-        addRules: [
-          {
-            id: 1,
-            priority: 1,
-            action: {
-              type: 'redirect',
-              redirect: {
-                regexSubstitution: 'https://\\1.slack.com/messages/\\2',
-              },
-            },
-            condition: {
-              regexFilter: 'https://(.*?).slack.com/archives/(.*)',
-              resourceTypes: ['main_frame'],
-            },
-          },
-        ],
-      });
-    } else {
-      chrome.declarativeNetRequest.updateDynamicRules({
-        removeRuleIds: [1],
-      });
-    }
+    updateRedirectRule(message.value);
   }
 
   if (message.type === 'GET_CURRENT_PAGE_TYPE') {
@@ -123,29 +124,11 @@ chrome.runtime.onMessage.addListener(message => {
 });
 
 chrome.storage.local.get('openInWeb', result => {
-  if (result.openInWeb) {
-    chrome.declarativeNetRequest.updateDynamicRules({
-      removeRuleIds: [1],
-      addRules: [
-        {
-          id: 1,
-          priority: 1,
-          action: {
-            type: 'redirect',
-            redirect: {
-              regexSubstitution: 'https://\\1.slack.com/messages/\\2',
-            },
-          },
-          condition: {
-            regexFilter: 'https://(.*?).slack.com/archives/(.*)',
-            resourceTypes: ['main_frame'],
-          },
-        },
-      ],
-    });
-  } else {
-    chrome.declarativeNetRequest.updateDynamicRules({
-      removeRuleIds: [1],
-    });
+  updateRedirectRule(result.openInWeb);
+});
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'local' && changes.openInWeb) {
+    updateRedirectRule(changes.openInWeb.newValue);
   }
 });

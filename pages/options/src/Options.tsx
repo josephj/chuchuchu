@@ -184,10 +184,12 @@ const Options = () => {
     // Handle openInWeb change
     if (data.openInWeb !== openInWeb) {
       await openInWebStorage.set(data.openInWeb);
-      chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-        if (tabs[0]?.id) {
-          chrome.tabs.sendMessage(tabs[0].id, { type: 'OPEN_IN_WEB_CHANGED', value: data.openInWeb });
-        }
+      chrome.tabs.query({}, tabs => {
+        tabs.forEach(tab => {
+          if (tab.id) {
+            chrome.tabs.sendMessage(tab.id, { type: 'OPEN_IN_WEB_CHANGED', value: data.openInWeb });
+          }
+        });
       });
       setSavedSettings(prev => ({ ...prev, openInWeb: true }));
     }
@@ -505,7 +507,25 @@ const Options = () => {
                       control={control}
                       name="openInWeb"
                       render={({ field: { onChange, value } }) => (
-                        <Switch isChecked={value} onChange={onChange} size="lg" />
+                        <Switch
+                          isChecked={value}
+                          onChange={e => {
+                            onChange(e.target.checked);
+                            openInWebStorage.set(e.target.checked);
+                            chrome.tabs.query({}, tabs => {
+                              tabs.forEach(tab => {
+                                if (tab.id) {
+                                  chrome.tabs.sendMessage(tab.id, {
+                                    type: 'OPEN_IN_WEB_CHANGED',
+                                    value: e.target.checked,
+                                  });
+                                }
+                              });
+                            });
+                            setSavedSettings(prev => ({ ...prev, openInWeb: true }));
+                          }}
+                          size="lg"
+                        />
                       )}
                     />
                     <FormHelperText color={textColorSecondary} fontSize="xs">

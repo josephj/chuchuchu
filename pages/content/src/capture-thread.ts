@@ -70,7 +70,15 @@ export const captureThread = () => {
 
   chrome.runtime.onMessage.addListener(message => {
     if (message.type === 'OPEN_IN_WEB_CHANGED') {
-      console.log('Open in web preference changed:', message.value);
+      if (!message.value) {
+        const links = document.querySelectorAll('a[href*="slack.com/archives"]');
+        links.forEach(link => {
+          link.addEventListener('click', e => {
+            e.preventDefault();
+            return true;
+          });
+        });
+      }
     } else if (message.type === 'CAPTURE_THREAD' && currentThreadInfo) {
       const threadPane = document.querySelector('[data-qa="threads_flexpane"]');
       threadPane?.querySelector('[data-qa="slack_kit_scrollbar"]')?.scrollTo(0, 0);
