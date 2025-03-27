@@ -15,12 +15,11 @@ import {
   useColorModeValue,
   Spinner,
   Box,
+  Select as ChakraSelect,
 } from '@chakra-ui/react';
 import { useEffect, useState, useMemo } from 'react';
-import Select from 'react-select';
 import { OLLAMA_API_ENDPOINT } from '@extension/shared';
 import { customModelsStorage, type CustomModel, openAIKeyStorage, ollamaBaseUrlStorage } from './vars';
-import type { Theme } from 'react-select';
 
 type Model = {
   name: string;
@@ -38,8 +37,8 @@ type ModelOption = {
 type ModelType = 'ollama' | 'anthropic' | 'deepseek' | 'openai';
 
 const MODEL_TYPES = [
-  { value: 'ollama', label: 'Ollama' },
   { value: 'openai', label: 'OpenAI' },
+  { value: 'ollama', label: 'Ollama' },
   // To be added later:
   // { value: 'anthropic', label: 'Anthropic' },
   // { value: 'deepseek', label: 'DeepSeek' },
@@ -54,7 +53,7 @@ type Props = {
 export const ModelSelector = ({ isOpen, onClose, onSelect }: Props) => {
   const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
   const [selectedModel, setSelectedModel] = useState<ModelOption | null>(null);
-  const [selectedType, setSelectedType] = useState<ModelType>('ollama');
+  const [selectedType, setSelectedType] = useState<ModelType>('openai');
   const [baseUrl, setBaseUrl] = useState(OLLAMA_API_ENDPOINT);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,28 +69,6 @@ export const ModelSelector = ({ isOpen, onClose, onSelect }: Props) => {
   const bg = useColorModeValue('dracula.light.background', 'dracula.background');
   const textColor = useColorModeValue('dracula.light.foreground', 'dracula.foreground');
   const isLight = useColorModeValue(true, false);
-
-  const selectTheme = (theme: Theme) => ({
-    ...theme,
-    colors: {
-      ...theme.colors,
-      neutral0: isLight ? '#FFFFFF' : '#2D3748',
-      neutral5: isLight ? '#E2E8F0' : '#4A5568',
-      neutral10: isLight ? '#E2E8F0' : '#4A5568',
-      neutral20: isLight ? '#E2E8F0' : '#4A5568',
-      neutral30: isLight ? '#A0AEC0' : '#718096',
-      neutral40: isLight ? '#718096' : '#A0AEC0',
-      neutral50: isLight ? '#718096' : '#A0AEC0',
-      neutral60: isLight ? '#4A5568' : '#CBD5E0',
-      neutral70: isLight ? '#2D3748' : '#E2E8F0',
-      neutral80: isLight ? '#1A202C' : '#F7FAFC',
-      neutral90: isLight ? '#000000' : '#FFFFFF',
-      primary: isLight ? '#3182CE' : '#90CDF4',
-      primary25: isLight ? '#EBF8FF' : '#2A4365',
-      primary50: isLight ? '#4299E1' : '#2C5282',
-      primary75: isLight ? '#2B6CB0' : '#2A4365',
-    },
-  });
 
   useEffect(() => {
     const fetchModels = async () => {
@@ -117,11 +94,26 @@ export const ModelSelector = ({ isOpen, onClose, onSelect }: Props) => {
             throw new Error(`Failed to fetch OpenAI models: ${response.status} ${response.statusText}`);
           }
 
-          const data = await response.json();
-          const chatModels = data.data
+          const { data } = await response.json();
+          const chatModels = data
             .filter(
-              (model: { id: string; capabilities?: { completion?: boolean; chat?: boolean } }) =>
-                model.id.startsWith('gpt-') || model.id.startsWith('o1-') || model.id.startsWith('o3-'),
+              (model: { id: string }) =>
+                // Exclude non-chat models
+                !model.id.includes('audio') &&
+                !model.id.includes('tts') &&
+                !model.id.includes('whisper') &&
+                !model.id.includes('computer-') &&
+                !model.id.includes('text-embedding') &&
+                !model.id.includes('babbage') &&
+                !model.id.includes('transcribe') &&
+                !model.id.startsWith('audio') &&
+                !model.id.startsWith('tts') &&
+                !model.id.startsWith('whisper') &&
+                !model.id.startsWith('computer-') &&
+                !model.id.startsWith('text-embedding') &&
+                !model.id.startsWith('babbage') &&
+                // Include chat models
+                (model.id.startsWith('gpt-') || model.id.startsWith('o1-') || model.id.startsWith('o3-')),
             )
             .sort((a: { id: string }, b: { id: string }) => {
               // Sort GPT-4 models before GPT-3.5
@@ -252,12 +244,18 @@ export const ModelSelector = ({ isOpen, onClose, onSelect }: Props) => {
           <VStack spacing={4} align="stretch">
             <FormControl>
               <FormLabel>Type</FormLabel>
-              <Select
-                value={MODEL_TYPES.find(type => type.value === selectedType)}
-                onChange={option => option && setSelectedType(option.value as ModelType)}
-                options={MODEL_TYPES}
-                theme={selectTheme}
-              />
+              <ChakraSelect
+                value={selectedType}
+                onChange={e => setSelectedType(e.target.value as ModelType)}
+                bg={isLight ? 'white' : 'gray.700'}
+                color={textColor}
+                fontSize="sm">
+                {MODEL_TYPES.map(type => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </ChakraSelect>
             </FormControl>
 
             {selectedType === 'ollama' && (
@@ -288,15 +286,21 @@ export const ModelSelector = ({ isOpen, onClose, onSelect }: Props) => {
               ) : error ? (
                 <Text color="red.500">{error}</Text>
               ) : (
-                <Select
-                  value={selectedModel}
-                  onChange={option => setSelectedModel(option)}
-                  options={modelOptions}
-                  theme={selectTheme}
-                  isSearchable
-                  isOptionDisabled={option => option.isDisabled ?? false}
-                  noOptionsMessage={() => 'No available models'}
-                />
+                <ChakraSelect
+                  value={selectedModel?.value || ''}
+                  onChange={e => {
+                    const option = modelOptions.find(opt => opt.value === e.target.value);
+                    setSelectedModel(option || null);
+                  }}
+                  bg={isLight ? 'white' : 'gray.700'}
+                  color={textColor}
+                  fontSize="sm">
+                  {modelOptions.map(option => (
+                    <option key={option.value} value={option.value} disabled={option.isDisabled}>
+                      {option.label}
+                    </option>
+                  ))}
+                </ChakraSelect>
               )}
             </FormControl>
           </VStack>
