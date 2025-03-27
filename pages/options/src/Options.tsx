@@ -46,6 +46,7 @@ import {
   openInWebStorage,
   modeStorage,
   DEFAULT_MODE,
+  selectedHatStorage,
 } from './vars';
 import { HashRouter, Routes, Route, useNavigate, useParams, useLocation, useSearchParams } from 'react-router-dom';
 import type { Theme as ReactSelectTheme } from 'react-select';
@@ -344,6 +345,9 @@ const Options = () => {
   const handleResetConfirm = async () => {
     try {
       await hatStorage.reset();
+      // Reset selected hat to empty string to trigger a refresh
+      await selectedHatStorage.set('');
+      // Load hats to refresh the list
       await loadHats();
       toast({
         title: 'Hats Reset',

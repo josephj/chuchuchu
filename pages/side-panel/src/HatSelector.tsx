@@ -1,5 +1,4 @@
-import type { Theme } from 'react-select';
-import { Select, useColorModeValue, Box, Flex, useColorMode } from '@chakra-ui/react';
+import { Select, useColorModeValue, Box, Flex } from '@chakra-ui/react';
 import type { Hat } from '@extension/storage';
 import { FaHatCowboy } from 'react-icons/fa';
 import { useHats } from '@extension/shared';
@@ -54,13 +53,7 @@ export const HatSelector = ({ value, onChange, isDisabled }: Props) => {
         }}
       />
       <Box position="relative" zIndex={10}>
-        <Select
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          placeholder="Select a hat..."
-          size="sm"
-          isDisabled={isDisabled}
-          minW="150px">
+        <Select value={value} onChange={e => onChange(e.target.value)} size="sm" isDisabled={isDisabled} minW="150px">
           {options.map(option => (
             <option key={option.value} value={option.value}>
               {option.label}
