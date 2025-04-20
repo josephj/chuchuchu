@@ -6,7 +6,7 @@ import { formatThreadForLLM, convertToWebUrl, formatRelativeTime, findBestMatchi
 import { formatArticleContent } from './utils/formatContent';
 import type { ThreadData, ThreadDataMessage, ArticleDataResultMessage, ArticleData, Message } from './types';
 import { useForm } from 'react-hook-form';
-import { Box, Flex, useColorModeValue, useColorMode, Alert, AlertIcon } from '@chakra-ui/react';
+import { Box, Flex, useColorModeValue, useColorMode, Alert, AlertIcon, useToast } from '@chakra-ui/react';
 import { Messages } from './Messages';
 import { MessageHeader } from './components/MessageHeader';
 import { Nav } from './components/Nav';
@@ -15,6 +15,7 @@ import { SUPPORTED_LANGUAGES, selectedHatStorage, modeStorage, languageStorage }
 import { OriginalContent } from './components/OriginalContent';
 import { QuestionInput } from './components/QuestionInput';
 import { ZeroState } from './components/ZeroState';
+import { runModelMigration } from '../../options/src/utils/model-migration';
 
 type FormData = {
   question: string;
@@ -53,6 +54,7 @@ const handleOpenOptionsWithRoute = (route: string) => {
 };
 
 const SidePanel = () => {
+  const toast = useToast();
   const hats = useHats();
   const selectedHat = useStorage(selectedHatStorage);
   const mode = useStorage(modeStorage);
@@ -494,6 +496,23 @@ ${selectedHatData.prompt}`;
 
     return () => clearTimeout(timeoutId);
   }, []);
+
+  useEffect(() => {
+    const checkAndMigrateModels = async () => {
+      const hasChanges = await runModelMigration();
+      if (hasChanges) {
+        toast({
+          title: 'Model Update',
+          description: 'Some AI models have been updated to newer versions to ensure continued functionality.',
+          status: 'info',
+          duration: 9000,
+          isClosable: true,
+        });
+      }
+    };
+
+    checkAndMigrateModels();
+  }, [toast]);
 
   return (
     <Flex direction="column" h="100vh" bg={bg} color={textColor}>

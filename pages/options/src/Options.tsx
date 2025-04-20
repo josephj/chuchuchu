@@ -52,6 +52,7 @@ import { HashRouter, Routes, Route, useNavigate, useParams, useLocation, useSear
 import type { Theme as ReactSelectTheme } from 'react-select';
 import { HatEditor } from './HatEditor';
 import { hatStorage } from '@extension/storage';
+import { runModelMigration } from './utils/model-migration';
 
 type LanguageOption = {
   value: string;
@@ -372,6 +373,23 @@ const Options = () => {
   const handleAccordionChange = (expandedIndex: ExpandedIndex) => {
     setExpandedPanels(Array.isArray(expandedIndex) ? expandedIndex : [expandedIndex]);
   };
+
+  useEffect(() => {
+    const checkAndMigrateModels = async () => {
+      const hasChanges = await runModelMigration();
+      if (hasChanges) {
+        toast({
+          title: 'Model Update',
+          description: 'Some AI models have been updated to newer versions to ensure continued functionality.',
+          status: 'info',
+          duration: 9000,
+          isClosable: true,
+        });
+      }
+    };
+
+    checkAndMigrateModels();
+  }, [toast]);
 
   return (
     <VStack p={6} bg={bg} minH="100vh" color={textColor}>

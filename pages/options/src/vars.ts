@@ -1,7 +1,6 @@
 import ISO6391 from 'iso-639-1';
 import { createStorage } from '@extension/storage/lib/base/base';
 import { StorageEnum } from '@extension/storage/lib/base/enums';
-import type { Hat } from './types';
 import { OLLAMA_API_ENDPOINT } from '@extension/shared';
 
 // Get all ISO-639-1 languages and add custom regional variants
@@ -49,6 +48,10 @@ const getBrowserPreferredLanguage = () => {
 
 export const DEFAULT_LANGUAGE_CODE = getBrowserPreferredLanguage();
 
+export const MODEL_MIGRATION_MAP = {
+  'deepseek-r1-distill-qwen-32b': 'qwen-qwq-32b',
+} as const;
+
 export type CustomModel = {
   value: string;
   label: string;
@@ -65,14 +68,10 @@ export const customModelsStorage = createStorage<CustomModel[]>('customModels', 
 
 // Update SUPPORTED_MODELS to be mutable
 export const SUPPORTED_MODELS = [
-  { value: 'deepseek-r1-distill-qwen-32b', label: 'DeepSeek R1 Distill Qwen 32B' },
   { value: 'deepseek-r1-distill-llama-70b', label: 'DeepSeek R1 Distill LLaMA 70B' },
+  { value: 'qwen-qwq-32b', label: 'QWEN QWQ 32B' },
   { value: 'llama-3.3-70b-versatile', label: 'LLaMA 3.3 70B Versatile' },
   { value: 'llama-3.1-8b-instant', label: 'LLaMA 3.1 8B Instant' },
-  // { value: 'llama3-70b-8192', label: 'LLaMA3 70B (8K context)' },
-  // { value: 'llama3-8b-8192', label: 'LLaMA3 8B (8K context)' },
-  // { value: 'gemma2-9b-it', label: 'Gemma2 9B Instruct' },
-  // { value: 'llama3-mixtral-8x7b-32768', label: 'Mixtral 8x7B (32K context)' },
 ] as const;
 
 export const DEFAULT_MODEL = SUPPORTED_MODELS[0].value;
@@ -85,11 +84,6 @@ export const languageStorage = createStorage<string>('selectedLanguage', DEFAULT
 
 export const openInWebStorage = createStorage<boolean>('openInWeb', true, {
   storageEnum: StorageEnum.Local,
-  liveUpdate: true,
-});
-
-export const hatsStorage = createStorage<Hat[]>('hats', [], {
-  storageEnum: StorageEnum.Sync,
   liveUpdate: true,
 });
 
