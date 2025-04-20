@@ -8,6 +8,8 @@ type Message = {
 const DEFAULT_MODEL = 'llama-3.1-8b-instant';
 const DEFAULT_TEMPERATURE = 0;
 
+const REASONING_MODELS = ['deepseek-r1-distill-llama-70b', 'qwen-qwq-32b'] as const;
+
 type HandleGroqStreamParams = {
   systemPrompt: string;
   messages: Message[];
@@ -38,6 +40,9 @@ export const handleGroqStream = async ({
         messages: [{ role: 'system', content: systemPrompt }, ...messages],
         temperature,
         stream: true,
+        ...(REASONING_MODELS.includes(model as (typeof REASONING_MODELS)[number]) && {
+          reasoning_format: 'hidden',
+        }),
       }),
       signal: abortController.signal,
     },
