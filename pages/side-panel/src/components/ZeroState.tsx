@@ -1,5 +1,5 @@
-import { Button, Flex, HStack, Text, Tooltip, VStack, useColorModeValue } from '@chakra-ui/react';
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Button, Flex, HStack, Text, Tooltip, VStack, Textarea, useColorModeValue } from '@chakra-ui/react';
 import { isRestrictedGoogleDomain } from '../utils/domainUtils';
 
 type Props = {
@@ -8,7 +8,7 @@ type Props = {
     url?: string;
   };
   isCapturing: boolean;
-  onSummarize: (options?: { reloadPage?: boolean }) => void;
+  onSummarize: (options?: { reloadPage?: boolean; manualContent?: string }) => void;
 };
 
 type ZeroStateMessage = {
@@ -30,6 +30,7 @@ export const ZeroState = ({ pageType, isCapturing, onSummarize }: Props) => {
   const [readabilityChecked, setReadabilityChecked] = useState(false);
   const [isReadable, setIsReadable] = useState(true);
   const [domReady, setDomReady] = useState(true);
+  const [manualContent, setManualContent] = useState('');
 
   // Handle unsupported page detection
   useEffect(() => {
@@ -242,7 +243,7 @@ export const ZeroState = ({ pageType, isCapturing, onSummarize }: Props) => {
   }, [onSummarize]);
 
   return (
-    <Flex height="100%" direction="column" justify="center" align="center" p={4} gap={3}>
+    <Flex height="100%" direction="column" justify="flex-start" align="center" p={4} gap={3}>
       {pageType.type === 'slack' ? (
         <VStack spacing={4} width="100%" align="center">
           <Button
@@ -272,7 +273,7 @@ export const ZeroState = ({ pageType, isCapturing, onSummarize }: Props) => {
           )}
         </VStack>
       ) : (
-        <VStack spacing={3}>
+        <VStack spacing={3} width="100%" align="stretch">
           <Tooltip
             label={readabilityChecked && !isReadable ? "This page doesn't contain readable content" : ''}
             isDisabled={!readabilityChecked || isReadable}
@@ -287,7 +288,8 @@ export const ZeroState = ({ pageType, isCapturing, onSummarize }: Props) => {
               loadingText="Capturing page"
               isDisabled={
                 isUnsupportedPage || (readabilityChecked && !isReadable) || (!isContentScriptLoaded && domReady)
-              }>
+              }
+              w="100%">
               Summarize current page
             </Button>
           </Tooltip>
@@ -302,6 +304,27 @@ export const ZeroState = ({ pageType, isCapturing, onSummarize }: Props) => {
               {pageType.url}
             </Text>
           )}
+          <Text fontSize="xs" color={textColorSecondary} textAlign="center">
+            Or paste your own content to summarize
+          </Text>
+          <Textarea
+            placeholder="Paste content here"
+            value={manualContent}
+            onChange={e => setManualContent(e.target.value)}
+            size="sm"
+            rows={8}
+            resize="vertical"
+            w="100%"
+          />
+          <Button
+            colorScheme="green"
+            onClick={() => onSummarize({ manualContent })}
+            isDisabled={!manualContent.trim()}
+            isLoading={isCapturing}
+            loadingText="Summarizing"
+            w="100%">
+            Summarize custom content
+          </Button>
         </VStack>
       )}
       {!isContentScriptLoaded && !isCapturing && !isUnsupportedPage && !isPageLoading && !isRestrictedDomain && (

@@ -220,6 +220,7 @@ ${selectedHatData.prompt}`;
   );
 
   const handleClose = useCallback(() => {
+    setIsCapturing(false);
     setArticleContent('');
     setArticleTitle('');
     setContentType(null);
@@ -537,6 +538,20 @@ ${selectedHatData.prompt}`;
             pageType={pageType}
             isCapturing={isCapturing}
             onSummarize={options => {
+              if (options?.manualContent) {
+                setIsCapturing(true);
+                setHasContent(true);
+                setThreadData(null);
+                setMessages([]);
+                setOriginalUrl('');
+                setFormattedUrl('');
+                setArticleContent(options.manualContent);
+                setOriginalContent(options.manualContent);
+                setArticleTitle('');
+                setContentType('article');
+                handleAskAssistant(options.manualContent, true);
+                return;
+              }
               setIsCapturing(true);
               if (!options?.reloadPage) {
                 if (pageType.type === 'slack') {
