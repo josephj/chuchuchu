@@ -31,7 +31,7 @@ import {
 } from '@chakra-ui/react';
 import { DeleteIcon, AddIcon } from '@chakra-ui/icons';
 import Select, { components } from 'react-select';
-import type { Theme as ReactSelectTheme } from 'react-select';
+import type { Theme as ReactSelectTheme, OptionProps } from 'react-select';
 import {
   SUPPORTED_LANGUAGES,
   DEFAULT_LANGUAGE_CODE,
@@ -63,11 +63,6 @@ type LanguageOption = {
   code: string;
   name: string;
 };
-
-type OptionProps = {
-  children: React.ReactNode;
-  value: string;
-} & Record<string, unknown>;
 
 const createSelectTheme = (isLight: boolean) => (theme: ReactSelectTheme) => ({
   ...theme,
@@ -198,20 +193,9 @@ export const HatEditor = ({ isOpen, onClose, editingHat, onSave, allHats }: Prop
     }));
   };
 
-  const handleAddModel = (modelName: string) => {
-    const newModel = {
-      value: `ollama/${modelName}`,
-      label: `Ollama: ${modelName}`,
-    };
-
-    // Update custom models instead of SUPPORTED_MODELS
-    setCustomModels(prev => [...prev, newModel]);
-
-    // Update the current hat's model
-    setNewHat(prev => ({
-      ...prev,
-      model: newModel.value,
-    }));
+  const handleAddModel = (modelValue: string) => {
+    setNewHat(prev => ({ ...prev, model: modelValue }));
+    setIsModelSelectorOpen(false);
   };
 
   const handleRemoveModel = async (modelValue: string) => {
@@ -353,7 +337,7 @@ export const HatEditor = ({ isOpen, onClose, editingHat, onSave, allHats }: Prop
                       isSearchable
                       components={{
                         IndicatorSeparator: () => null,
-                        Option: ({ children, ...props }: OptionProps) => (
+                        Option: ({ children, ...props }: OptionProps<ModelOption>) => (
                           <Box position="relative">
                             <components.Option {...props}>
                               {children}

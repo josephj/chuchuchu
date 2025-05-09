@@ -1,6 +1,7 @@
 import { handleGroqStream } from './groq-handler';
 import { handleOllamaStream } from './ollama-handler';
 import { handleOpenAIStream } from './openai-handler';
+import { handleAnthropicStream } from './anthropic-handler';
 import { type AskAssistantOptions } from './types';
 
 type Message = {
@@ -32,12 +33,15 @@ export const askAssistant = async ({
 
     const isOllamaModel = model?.toLowerCase().startsWith('ollama/');
     const isOpenAIModel = model?.toLowerCase().startsWith('openai/');
+    const isAnthropicModel = model?.toLowerCase().startsWith('anthropic/');
 
     const actualModel = isOllamaModel
       ? model.replace(/^ollama\//i, '')
       : isOpenAIModel
         ? model.replace(/^openai\//i, '')
-        : model;
+        : isAnthropicModel
+          ? model.replace(/^anthropic\//i, '')
+          : model;
 
     let fullResponse: string;
 
@@ -52,6 +56,15 @@ export const askAssistant = async ({
       });
     } else if (isOpenAIModel) {
       fullResponse = await handleOpenAIStream({
+        systemPrompt,
+        messages,
+        options,
+        abortController,
+        model: actualModel,
+        temperature,
+      });
+    } else if (isAnthropicModel) {
+      fullResponse = await handleAnthropicStream({
         systemPrompt,
         messages,
         options,

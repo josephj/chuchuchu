@@ -103,6 +103,11 @@ export const ollamaBaseUrlStorage = createStorage<string>('ollamaBaseUrl', OLLAM
   liveUpdate: true,
 });
 
+export const anthropicApiKeyStorage = createStorage<string>('anthropicApiKey', '', {
+  storageEnum: StorageEnum.Sync,
+  liveUpdate: true,
+});
+
 export type Mode = 'simple' | 'advanced';
 export const DEFAULT_MODE: Mode = 'simple';
 

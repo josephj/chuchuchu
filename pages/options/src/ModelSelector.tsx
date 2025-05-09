@@ -19,7 +19,13 @@ import {
 } from '@chakra-ui/react';
 import { useEffect, useState, useMemo } from 'react';
 import { OLLAMA_API_ENDPOINT } from '@extension/shared';
-import { customModelsStorage, type CustomModel, openAIKeyStorage, ollamaBaseUrlStorage } from './vars';
+import {
+  customModelsStorage,
+  type CustomModel,
+  openAIKeyStorage,
+  ollamaBaseUrlStorage,
+  anthropicApiKeyStorage,
+} from './vars';
 
 type Model = {
   name: string;
@@ -39,8 +45,8 @@ type ModelType = 'ollama' | 'anthropic' | 'deepseek' | 'openai';
 const MODEL_TYPES = [
   { value: 'openai', label: 'OpenAI' },
   { value: 'ollama', label: 'Ollama' },
+  { value: 'anthropic', label: 'Anthropic' },
   // To be added later:
-  // { value: 'anthropic', label: 'Anthropic' },
   // { value: 'deepseek', label: 'DeepSeek' },
 ] as const;
 
@@ -59,7 +65,10 @@ export const ModelSelector = ({ isOpen, onClose, onSelect }: Props) => {
   const [error, setError] = useState<string | null>(null);
   const [customModels, setCustomModels] = useState<CustomModel[]>([]);
   const [apiKey, setApiKey] = useState('');
+  const [anthropicApiKey, setAnthropicApiKey] = useState('');
 
+  console.log('apiKey :', apiKey);
+  console.log('anthropicApiKey :', anthropicApiKey);
   // Create a list of already added model names
   const addedModelNames = useMemo(
     () => customModels.filter(model => model.type === selectedType).map(model => model.value.split('/')[1]),
@@ -69,6 +78,39 @@ export const ModelSelector = ({ isOpen, onClose, onSelect }: Props) => {
   const bg = useColorModeValue('dracula.light.background', 'dracula.background');
   const textColor = useColorModeValue('dracula.light.foreground', 'dracula.foreground');
   const isLight = useColorModeValue(true, false);
+
+  useEffect(() => {
+    const loadInitialState = async () => {
+      const [savedBaseUrl, models, savedOpenAIKey, savedAnthropicKey] = await Promise.all([
+        ollamaBaseUrlStorage.get(),
+        customModelsStorage.get(),
+        openAIKeyStorage.get(),
+        anthropicApiKeyStorage.get(),
+      ]);
+
+      setBaseUrl(savedBaseUrl);
+      setCustomModels(models);
+      setApiKey(savedOpenAIKey);
+      setAnthropicApiKey(savedAnthropicKey);
+    };
+
+    if (isOpen) {
+      loadInitialState();
+    }
+  }, [isOpen]);
+
+  // Add back the storage effects to ensure keys are saved
+  useEffect(() => {
+    if (apiKey) {
+      openAIKeyStorage.set(apiKey);
+    }
+  }, [apiKey]);
+
+  useEffect(() => {
+    if (anthropicApiKey) {
+      anthropicApiKeyStorage.set(anthropicApiKey);
+    }
+  }, [anthropicApiKey]);
 
   useEffect(() => {
     const fetchModels = async () => {
@@ -146,6 +188,56 @@ export const ModelSelector = ({ isOpen, onClose, onSelect }: Props) => {
         return;
       }
 
+      if (selectedType === 'anthropic') {
+        try {
+          setIsLoading(true);
+          setError(null);
+
+          if (!anthropicApiKey) {
+            setModelOptions([]);
+            setSelectedModel(null);
+            return;
+          }
+
+          const response = await fetch('https://api.anthropic.com/v1/models', {
+            headers: {
+              'x-api-key': anthropicApiKey,
+              'anthropic-version': '2023-06-01',
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to fetch Anthropic models: ${response.status} ${response.statusText}`);
+          }
+
+          const { data } = await response.json();
+          const chatModels = data
+            .filter((model: { id: string }) => model.id.startsWith('claude-'))
+            .map((model: { id: string; display_name: string }) => ({
+              value: model.id,
+              label: model.display_name,
+              isDisabled: addedModelNames.includes(model.id),
+            }))
+            .sort((a: ModelOption, b: ModelOption) => {
+              // Sort newer models first
+              if (a.value.includes('3') && !b.value.includes('3')) return -1;
+              if (!a.value.includes('3') && b.value.includes('3')) return 1;
+              return b.value.localeCompare(a.value);
+            });
+
+          setModelOptions(chatModels);
+          const firstAvailable = chatModels.find((option: ModelOption) => !option.isDisabled);
+          setSelectedModel(firstAvailable || null);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Failed to fetch Anthropic models');
+          setModelOptions([]);
+          setSelectedModel(null);
+        } finally {
+          setIsLoading(false);
+        }
+        return;
+      }
+
       if (selectedType !== 'ollama') {
         setIsLoading(false);
         return;
@@ -182,29 +274,13 @@ export const ModelSelector = ({ isOpen, onClose, onSelect }: Props) => {
     if (isOpen) {
       fetchModels();
     }
-  }, [isOpen, selectedType, baseUrl, addedModelNames, apiKey]);
-
-  useEffect(() => {
-    Promise.all([openAIKeyStorage.get(), ollamaBaseUrlStorage.get(), customModelsStorage.get()]).then(
-      ([savedApiKey, savedBaseUrl, models]) => {
-        setApiKey(savedApiKey);
-        setBaseUrl(savedBaseUrl);
-        setCustomModels(models);
-      },
-    );
-  }, []);
+  }, [isOpen, selectedType, baseUrl, addedModelNames, apiKey, anthropicApiKey]);
 
   useEffect(() => {
     if (baseUrl !== OLLAMA_API_ENDPOINT) {
       ollamaBaseUrlStorage.set(baseUrl);
     }
   }, [baseUrl]);
-
-  useEffect(() => {
-    if (apiKey) {
-      openAIKeyStorage.set(apiKey);
-    }
-  }, [apiKey]);
 
   const handleSave = () => {
     if (selectedModel) {
@@ -217,10 +293,10 @@ export const ModelSelector = ({ isOpen, onClose, onSelect }: Props) => {
 
       const newCustomModel: CustomModel = {
         value: `${selectedType}/${selectedModel.value}`,
-        label: `${selectedType === 'openai' ? 'OpenAI' : 'Ollama'}: ${selectedModel.label}`,
+        label: `${selectedType === 'openai' ? 'OpenAI' : selectedType === 'anthropic' ? 'Anthropic' : 'Ollama'}: ${selectedModel.label}`,
         type: selectedType,
         baseUrl: selectedType === 'ollama' ? baseUrl : undefined,
-        apiKey: selectedType === 'openai' ? apiKey : undefined,
+        apiKey: selectedType === 'openai' ? apiKey : selectedType === 'anthropic' ? anthropicApiKey : undefined,
       };
 
       customModelsStorage.get().then(models => {
@@ -277,6 +353,18 @@ export const ModelSelector = ({ isOpen, onClose, onSelect }: Props) => {
               </FormControl>
             )}
 
+            {selectedType === 'anthropic' && (
+              <FormControl isRequired>
+                <FormLabel>API Key</FormLabel>
+                <Input
+                  type="password"
+                  value={anthropicApiKey}
+                  onChange={e => setAnthropicApiKey(e.target.value)}
+                  placeholder="Enter your Anthropic API key"
+                />
+              </FormControl>
+            )}
+
             <FormControl>
               <FormLabel>Model</FormLabel>
               {isLoading ? (
@@ -312,7 +400,11 @@ export const ModelSelector = ({ isOpen, onClose, onSelect }: Props) => {
           <Button
             colorScheme="blue"
             onClick={handleSave}
-            isDisabled={!selectedModel || (selectedType === 'openai' && !apiKey)}>
+            isDisabled={
+              !selectedModel ||
+              (selectedType === 'openai' && !apiKey) ||
+              (selectedType === 'anthropic' && !anthropicApiKey)
+            }>
             Add Model
           </Button>
         </ModalFooter>
