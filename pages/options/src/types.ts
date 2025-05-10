@@ -23,6 +23,7 @@ export const hatSchema = z.object({
   model: z.string(),
   urlPattern: z.string().optional(),
   position: z.number().optional(),
+  alias: z.string().optional(),
 });
 
 export type OptionsFormData = {
