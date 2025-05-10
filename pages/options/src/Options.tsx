@@ -33,7 +33,16 @@ import {
   useToast,
   type ExpandedIndex,
 } from '@chakra-ui/react';
-import { CheckIcon, AddIcon, DeleteIcon, EditIcon, CopyIcon, InfoIcon, RepeatIcon } from '@chakra-ui/icons';
+import {
+  CheckIcon,
+  AddIcon,
+  DeleteIcon,
+  EditIcon,
+  CopyIcon,
+  InfoIcon,
+  RepeatIcon,
+  DragHandleIcon,
+} from '@chakra-ui/icons';
 import Select from 'react-select';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -53,6 +62,7 @@ import type { Theme as ReactSelectTheme } from 'react-select';
 import { HatEditor } from './HatEditor';
 import { hatStorage } from '@extension/storage';
 import { runModelMigration } from './utils/model-migration';
+import { DragDropContext, Droppable, Draggable, type DropResult } from 'react-beautiful-dnd';
 
 type LanguageOption = {
   value: string;
@@ -307,7 +317,14 @@ const Options = () => {
   const loadHats = async () => {
     const list = await hatStorage.getHatList();
     const fullHats = await Promise.all(list.map(item => hatStorage.getHat(item.id)));
-    setHats(fullHats.filter((hat): hat is Hat => hat !== null));
+    const filteredHats = fullHats.filter((hat): hat is Hat => hat !== null);
+    // Sort hats by position
+    const sortedHats = filteredHats.sort((a, b) => {
+      const posA = a.position ?? Number.MAX_SAFE_INTEGER;
+      const posB = b.position ?? Number.MAX_SAFE_INTEGER;
+      return posA - posB;
+    });
+    setHats(sortedHats);
   };
 
   useEffect(() => {
@@ -390,6 +407,24 @@ const Options = () => {
 
     checkAndMigrateModels();
   }, [toast]);
+
+  const handleDragEnd = async (result: DropResult) => {
+    if (!result.destination) return;
+
+    const items = Array.from(hats);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+
+    // Update positions
+    const updatedItems = items.map((item, index) => ({
+      ...item,
+      position: index,
+    }));
+
+    // Update storage
+    await Promise.all(updatedItems.map(hat => hatStorage.setHat(hat)));
+    setHats(updatedItems);
+  };
 
   return (
     <VStack p={6} bg={bg} minH="100vh" color={textColor}>
@@ -599,85 +634,103 @@ const Options = () => {
                   {!hats || hats.length === 0 ? (
                     <Text color={textColorSecondary}>No hats added yet</Text>
                   ) : (
-                    hats.map(hat => (
-                      <Box
-                        key={hat.id}
-                        p={4}
-                        borderWidth="1px"
-                        borderRadius="md"
-                        display="flex"
-                        justifyContent="space-between"
-                        alignItems="center"
-                        position="relative"
-                        role="group"
-                        onClick={() => navigate(`hats/edit/${hat.id}`)}
-                        _hover={{
-                          borderColor: 'blue.500',
-                          cursor: 'pointer',
-                          bg: hoverBg,
-                        }}
-                        transition="all 0.2s">
-                        <HStack>
-                          {hat.language ? (
-                            <Text color={textColorSecondary} fontSize="md">
-                              {getLanguageFlag(hat.language)}
-                            </Text>
-                          ) : null}
-                          <Text fontWeight="bold">{hat.label}</Text>
-                          {hat.urlPattern && (
-                            <Text fontSize="xs" color={textColorSecondary}>
-                              {hat.urlPattern}
-                            </Text>
-                          )}
-                        </HStack>
-                        <Box
-                          opacity={0}
-                          _groupHover={{
-                            opacity: 1,
-                          }}
-                          transition="opacity 0.2s"
-                          display="flex"
-                          position="absolute"
-                          right={4}
-                          onClick={e => e.stopPropagation()}>
-                          <IconButton
-                            aria-label="Clone hat"
-                            icon={<CopyIcon />}
-                            size="sm"
-                            variant="ghost"
-                            colorScheme="green"
-                            mr={2}
-                            onClick={e => {
-                              e.stopPropagation();
-                              navigate(`hats/clone/${hat.id}`);
-                            }}
-                          />
-                          <IconButton
-                            aria-label="Edit hat"
-                            icon={<EditIcon />}
-                            size="sm"
-                            variant="ghost"
-                            colorScheme="blue"
-                            mr={2}
-                            onClick={e => {
-                              e.stopPropagation();
-                              navigate(`hats/edit/${hat.id}`);
-                            }}
-                          />
-                          <IconButton
-                            aria-label="Delete hat"
-                            icon={<DeleteIcon />}
-                            size="sm"
-                            variant="ghost"
-                            colorScheme="red"
-                            onClick={e => {
-                              e.stopPropagation();
-                              handleDeleteClick(hat);
-                            }}
-                          />
-                        </Box>
-                      </Box>
-                    ))
+                    <DragDropContext onDragEnd={handleDragEnd}>
+                      <Droppable droppableId="hats">
+                        {provided => (
+                          <VStack {...provided.droppableProps} ref={provided.innerRef} spacing={4} align="stretch">
+                            {hats.map((hat, index) => (
+                              <Draggable key={hat.id} draggableId={hat.id} index={index}>
+                                {(provided, snapshot) => (
+                                  <Box
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    p={4}
+                                    borderWidth="1px"
+                                    borderRadius="md"
+                                    display="flex"
+                                    justifyContent="space-between"
+                                    alignItems="center"
+                                    position="relative"
+                                    role="group"
+                                    onClick={() => navigate(`hats/edit/${hat.id}`)}
+                                    _hover={{
+                                      borderColor: 'blue.500',
+                                      cursor: 'pointer',
+                                      bg: hoverBg,
+                                    }}
+                                    bg={snapshot.isDragging ? hoverBg : undefined}
+                                    transition="all 0.2s">
+                                    <HStack spacing={2}>
+                                      <Box {...provided.dragHandleProps} cursor="grab" _active={{ cursor: 'grabbing' }}>
+                                        <DragHandleIcon color={textColorSecondary} />
+                                      </Box>
+                                      {hat.language ? (
+                                        <Text color={textColorSecondary} fontSize="md">
+                                          {getLanguageFlag(hat.language)}
+                                        </Text>
+                                      ) : null}
+                                      <Text fontWeight="bold">{hat.label}</Text>
+                                      {hat.urlPattern && (
+                                        <Text fontSize="xs" color={textColorSecondary}>
+                                          {hat.urlPattern}
+                                        </Text>
+                                      )}
+                                    </HStack>
+                                    <Box
+                                      opacity={0}
+                                      _groupHover={{
+                                        opacity: 1,
+                                      }}
+                                      transition="opacity 0.2s"
+                                      display="flex"
+                                      position="absolute"
+                                      right={4}
+                                      onClick={e => e.stopPropagation()}>
+                                      <IconButton
+                                        aria-label="Clone hat"
+                                        icon={<CopyIcon />}
+                                        size="sm"
+                                        variant="ghost"
+                                        colorScheme="green"
+                                        mr={2}
+                                        onClick={e => {
+                                          e.stopPropagation();
+                                          navigate(`hats/clone/${hat.id}`);
+                                        }}
+                                      />
+                                      <IconButton
+                                        aria-label="Edit hat"
+                                        icon={<EditIcon />}
+                                        size="sm"
+                                        variant="ghost"
+                                        colorScheme="blue"
+                                        mr={2}
+                                        onClick={e => {
+                                          e.stopPropagation();
+                                          navigate(`hats/edit/${hat.id}`);
+                                        }}
+                                      />
+                                      <IconButton
+                                        aria-label="Delete hat"
+                                        icon={<DeleteIcon />}
+                                        size="sm"
+                                        variant="ghost"
+                                        colorScheme="red"
+                                        onClick={e => {
+                                          e.stopPropagation();
+                                          handleDeleteClick(hat);
+                                        }}
+                                      />
+                                    </Box>
+                                  </Box>
+                                )}
+                              </Draggable>
+                            ))}
+                            {provided.placeholder}
+                          </VStack>
+                        )}
+                      </Droppable>
+                    </DragDropContext>
                   )}
                   <Button
                     leftIcon={<AddIcon />}
@@ -737,7 +790,8 @@ const Options = () => {
                 </AlertDialogHeader>
 
                 <AlertDialogBody>
-                  Are you sure you want to reset all hats to default? This will remove any custom hats you've created.
+                  Are you sure you want to reset all hats to default? This will remove any custom hats you&apos;ve
+                  created.
                 </AlertDialogBody>
 
                 <AlertDialogFooter>

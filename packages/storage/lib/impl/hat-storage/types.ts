@@ -4,6 +4,7 @@ export type HatListItem = {
   id: string;
   label: string;
   language?: string;
+  position?: number;
 };
 
 export type Hat = {
@@ -15,6 +16,7 @@ export type Hat = {
   prompt: string;
   temperature: number;
   urlPattern?: string;
+  position?: number;
 };
 
 export type HatStorageType = BaseStorage<HatListItem[]> & {

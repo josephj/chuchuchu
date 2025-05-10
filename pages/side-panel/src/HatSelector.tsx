@@ -36,7 +36,14 @@ export const HatSelector = ({ value, onChange, isDisabled }: Props) => {
   const hats = useHats();
   const isLight = useColorModeValue(true, false);
 
-  const options: HatOption[] = hats.map((hat: Hat) => {
+  // Sort hats by position
+  const sortedHats = [...hats].sort((a, b) => {
+    const posA = a.position ?? Number.MAX_SAFE_INTEGER;
+    const posB = b.position ?? Number.MAX_SAFE_INTEGER;
+    return posA - posB;
+  });
+
+  const options: HatOption[] = sortedHats.map((hat: Hat) => {
     const languageFlag = hat.language ? getLanguageFlag(hat.language) : '';
     return {
       value: hat.id,

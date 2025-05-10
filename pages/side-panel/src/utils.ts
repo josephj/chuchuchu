@@ -90,7 +90,7 @@ export const matchUrlPattern = (url: string, pattern: string): boolean => {
 export const findBestMatchingHat = (url: string, hats: Hat[]): Hat | undefined => {
   if (!url || !hats?.length) return undefined;
 
-  // Filter hats with matching URL patterns and sort by specificity
+  // Filter hats with matching URL patterns and sort by specificity and position
   const matchingHats = hats
     .filter(hat => {
       if (!hat.urlPattern) return false;
@@ -99,7 +99,16 @@ export const findBestMatchingHat = (url: string, hats: Hat[]): Hat | undefined =
     .sort((a, b) => {
       const specificityA = calculatePatternSpecificity(a.urlPattern || '');
       const specificityB = calculatePatternSpecificity(b.urlPattern || '');
-      return specificityB - specificityA;
+
+      // First sort by specificity
+      if (specificityA !== specificityB) {
+        return specificityB - specificityA;
+      }
+
+      // If specificity is the same, sort by position
+      const posA = a.position ?? Number.MAX_SAFE_INTEGER;
+      const posB = b.position ?? Number.MAX_SAFE_INTEGER;
+      return posA - posB;
     });
 
   return matchingHats[0];

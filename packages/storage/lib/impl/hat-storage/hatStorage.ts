@@ -37,7 +37,10 @@ export const hatStorage: HatStorageType = {
   getHatList: async () => {
     const isInitialState = await initialStateStorage.get();
     if (isInitialState) {
-      return [...defaultHats];
+      return [...defaultHats].map((hat, index) => ({
+        ...hat,
+        position: index,
+      }));
     }
 
     const list = await hatListStorage.get();
@@ -45,13 +48,24 @@ export const hatStorage: HatStorageType = {
   },
 
   setHatList: async (list: HatListItem[]) => {
-    await Promise.all([hatListStorage.set(list), initialStateStorage.set(false)]);
+    const listWithPositions = list.map((item, index) => ({
+      ...item,
+      position: index,
+    }));
+    await Promise.all([hatListStorage.set(listWithPositions), initialStateStorage.set(false)]);
   },
 
   async getHat(id: string): Promise<Hat | null> {
     const isInitialState = await initialStateStorage.get();
     if (isInitialState) {
-      return defaultHats.find(hat => hat.id === id) || null;
+      const defaultHat = defaultHats.find(hat => hat.id === id);
+      if (defaultHat) {
+        return {
+          ...defaultHat,
+          position: defaultHats.findIndex(h => h.id === id),
+        };
+      }
+      return null;
     }
 
     const result = await chrome.storage.sync.get(id);
@@ -73,29 +87,46 @@ export const hatStorage: HatStorageType = {
     const isInitialState = await initialStateStorage.get();
     if (isInitialState) {
       // Clone all default hats and add the new hat
+      const defaultHatsWithPositions = defaultHats.map((defaultHat, index) => ({
+        ...defaultHat,
+        id: generateHatId(defaultHat.label),
+        position: index,
+      }));
+
+      const newHat = {
+        ...hat,
+        position: defaultHatsWithPositions.length,
+      };
+
       await Promise.all([
-        ...defaultHats.map(defaultHat => {
-          const id = generateHatId(defaultHat.label);
-          return chrome.storage.sync.set({
-            [id]: { ...defaultHat, id },
-          });
-        }),
-        chrome.storage.sync.set({ [hat.id]: hat }),
+        ...defaultHatsWithPositions.map(defaultHat =>
+          chrome.storage.sync.set({
+            [defaultHat.id]: defaultHat,
+          }),
+        ),
+        chrome.storage.sync.set({ [newHat.id]: newHat }),
         hatListStorage.set([
-          ...defaultHats.map(defaultHat => ({
-            id: generateHatId(defaultHat.label),
+          ...defaultHatsWithPositions.map(defaultHat => ({
+            id: defaultHat.id,
             label: defaultHat.label,
+            position: defaultHat.position,
           })),
-          { id: hat.id, label: hat.label },
+          { id: newHat.id, label: newHat.label, position: newHat.position },
         ]),
         initialStateStorage.set(false),
       ]);
     } else {
       // Just add the new hat
       const currentList = await hatListStorage.get();
+      const newPosition = currentList.length;
+      const newHat = {
+        ...hat,
+        position: newPosition,
+      };
+
       await Promise.all([
-        chrome.storage.sync.set({ [hat.id]: hat }),
-        hatListStorage.set([...currentList, { id: hat.id, label: hat.label }]),
+        chrome.storage.sync.set({ [newHat.id]: newHat }),
+        hatListStorage.set([...currentList, { id: newHat.id, label: newHat.label, position: newPosition }]),
       ]);
     }
   },
@@ -116,9 +147,11 @@ export const hatStorage: HatStorageType = {
 
     if (isInitialState) {
       // Clone all default hats, replacing the modified one with new values
-      const nextHats = defaultHats.map(defaultHat => {
+      const nextHats = defaultHats.map((defaultHat, index) => {
         const id = generateHatId(defaultHat.label);
-        return defaultHat.id === hat.id ? { ...hat, id: generateHatId(hat.label) } : { ...defaultHat, id };
+        return defaultHat.id === hat.id
+          ? { ...hat, id: generateHatId(hat.label), position: index }
+          : { ...defaultHat, id, position: index };
       });
 
       // Get the first hat's ID to set as selected
@@ -130,7 +163,7 @@ export const hatStorage: HatStorageType = {
             [nextHat.id]: nextHat,
           }),
         ),
-        hatListStorage.set(nextHats.map(h => ({ id: h.id, label: h.label }))),
+        hatListStorage.set(nextHats.map(h => ({ id: h.id, label: h.label, position: h.position }))),
         initialStateStorage.set(false),
         // Set the first hat as selected
         firstHatId ? chrome.storage.sync.set({ selectedHat: firstHatId }) : Promise.resolve(),
@@ -138,9 +171,14 @@ export const hatStorage: HatStorageType = {
     } else {
       // Just update the existing hat
       const currentList = await hatListStorage.get();
-      const nextList = currentList.map(item => (item.id === hat.id ? { id: hat.id, label: hat.label } : item));
+      const nextList = currentList.map(item =>
+        item.id === hat.id ? { id: hat.id, label: hat.label, position: item.position } : item,
+      );
 
-      await Promise.all([chrome.storage.sync.set({ [hat.id]: hat }), hatListStorage.set(nextList)]);
+      await Promise.all([
+        chrome.storage.sync.set({ [hat.id]: { ...hat, position: currentList.find(h => h.id === hat.id)?.position } }),
+        hatListStorage.set(nextList),
+      ]);
     }
   },
 
