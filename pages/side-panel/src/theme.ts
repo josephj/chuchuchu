@@ -90,12 +90,18 @@ export const theme = extendTheme({
           _hover: {
             bg: props.colorMode === 'dark' ? 'dracula.red' : 'dracula.light.red',
           },
+          _active: {
+            bg: props.colorMode === 'dark' ? 'dracula.red' : 'dracula.light.red',
+          },
         }),
         ghost: (props: { colorMode: 'light' | 'dark' }) => ({
           _hover: {
             bg: props.colorMode === 'dark' ? 'dracula.currentLine' : 'dracula.light.currentLine',
           },
         }),
+      },
+      defaultProps: {
+        colorScheme: 'blue',
       },
     },
     IconButton: {
@@ -109,6 +115,9 @@ export const theme = extendTheme({
           bg: props.colorMode === 'dark' ? 'dracula.currentLine' : 'dracula.light.currentLine',
           color: 'white',
           _hover: {
+            bg: props.colorMode === 'dark' ? 'dracula.red' : 'dracula.light.red',
+          },
+          _active: {
             bg: props.colorMode === 'dark' ? 'dracula.red' : 'dracula.light.red',
           },
         }),
