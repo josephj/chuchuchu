@@ -285,9 +285,7 @@ export const ZeroState = ({ pageType, isCapturing, onSummarize }: Props) => {
               leftIcon={<Text>⭐️</Text>}
               isLoading={isCapturing}
               loadingText="Capturing page"
-              isDisabled={
-                isUnsupportedPage || (readabilityChecked && !isReadable) || (!isContentScriptLoaded && domReady)
-              }>
+              isDisabled={isUnsupportedPage || (!isContentScriptLoaded && domReady)}>
               Summarize current page
             </Button>
           </Tooltip>
@@ -300,6 +298,11 @@ export const ZeroState = ({ pageType, isCapturing, onSummarize }: Props) => {
               title={pageType.url}
               isTruncated>
               {pageType.url}
+            </Text>
+          )}
+          {readabilityChecked && !isReadable && (
+            <Text fontSize="xs" color="orange.500" textAlign="center">
+              Warning: This page may not contain readable content. The summary might be limited.
             </Text>
           )}
         </VStack>
