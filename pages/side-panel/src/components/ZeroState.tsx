@@ -1,6 +1,20 @@
-import { Button, Flex, HStack, Text, Tooltip, VStack, useColorModeValue } from '@chakra-ui/react';
+import {
+  Button,
+  Flex,
+  HStack,
+  Text,
+  VStack,
+  useColorModeValue,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  ButtonGroup,
+  IconButton,
+} from '@chakra-ui/react';
 import { useState, useEffect, useCallback } from 'react';
 import { isRestrictedGoogleDomain } from '../utils/domainUtils';
+import { ChevronDownIcon } from '@chakra-ui/icons';
 
 type Props = {
   pageType: {
@@ -8,7 +22,7 @@ type Props = {
     url?: string;
   };
   isCapturing: boolean;
-  onSummarize: (options?: { reloadPage?: boolean }) => void;
+  onSummarize: (options?: { reloadPage?: boolean; selection?: boolean }) => void;
 };
 
 type ZeroStateMessage = {
@@ -30,6 +44,8 @@ export const ZeroState = ({ pageType, isCapturing, onSummarize }: Props) => {
   const [readabilityChecked, setReadabilityChecked] = useState(false);
   const [isReadable, setIsReadable] = useState(true);
   const [domReady, setDomReady] = useState(true);
+  const [hasSelection, setHasSelection] = useState(false);
+  const [selectedText, setSelectedText] = useState('');
 
   // Handle unsupported page detection
   useEffect(() => {
@@ -236,6 +252,32 @@ export const ZeroState = ({ pageType, isCapturing, onSummarize }: Props) => {
     return undefined;
   }, [pageType.type, isUnsupportedPage, isContentScriptLoaded, domReady]);
 
+  // Listen for selection changes from content script
+  useEffect(() => {
+    const handleMessage = (message: { type: string; hasSelection?: boolean; selectedText?: string }) => {
+      if (message.type === 'SELECTION_CHANGED') {
+        setHasSelection(message.hasSelection || false);
+        setSelectedText(message.selectedText || '');
+      }
+    };
+
+    chrome.runtime.onMessage.addListener(handleMessage);
+    return () => chrome.runtime.onMessage.removeListener(handleMessage);
+  }, []);
+
+  const handleSummarizeSelection = useCallback(() => {
+    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+      const currentTab = tabs[0];
+      if (!currentTab?.id) return;
+
+      chrome.tabs.sendMessage(currentTab.id, { type: 'CAPTURE_SELECTION' }, response => {
+        if (response?.type === 'SELECTION_CAPTURED') {
+          onSummarize({ selection: true });
+        }
+      });
+    });
+  }, [onSummarize]);
+
   const handleReloadPage = useCallback(() => {
     onSummarize({ reloadPage: true });
     chrome.runtime.sendMessage({ type: 'RELOAD_AND_CAPTURE' });
@@ -273,22 +315,29 @@ export const ZeroState = ({ pageType, isCapturing, onSummarize }: Props) => {
         </VStack>
       ) : (
         <VStack spacing={3}>
-          <Tooltip
-            label={readabilityChecked && !isReadable ? "This page doesn't contain readable content" : ''}
-            isDisabled={!readabilityChecked || isReadable}
-            hasArrow
-            placement="top"
-            fontSize="xs">
+          <ButtonGroup isAttached>
             <Button
-              onClick={() => onSummarize()}
               colorScheme="blue"
               leftIcon={<Text>⭐️</Text>}
               isLoading={isCapturing}
               loadingText="Capturing page"
-              isDisabled={isUnsupportedPage || (!isContentScriptLoaded && domReady)}>
+              isDisabled={isUnsupportedPage || (!isContentScriptLoaded && domReady)}
+              onClick={() => onSummarize()}>
               Summarize current page
             </Button>
-          </Tooltip>
+            <Menu placement="bottom-end">
+              <MenuButton as={IconButton} aria-label="more-options" icon={<ChevronDownIcon />} colorScheme="blue" />
+              <MenuList>
+                <MenuItem
+                  onClick={handleSummarizeSelection}
+                  isDisabled={!hasSelection}
+                  width="100%"
+                  title={selectedText}>
+                  Summarize selected text
+                </MenuItem>
+              </MenuList>
+            </Menu>
+          </ButtonGroup>
           {pageType.url && !isUnsupportedPage && (
             <Text
               maxW="300px"

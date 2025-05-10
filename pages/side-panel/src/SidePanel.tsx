@@ -540,7 +540,31 @@ ${selectedHatData.prompt}`;
             onSummarize={options => {
               setIsCapturing(true);
               if (!options?.reloadPage) {
-                if (pageType.type === 'slack') {
+                if (options?.selection) {
+                  chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+                    const currentTab = tabs[0];
+                    if (currentTab?.id) {
+                      chrome.tabs.sendMessage(currentTab.id, { type: 'CAPTURE_SELECTION' }, response => {
+                        if (response?.type === 'SELECTION_CAPTURED') {
+                          setArticleContent(response.content);
+                          setArticleTitle(response.title || '');
+                          setContentType('article');
+                          setHasContent(true);
+                          setOriginalUrl(response.url || '');
+                          setFormattedUrl(response.url || '');
+                          const formattedContent = formatArticleContent(
+                            response.content,
+                            pageType,
+                            response.title || '',
+                          );
+                          setOriginalContent(formattedContent);
+                          handleAskAssistant(formattedContent, true);
+                        }
+                        setIsCapturing(false);
+                      });
+                    }
+                  });
+                } else if (pageType.type === 'slack') {
                   handleSummarizeSlack();
                 } else {
                   handleCapturePage();
