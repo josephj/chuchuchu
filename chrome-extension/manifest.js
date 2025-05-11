@@ -66,7 +66,14 @@ const manifest = deepmerge(
         resources: ['*.js', '*.json', '*.css', '*.svg', 'icon-128.png', 'icon-34.png', 'injected.js'],
         matches: ['*://*/*'],
       },
+      {
+        resources: ['pdf.worker.js'],
+        matches: ['<all_urls>'],
+      },
     ],
+    content_security_policy: {
+      extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'",
+    },
     declarative_net_request: {
       rule_resources: [
         {
