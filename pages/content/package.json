@@ -23,12 +23,14 @@
     "@extension/storage": "workspace:*",
     "@mozilla/readability": "^0.5.0",
     "@types/turndown": "^5.0.5",
+    "pdfjs-dist": "^5.2.133",
     "turndown": "^7.2.0"
   },
   "devDependencies": {
     "@extension/hmr": "workspace:*",
     "@extension/tsconfig": "workspace:*",
     "@extension/vite-config": "workspace:*",
+    "@types/pdfjs-dist": "^2.10.378",
     "cross-env": "^7.0.3"
   }
 }

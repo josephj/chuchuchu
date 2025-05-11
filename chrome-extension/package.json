@@ -18,7 +18,9 @@
   "dependencies": {
     "@extension/shared": "workspace:*",
     "@extension/storage": "workspace:*",
+    "@types/pdfjs-dist": "^2.10.378",
     "debounce": "^2.2.0",
+    "pdfjs-dist": "^5.2.133",
     "webextension-polyfill": "^0.12.0"
   },
   "devDependencies": {
