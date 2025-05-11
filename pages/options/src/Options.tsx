@@ -421,8 +421,20 @@ const Options = () => {
       position: index,
     }));
 
-    // Update storage
-    await Promise.all(updatedItems.map(hat => hatStorage.setHat(hat)));
+    // Update storage with both individual hats and the hat list
+    await Promise.all([
+      // Update individual hats
+      ...updatedItems.map(hat => hatStorage.setHat(hat)),
+      // Update the hat list to trigger the storage change event
+      hatStorage.setHatList(
+        updatedItems.map(hat => ({
+          id: hat.id,
+          label: hat.label,
+          position: hat.position,
+        })),
+      ),
+    ]);
+
     setHats(updatedItems);
   };
 
