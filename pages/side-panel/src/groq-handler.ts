@@ -37,7 +37,12 @@ export const handleGroqStream = async ({
       },
       body: JSON.stringify({
         model,
-        messages: [{ role: 'system', content: systemPrompt }, ...messages],
+        messages: [
+          REASONING_MODELS.includes(model as (typeof REASONING_MODELS)[number])
+            ? { role: 'user', content: systemPrompt }
+            : { role: 'system', content: systemPrompt },
+          ...messages,
+        ],
         temperature,
         stream: true,
         ...(REASONING_MODELS.includes(model as (typeof REASONING_MODELS)[number]) && {

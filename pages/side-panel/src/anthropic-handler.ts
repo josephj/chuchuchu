@@ -30,13 +30,13 @@ export const handleAnthropicStream = async ({
 
   // Convert messages to Anthropic format
   const anthropicMessages = messages.map(msg => ({
-    role: msg.role === 'system' ? 'assistant' : msg.role,
+    role: msg.role === 'system' ? 'user' : msg.role,
     content: msg.content,
   }));
 
   // Add system prompt as the first message
   anthropicMessages.unshift({
-    role: 'assistant',
+    role: 'user',
     content: systemPrompt,
   });
 
