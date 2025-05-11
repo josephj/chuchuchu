@@ -1,9 +1,12 @@
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Button,
   Flex,
   HStack,
   Text,
   VStack,
+  Textarea,
+  Tooltip,
   useColorModeValue,
   Menu,
   MenuButton,
@@ -12,7 +15,6 @@ import {
   ButtonGroup,
   IconButton,
 } from '@chakra-ui/react';
-import { useState, useEffect, useCallback } from 'react';
 import { isRestrictedGoogleDomain } from '../utils/domainUtils';
 import { ChevronDownIcon } from '@chakra-ui/icons';
 
@@ -22,7 +24,7 @@ type Props = {
     url?: string;
   };
   isCapturing: boolean;
-  onSummarize: (options?: { reloadPage?: boolean; selection?: boolean }) => void;
+  onSummarize: (options?: { reloadPage?: boolean; selection?: boolean; manualContent?: string }) => void;
 };
 
 type ZeroStateMessage = {
@@ -46,6 +48,7 @@ export const ZeroState = ({ pageType, isCapturing, onSummarize }: Props) => {
   const [domReady, setDomReady] = useState(true);
   const [hasSelection, setHasSelection] = useState(false);
   const [selectedText, setSelectedText] = useState('');
+  const [manualContent, setManualContent] = useState('');
 
   // Handle unsupported page detection
   useEffect(() => {
@@ -284,7 +287,7 @@ export const ZeroState = ({ pageType, isCapturing, onSummarize }: Props) => {
   }, [onSummarize]);
 
   return (
-    <Flex height="100%" direction="column" justify="center" align="center" p={4} gap={3}>
+    <Flex height="100%" direction="column" justify="flex-start" align="center" p={4} gap={3}>
       {pageType.type === 'slack' ? (
         <VStack spacing={4} width="100%" align="center">
           <Button
@@ -314,30 +317,45 @@ export const ZeroState = ({ pageType, isCapturing, onSummarize }: Props) => {
           )}
         </VStack>
       ) : (
-        <VStack spacing={3}>
-          <ButtonGroup isAttached>
-            <Button
-              colorScheme="pink"
-              leftIcon={<Text>⭐️</Text>}
-              isLoading={isCapturing}
-              loadingText="Capturing page"
-              isDisabled={isUnsupportedPage || (!isContentScriptLoaded && domReady)}
-              onClick={() => onSummarize()}>
-              Summarize current page
-            </Button>
-            <Menu placement="bottom-end">
-              <MenuButton as={IconButton} aria-label="more-options" icon={<ChevronDownIcon />} colorScheme="pink" />
-              <MenuList>
-                <MenuItem
-                  onClick={handleSummarizeSelection}
-                  isDisabled={!hasSelection}
-                  width="100%"
-                  title={selectedText}>
-                  Summarize selected text
-                </MenuItem>
-              </MenuList>
-            </Menu>
-          </ButtonGroup>
+        <VStack spacing={3} width="100%" align="stretch">
+          <Tooltip
+            label={readabilityChecked && !isReadable ? "This page doesn't contain readable content" : ''}
+            isDisabled={!readabilityChecked || isReadable}
+            hasArrow
+            placement="top"
+            fontSize="xs">
+            <ButtonGroup isAttached width="100%">
+              <Button
+                colorScheme="pink"
+                leftIcon={<Text>⭐️</Text>}
+                isLoading={isCapturing}
+                loadingText="Capturing page"
+                isDisabled={
+                  isUnsupportedPage || (readabilityChecked && !isReadable) || (!isContentScriptLoaded && domReady)
+                }
+                onClick={() => onSummarize()}
+                flexGrow={1}>
+                Summarize current page
+              </Button>
+              <Menu placement="bottom-end">
+                <MenuButton as={IconButton} aria-label="more-options" icon={<ChevronDownIcon />} colorScheme="pink" />
+                <MenuList>
+                  <MenuItem
+                    onClick={handleSummarizeSelection}
+                    isDisabled={!hasSelection}
+                    width="100%"
+                    title={selectedText}>
+                    Summarize selected text
+                  </MenuItem>
+                </MenuList>
+              </Menu>
+            </ButtonGroup>
+          </Tooltip>
+          {readabilityChecked && !isReadable && (
+            <Text fontSize="xs" color="orange.500" textAlign="center">
+              Warning: This page may not contain readable content. The summary might be limited.
+            </Text>
+          )}
           {pageType.url && !isUnsupportedPage && (
             <Text
               maxW="300px"
@@ -349,11 +367,27 @@ export const ZeroState = ({ pageType, isCapturing, onSummarize }: Props) => {
               {pageType.url}
             </Text>
           )}
-          {readabilityChecked && !isReadable && (
-            <Text fontSize="xs" color="orange.500" textAlign="center">
-              Warning: This page may not contain readable content. The summary might be limited.
-            </Text>
-          )}
+          <Text fontSize="xs" color={textColorSecondary} textAlign="center">
+            Or paste your own content to summarize
+          </Text>
+          <Textarea
+            placeholder="Paste content here"
+            value={manualContent}
+            onChange={e => setManualContent(e.target.value)}
+            size="sm"
+            rows={5}
+            resize="vertical"
+            w="100%"
+          />
+          <Button
+            colorScheme="green"
+            onClick={() => onSummarize({ manualContent })}
+            isDisabled={!manualContent.trim()}
+            isLoading={isCapturing}
+            loadingText="Summarizing"
+            w="100%">
+            Summarize custom content
+          </Button>
         </VStack>
       )}
       {!isContentScriptLoaded && !isCapturing && !isUnsupportedPage && !isPageLoading && !isRestrictedDomain && (
