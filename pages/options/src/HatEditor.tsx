@@ -30,7 +30,7 @@ import {
   FormHelperText,
 } from '@chakra-ui/react';
 import { DeleteIcon, AddIcon } from '@chakra-ui/icons';
-import Select from 'react-select';
+import Select, { components } from 'react-select';
 import type { Theme, OptionProps } from 'react-select';
 import {
   SUPPORTED_LANGUAGES,
@@ -353,7 +353,7 @@ export const HatEditor = ({ isOpen, onClose, editingHat, onSave, allHats }: Prop
                         IndicatorSeparator: () => null,
                         Option: ({ children, ...props }: OptionProps<ModelOption>) => (
                           <Box position="relative">
-                            <Select.Option {...props}>
+                            <components.Option {...props}>
                               {children}
                               {isCustomModel(props.data.value) && (
                                 <Tooltip
@@ -381,7 +381,7 @@ export const HatEditor = ({ isOpen, onClose, editingHat, onSave, allHats }: Prop
                                   </Box>
                                 </Tooltip>
                               )}
-                            </Select.Option>
+                            </components.Option>
                           </Box>
                         ),
                       }}
