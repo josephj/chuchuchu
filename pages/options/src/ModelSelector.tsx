@@ -67,8 +67,6 @@ export const ModelSelector = ({ isOpen, onClose, onSelect }: Props) => {
   const [apiKey, setApiKey] = useState('');
   const [anthropicApiKey, setAnthropicApiKey] = useState('');
 
-  console.log('apiKey :', apiKey);
-  console.log('anthropicApiKey :', anthropicApiKey);
   // Create a list of already added model names
   const addedModelNames = useMemo(
     () => customModels.filter(model => model.type === selectedType).map(model => model.value.split('/')[1]),

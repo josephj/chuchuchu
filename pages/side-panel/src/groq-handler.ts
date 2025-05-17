@@ -2,13 +2,22 @@ import { type AskAssistantOptions } from './types';
 
 type Message = {
   role: 'system' | 'assistant' | 'user';
-  content: string;
+  content:
+    | string
+    | Array<{
+        type: 'text' | 'image_url';
+        text?: string;
+        image_url?: {
+          url: string;
+        };
+      }>;
 };
 
 const DEFAULT_MODEL = 'llama-3.1-8b-instant';
 const DEFAULT_TEMPERATURE = 0;
 
 const REASONING_MODELS = ['deepseek-r1-distill-llama-70b', 'qwen-qwq-32b'] as const;
+const IMAGE_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
 
 type HandleGroqStreamParams = {
   systemPrompt: string;
@@ -36,7 +45,7 @@ export const handleGroqStream = async ({
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model,
+        model: messages.some(m => Array.isArray(m.content)) ? IMAGE_MODEL : model,
         messages: [
           REASONING_MODELS.includes(model as (typeof REASONING_MODELS)[number])
             ? { role: 'user', content: systemPrompt }
