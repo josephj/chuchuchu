@@ -12,6 +12,52 @@ const isTranscriptAvailable = (): boolean => {
   return !!transcriptButton;
 };
 
+const getPotValue = async (): Promise<string | null> => {
+  return new Promise(resolve => {
+    // Create a listener for network requests
+    const observer = new PerformanceObserver(list => {
+      for (const entry of list.getEntries()) {
+        if (entry.name.includes('timedtext') && entry.name.includes('pot=')) {
+          const url = new URL(entry.name);
+          const pot = url.searchParams.get('pot');
+          if (pot) {
+            observer.disconnect();
+            resolve(pot);
+            return;
+          }
+        }
+      }
+    });
+
+    // Start observing network requests
+    observer.observe({ entryTypes: ['resource'] });
+
+    // Get the subtitles button and its current state
+    const subtitlesButton = document.querySelector('.ytp-subtitles-button');
+    if (subtitlesButton instanceof HTMLElement) {
+      const wasEnabled = subtitlesButton.getAttribute('aria-pressed') === 'true';
+
+      // Only click if subtitles are not already enabled
+      if (!wasEnabled) {
+        subtitlesButton.click();
+      }
+
+      // Set a timeout to restore the original state
+      setTimeout(() => {
+        if (!wasEnabled) {
+          subtitlesButton.click();
+        }
+      }, 1000);
+    }
+
+    // Set a timeout in case we don't get a response
+    setTimeout(() => {
+      observer.disconnect();
+      resolve(null);
+    }, 5000);
+  });
+};
+
 const isPlayerResponseUpToDate = (): { upToDate: boolean; hasTranscript: boolean } => {
   const scripts = Array.from(document.querySelectorAll('script'));
   const currentVideoId = getVideoIdFromUrl(window.location.href);
@@ -81,7 +127,19 @@ export const getTranscript = async (): Promise<string | null> => {
               captionTracks[0];
 
             if (englishTrack?.baseUrl) {
-              const response = await fetch(englishTrack.baseUrl);
+              const url = new URL(englishTrack.baseUrl);
+              url.searchParams.append('potc', '1');
+
+              // Get the pot value by simulating subtitles button click
+              const pot = await getPotValue();
+              if (pot) {
+                url.searchParams.append('pot', pot);
+              }
+
+              url.searchParams.append('c', 'WEB');
+              url.searchParams.append('cplatform', 'DESKTOP');
+
+              const response = await fetch(url.toString());
               const xmlText = await response.text();
 
               const parser = new DOMParser();

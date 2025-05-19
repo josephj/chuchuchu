@@ -315,18 +315,23 @@ export const ZeroState = ({ pageType, isCapturing, onSummarize }: Props) => {
         </VStack>
       ) : (
         <VStack spacing={3}>
-          <ButtonGroup isAttached>
+          <ButtonGroup isAttached isDisabled={isUnsupportedPage || (!isContentScriptLoaded && domReady)}>
             <Button
               colorScheme="pink"
               leftIcon={<Text>⭐️</Text>}
               isLoading={isCapturing}
               loadingText="Capturing page"
-              isDisabled={isUnsupportedPage || (!isContentScriptLoaded && domReady)}
               onClick={() => onSummarize()}>
               Summarize current page
             </Button>
             <Menu placement="bottom-end">
-              <MenuButton as={IconButton} aria-label="more-options" icon={<ChevronDownIcon />} colorScheme="pink" />
+              <MenuButton
+                as={IconButton}
+                aria-label="more-options"
+                colorScheme="pink"
+                icon={<ChevronDownIcon />}
+                isDisabled={isCapturing}
+              />
               <MenuList>
                 <MenuItem
                   onClick={handleSummarizeSelection}
