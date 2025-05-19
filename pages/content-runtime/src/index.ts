@@ -1,4 +1,4 @@
 import { mount } from '@src/Root';
+import './messageHandler';
 
 mount();
-console.log('runtime script loaded');

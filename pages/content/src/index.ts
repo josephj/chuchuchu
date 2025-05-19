@@ -66,10 +66,51 @@ document.addEventListener('selectionchange', () => {
   }
 });
 
+const getPageDimensions = () => {
+  const width = Math.max(
+    document.documentElement.scrollWidth,
+    document.body.scrollWidth,
+    document.documentElement.clientWidth,
+  );
+
+  const height = Math.max(
+    document.documentElement.scrollHeight,
+    document.body.scrollHeight,
+    document.documentElement.clientHeight,
+  );
+
+  return { width, height };
+};
+
 chrome.runtime.onMessage.addListener((message, _, sendResponse) => {
   if (message.type === 'PING') {
     sendResponse({ type: 'PONG' });
     return true;
+  }
+
+  if (message.type === 'GET_PAGE_DIMENSIONS') {
+    const dimensions = getPageDimensions();
+    sendResponse({ dimensions });
+    return true;
+  }
+
+  if (message.type === 'GET_SCREENSHOT') {
+    // Get the current screenshot from the background script
+    chrome.runtime.sendMessage({ type: 'GET_CURRENT_SCREENSHOT' }, response => {
+      if (response?.screenshot) {
+        sendResponse({ type: 'SCREENSHOT_READY', screenshot: response.screenshot });
+      } else {
+        sendResponse({ type: 'SCREENSHOT_ERROR' });
+      }
+    });
+    return true;
+  }
+
+  if (message.type === 'CAPTURE_SCREENSHOT') {
+    if (message.screenshot) {
+      sendResponse({ type: 'SCREENSHOT_CAPTURED' });
+      return true;
+    }
   }
 
   if (message.type === 'CHECK_SELECTION') {
@@ -95,6 +136,11 @@ chrome.runtime.onMessage.addListener((message, _, sendResponse) => {
   }
 
   if (message.type === 'CAPTURE_ARTICLE') {
+    if (isYouTubeDomain) {
+      // Let the YouTube capture handle it
+      return true;
+    }
+
     if (isPDFFile()) {
       capturePDF().then(pdfData => {
         if (pdfData) {
@@ -110,9 +156,6 @@ chrome.runtime.onMessage.addListener((message, _, sendResponse) => {
 
   return false;
 });
-
-const isPDF = isPDFFile();
-console.log('isPDF', isPDF);
 
 if (isPDFFile()) {
   // Handle PDF file

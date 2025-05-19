@@ -1,4 +1,4 @@
-import { Box, Button, Collapse, IconButton, Text, Tooltip, VStack, useColorModeValue } from '@chakra-ui/react';
+import { Box, Button, Collapse, IconButton, Text, Tooltip, useColorModeValue, Flex, Image } from '@chakra-ui/react';
 import { ChevronDownIcon, ChevronUpIcon, CopyIcon } from '@chakra-ui/icons';
 import { useCallback } from 'react';
 import { estimateTokens } from '../utils';
@@ -13,19 +13,15 @@ type Props = {
 };
 
 export const OriginalContent = ({ isOpen, onToggle, originalContent, contentType, threadData }: Props) => {
+  const textColor = useColorModeValue('dracula.light.foreground', 'dracula.foreground');
   const borderColor = useColorModeValue('dracula.light.currentLine', 'dracula.currentLine');
   const textColorSecondary = useColorModeValue('dracula.light.comment', 'dracula.comment');
 
   const handleCopyContent = useCallback(() => {
-    navigator.clipboard.writeText(originalContent).then(
-      () => {
-        // Success - could add toast notification here if desired
-      },
-      err => {
-        console.error('Failed to copy text:', err);
-      },
-    );
+    navigator.clipboard.writeText(originalContent);
   }, [originalContent]);
+
+  const isScreenshot = originalContent.startsWith('data:image');
 
   return (
     <Box borderTop="1px" borderColor={borderColor}>
@@ -42,18 +38,49 @@ export const OriginalContent = ({ isOpen, onToggle, originalContent, contentType
       <Collapse in={isOpen}>
         <Box position="relative">
           <Box p={4} maxH="300px" overflowY="auto" overflowX="hidden" fontSize="sm" whiteSpace="pre-wrap">
-            {contentType === 'slack' && threadData ? (
-              <VStack align="stretch" spacing={4}>
-                {threadData.messages.map((msg, index) => (
-                  <Box key={index}>
-                    <Text fontWeight="bold">{msg.user}</Text>
-                    <Text>{msg.text}</Text>
-                  </Box>
-                ))}
-              </VStack>
-            ) : (
-              <Text>{originalContent}</Text>
-            )}
+            <Flex direction="column" gap={4}>
+              {isScreenshot ? (
+                <Box>
+                  <Text fontSize="sm" color={textColor} mb={2}>
+                    Screenshot:
+                  </Text>
+                  <Image
+                    src={originalContent}
+                    alt="Screenshot"
+                    maxH="300px"
+                    objectFit="contain"
+                    borderRadius="md"
+                    borderWidth="1px"
+                    borderColor={borderColor}
+                  />
+                </Box>
+              ) : contentType === 'slack' && threadData ? (
+                <Box>
+                  <Text fontSize="sm" color={textColor} mb={2}>
+                    Original Thread:
+                  </Text>
+                  {threadData.messages.map((message, index) => (
+                    <Box key={index} mb={2}>
+                      <Text fontSize="xs" color={textColor} opacity={0.7}>
+                        {message.user}:
+                      </Text>
+                      <Text fontSize="sm" color={textColor}>
+                        {message.text}
+                      </Text>
+                    </Box>
+                  ))}
+                </Box>
+              ) : (
+                <Box>
+                  <Text fontSize="sm" color={textColor} mb={2}>
+                    Original Content:
+                  </Text>
+                  <Text fontSize="sm" color={textColor} whiteSpace="pre-wrap">
+                    {originalContent}
+                  </Text>
+                </Box>
+              )}
+            </Flex>
             <Tooltip hasArrow label="Copy content" placement="left" fontSize="xs">
               <IconButton
                 aria-label="Copy content"

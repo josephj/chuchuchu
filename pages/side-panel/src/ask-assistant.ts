@@ -4,7 +4,20 @@ import { handleOpenAIStream } from './openai-handler';
 import { handleAnthropicStream } from './anthropic-handler';
 import { type AskAssistantOptions } from './types';
 
-type Message = {
+type GroqMessageContent = {
+  type: 'text' | 'image_url';
+  text?: string;
+  image_url?: {
+    url: string;
+  };
+};
+
+type GroqMessage = {
+  role: 'system' | 'assistant' | 'user';
+  content: string | GroqMessageContent[];
+};
+
+type StandardMessage = {
   role: 'system' | 'assistant' | 'user';
   content: string;
 };
@@ -12,10 +25,11 @@ type Message = {
 type AskAssistantParams = {
   systemPrompt: string;
   userPrompt: string;
-  previousMessages?: Message[];
+  previousMessages?: StandardMessage[];
   options: AskAssistantOptions;
   model?: string;
   temperature?: number;
+  screenshot?: string;
 };
 
 export const askAssistant = async ({
@@ -25,27 +39,65 @@ export const askAssistant = async ({
   options,
   model = 'llama-3.1-8b-instant',
   temperature,
+  screenshot,
 }: AskAssistantParams) => {
   const abortController = new AbortController();
 
   try {
-    const messages: Message[] = [...previousMessages, { role: 'user', content: userPrompt }];
-
-    const isOllamaModel = model?.toLowerCase().startsWith('ollama/');
-    const isOpenAIModel = model?.toLowerCase().startsWith('openai/');
-    const isAnthropicModel = model?.toLowerCase().startsWith('anthropic/');
-
-    const actualModel = isOllamaModel
-      ? model.replace(/^ollama\//i, '')
-      : isOpenAIModel
-        ? model.replace(/^openai\//i, '')
-        : isAnthropicModel
-          ? model.replace(/^anthropic\//i, '')
-          : model;
+    // If screenshot is provided, use meta-llama/llama-4-scout-17b-16e-instruct model
+    const actualModel = screenshot
+      ? 'meta-llama/llama-4-scout-17b-16e-instruct'
+      : model?.toLowerCase().startsWith('ollama/')
+        ? model.replace(/^ollama\//i, '')
+        : model?.toLowerCase().startsWith('openai/')
+          ? model.replace(/^openai\//i, '')
+          : model?.toLowerCase().startsWith('anthropic/')
+            ? model.replace(/^anthropic\//i, '')
+            : model;
 
     let fullResponse: string;
 
-    if (isOllamaModel) {
+    const messages: StandardMessage[] = [
+      ...previousMessages,
+      {
+        role: 'user',
+        content: userPrompt,
+      },
+    ];
+
+    if (screenshot) {
+      // Create message with screenshot for Groq
+      const userMessage: GroqMessage = {
+        role: 'user',
+        content: [
+          { type: 'text', text: userPrompt },
+          {
+            type: 'image_url',
+            image_url: {
+              url: screenshot,
+            },
+          },
+        ],
+      };
+
+      const groqMessages: GroqMessage[] = [
+        ...previousMessages.map(msg => ({
+          ...msg,
+          content: typeof msg.content === 'string' ? msg.content : (msg.content as GroqMessageContent[])[0].text || '',
+        })),
+        userMessage,
+      ];
+
+      // Use Groq for meta-llama model
+      fullResponse = await handleGroqStream({
+        systemPrompt,
+        messages: groqMessages,
+        options,
+        abortController,
+        model: actualModel,
+        temperature,
+      });
+    } else if (model?.toLowerCase().startsWith('ollama/')) {
       fullResponse = await handleOllamaStream({
         systemPrompt,
         messages,
@@ -54,7 +106,7 @@ export const askAssistant = async ({
         model: actualModel,
         temperature,
       });
-    } else if (isOpenAIModel) {
+    } else if (model?.toLowerCase().startsWith('openai/')) {
       fullResponse = await handleOpenAIStream({
         systemPrompt,
         messages,
@@ -63,7 +115,7 @@ export const askAssistant = async ({
         model: actualModel,
         temperature,
       });
-    } else if (isAnthropicModel) {
+    } else if (model?.toLowerCase().startsWith('anthropic/')) {
       fullResponse = await handleAnthropicStream({
         systemPrompt,
         messages,

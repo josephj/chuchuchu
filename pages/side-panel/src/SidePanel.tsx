@@ -95,7 +95,7 @@ const SidePanel = () => {
   const textColor = useColorModeValue('dracula.light.foreground', 'dracula.foreground');
 
   const handleAskAssistant = useCallback(
-    async (prompt: string, isInitialAnalysis = false, overrideHatId?: string) => {
+    async (prompt: string, isInitialAnalysis = false, overrideHatId?: string, screenshot?: string) => {
       setIsTyping(true);
       setIsGenerating(true);
 
@@ -134,12 +134,18 @@ ${selectedHatData.prompt}`;
           ? []
           : [{ role: 'user' as const, content: originalContent }, ...previousMessages];
 
+        // If this is a screenshot analysis, store the screenshot
+        if (screenshot) {
+          setArticleContent(screenshot);
+        }
+
         await askAssistant({
           systemPrompt,
           userPrompt: prompt,
           previousMessages: messagesWithContext,
           ...(selectedHatData.model && { model: selectedHatData.model }),
           ...(selectedHatData.temperature && { temperature: selectedHatData.temperature }),
+          ...(screenshot && { screenshot }),
           options: {
             onAbort: () => {
               setIsTyping(false);
@@ -564,6 +570,21 @@ ${selectedHatData.prompt}`;
                       });
                     }
                   });
+                } else if (options?.screenshot && options?.dataUrl) {
+                  setArticleContent(options.dataUrl);
+                  setArticleTitle('');
+                  setContentType('article');
+                  setHasContent(true);
+                  setOriginalUrl('');
+                  setFormattedUrl('');
+                  setOriginalContent(options.dataUrl);
+                  handleAskAssistant(
+                    'Please analyze this screenshot and provide a summary.',
+                    true,
+                    undefined,
+                    options.dataUrl,
+                  );
+                  setIsCapturing(false);
                 } else if (pageType.type === 'slack') {
                   handleSummarizeSlack();
                 } else {

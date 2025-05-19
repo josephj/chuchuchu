@@ -61,39 +61,35 @@ const updateRedirectRule = async (enabled: boolean) => {
   }
 };
 
-chrome.runtime.onMessage.addListener(message => {
+chrome.runtime.onMessage.addListener((message, sender) => {
+  if (!sender.tab || !sender.tab.id) {
+    return;
+  }
+
   if (message.type === 'SLACK_THREAD_DATA') {
-    console.log('[DEBUG] SLACK_THREAD_DATA:', message.data);
-  }
-
-  if (message.type === 'ARTICLE_DATA_RESULT') {
-    console.log('[DEBUG] ARTICLE_DATA_RESULT:', message.data);
-  }
-
-  if (message.type === 'RELOAD_AND_CAPTURE') {
-    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-      const currentTab = tabs[0];
-      if (currentTab?.id) {
-        console.log('[DEBUG] Reloading tab for capture');
-        // First reload the page
-        chrome.tabs.reload(currentTab.id, { bypassCache: true }, () => {
-          console.log('[DEBUG] Tab reloaded, waiting for complete');
-          // Wait for the page to load and then trigger capture
-          chrome.tabs.onUpdated.addListener(function listener(tabId, info) {
-            if (tabId === currentTab.id && info.status === 'complete') {
-              console.log('[DEBUG] Tab load complete, waiting before capture');
-              chrome.tabs.onUpdated.removeListener(listener);
-              // Give a bit more time for YouTube to initialize
-              setTimeout(() => {
-                console.log('[DEBUG] Triggering capture');
-                chrome.tabs.sendMessage(currentTab.id!, { type: 'CAPTURE_ARTICLE' });
-              }, 2000);
-            }
-          });
-        });
-      }
+    chrome.tabs.sendMessage(sender.tab.id, {
+      type: 'THREAD_DATA_RESULT',
+      url: sender.tab?.url,
+      payload: message.data,
     });
-    return true; // Keep the message channel open for the async response
+  } else if (message.type === 'ARTICLE_DATA_RESULT') {
+    chrome.tabs.sendMessage(sender.tab.id, {
+      type: 'ARTICLE_DATA_RESULT',
+      data: message.data,
+    });
+  } else if (message.type === 'RELOAD_AND_CAPTURE') {
+    chrome.tabs.reload(sender.tab.id, {}, () => {
+      chrome.tabs.onUpdated.addListener(function listener(tabId, changeInfo) {
+        const senderTabId = sender.tab?.id;
+        if (!senderTabId || tabId !== senderTabId || changeInfo.status !== 'complete') {
+          return;
+        }
+        chrome.tabs.onUpdated.removeListener(listener);
+        setTimeout(() => {
+          chrome.tabs.sendMessage(senderTabId, { type: 'CAPTURE_ARTICLE' });
+        }, 1000);
+      });
+    });
   }
 
   if (message.type === 'OPEN_SIDE_PANEL') {
