@@ -68,10 +68,9 @@ export const customModelsStorage = createStorage<CustomModel[]>('customModels', 
 
 // Update SUPPORTED_MODELS to be mutable
 export const SUPPORTED_MODELS = [
-  { value: 'deepseek-r1-distill-llama-70b', label: 'DeepSeek R1 Distill LLaMA 70B' },
-  { value: 'qwen-qwq-32b', label: 'QWEN QWQ 32B' },
-  { value: 'llama-3.3-70b-versatile', label: 'LLaMA 3.3 70B Versatile' },
-  { value: 'llama-3.1-8b-instant', label: 'LLaMA 3.1 8B Instant' },
+  { value: 'openai/gpt-oss-120b', label: 'GPT-OSS 120B' },
+  { value: 'openai/gpt-oss-20b', label: 'GPT-OSS 20B (Fast)' },
+  { value: 'qwen/qwen3.6-27b', label: 'Qwen 3.6 27B (Vision)' },
 ] as const;
 
 export const DEFAULT_MODEL = SUPPORTED_MODELS[0].value;

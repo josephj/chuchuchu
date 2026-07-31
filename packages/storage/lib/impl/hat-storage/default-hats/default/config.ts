@@ -5,7 +5,7 @@ export const config: Hat = {
   id: 'hat_default_default',
   alias: 'default',
   label: 'Default',
-  model: 'qwen-qwq-32b',
+  model: 'openai/gpt-oss-120b',
   temperature: 0,
   urlPattern: '*',
   prompt,

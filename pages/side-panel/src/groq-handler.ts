@@ -13,11 +13,11 @@ type Message = {
       }>;
 };
 
-const DEFAULT_MODEL = 'llama-3.1-8b-instant';
+const DEFAULT_MODEL = 'openai/gpt-oss-20b';
 const DEFAULT_TEMPERATURE = 0;
 
-const REASONING_MODELS = ['deepseek-r1-distill-llama-70b', 'qwen-qwq-32b'] as const;
-const IMAGE_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
+const REASONING_MODELS = [] as const;
+const IMAGE_MODEL = 'qwen/qwen3.6-27b';
 
 type HandleGroqStreamParams = {
   systemPrompt: string;

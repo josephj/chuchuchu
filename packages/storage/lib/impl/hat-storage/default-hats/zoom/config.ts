@@ -5,7 +5,7 @@ export const config: Hat = {
   id: 'hat_default_zoom',
   alias: 'zoom',
   label: 'Zoom',
-  model: 'qwen-qwq-32b',
+  model: 'openai/gpt-oss-120b',
   temperature: 0,
   urlPattern: 'https://*.zoom.us/*',
   prompt,
